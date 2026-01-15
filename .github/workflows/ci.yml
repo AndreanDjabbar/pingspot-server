@@ -1,0 +1,30 @@
+name: Build and Push pingspot-server to ACR
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to ACR
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and Push Docker Image
+        run: |
+          docker build \
+            -f Dockerfile \
+            -t ${{ secrets.ACR_LOGIN_SERVER }}/pingspot-server:latest \
+            -t ${{ secrets.ACR_LOGIN_SERVER }}/pingspot-server:${{ github.sha }} \
+            .
+
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/pingspot-server:latest
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/pingspot-server:${{ github.sha }}
