@@ -30,6 +30,6 @@ func getEnvFile(env string) string {
 	case "staging":
 		return ".env.staging"
 	default:
-		return ".env.dev"
+		return ".env"
 	}
 }
