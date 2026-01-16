@@ -48,9 +48,8 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Deploy to Azure Container Apps
-        uses: azure/container-apps-deploy-action@v1
-        with:
-          acrName: crpingspot
-          containerAppName: pingspot-server
-          resourceGroup: rg-pingspot-dev
-          imageToDeploy: ${{ secrets.ACR_LOGIN_SERVER }}/pingspot-server:${{ github.sha }}
+        run: |
+          az containerapp update \
+            --name pingspot-server \
+            --resource-group rg-pingspot-dev \
+            --image ${{ secrets.ACR_LOGIN_SERVER }}/pingspot-server:${{ github.sha }}
