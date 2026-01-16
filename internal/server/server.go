@@ -44,8 +44,16 @@ func DefaultHandler(c *fiber.Ctx) error {
 }
 
 func (s *FiberServer) RegisterFiberRoutes() {
+	env := env.NodeEnv()
+	var origin string
+	if env != "production" {
+		origin = "http://localhost:3000"
+	} else {
+		origin = "https://pingspot.vercel.app"
+	}
+
 	s.App.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:3000",
+		AllowOrigins:     origin,
 		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS,PATCH",
 		AllowHeaders:     "Accept,Authorization,Content-Type",
 		AllowCredentials: true,
