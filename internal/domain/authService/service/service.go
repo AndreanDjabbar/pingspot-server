@@ -263,6 +263,9 @@ func (s *AuthService) Login(ctx context.Context, db *gorm.DB, req dto.LoginReque
 		zap.String("email", user.Email),
 	)
 
+	logger.Info("ACCESS TOKEN", zap.String("ACCESS", accessToken))
+	logger.Info("REFRESH TOKEN", zap.String("REFRESH", refreshToken))
+
 	return user, accessToken, refreshToken, nil
 }
 
