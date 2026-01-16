@@ -217,7 +217,7 @@ func (h *AuthHandler) LoginHandler(c *fiber.Ctx) error {
 		Value:    accessToken,
 		HTTPOnly: true,
 		Secure:   true,
-		SameSite: fiber.CookieSameSiteLaxMode,
+		SameSite: fiber.CookieSameSiteNoneMode,
 		Path:     "/",
 		MaxAge:   getAccessTokenAge(),
 	})
@@ -227,7 +227,7 @@ func (h *AuthHandler) LoginHandler(c *fiber.Ctx) error {
 		Value:    refreshToken,
 		HTTPOnly: true,
 		Secure:   true,
-		SameSite: fiber.CookieSameSiteLaxMode,
+		SameSite: fiber.CookieSameSiteNoneMode,
 		Path:     "/",
 		MaxAge:   getRefreshTokenAge(),
 	})
@@ -320,7 +320,7 @@ func (h *AuthHandler) OAuthCallbackHandler(provider string) http.HandlerFunc {
 			Value:    accessToken,
 			HttpOnly: true,
 			Secure:   true,
-			SameSite: http.SameSiteLaxMode,
+			SameSite: http.SameSiteNoneMode,
 			Path:     "/",
 			MaxAge:   getAccessTokenAge(),
 		}
@@ -331,7 +331,7 @@ func (h *AuthHandler) OAuthCallbackHandler(provider string) http.HandlerFunc {
 			Value:    refreshToken,
 			HttpOnly: true,
 			Secure:   true,
-			SameSite: http.SameSiteLaxMode,
+			SameSite: http.SameSiteNoneMode,
 			Path:     "/",
 			MaxAge:   getRefreshTokenAge(),
 		}
@@ -435,7 +435,7 @@ func (h *AuthHandler) RefreshTokenHandler(c *fiber.Ctx) error {
 		Value:    newAccessToken,
 		HTTPOnly: true,
 		Secure:   true,
-		SameSite: fiber.CookieSameSiteLaxMode,
+		SameSite: fiber.CookieSameSiteNoneMode,
 		Path:     "/",
 		MaxAge:   getAccessTokenAge(),
 	})
@@ -445,7 +445,7 @@ func (h *AuthHandler) RefreshTokenHandler(c *fiber.Ctx) error {
 		Value:    newRefreshToken,
 		HTTPOnly: true,
 		Secure:   true,
-		SameSite: fiber.CookieSameSiteLaxMode,
+		SameSite: fiber.CookieSameSiteNoneMode,
 		Path:     "/",
 		MaxAge:   getRefreshTokenAge(),
 	})
@@ -529,7 +529,7 @@ func (h *AuthHandler) LogoutHandler(c *fiber.Ctx) error {
 		Value:    "",
 		HTTPOnly: true,
 		Secure:   true,
-		SameSite: fiber.CookieSameSiteLaxMode,
+		SameSite: fiber.CookieSameSiteNoneMode,
 		MaxAge:   -1,
 		Path:     "/",
 	})
@@ -539,7 +539,7 @@ func (h *AuthHandler) LogoutHandler(c *fiber.Ctx) error {
 		Value:    "",
 		HTTPOnly: true,
 		Secure:   true,
-		SameSite: fiber.CookieSameSiteLaxMode,
+		SameSite: fiber.CookieSameSiteNoneMode,
 		MaxAge:   -1,
 		Path:     "/",
 	})
