@@ -218,6 +218,7 @@ func (h *AuthHandler) LoginHandler(c *fiber.Ctx) error {
 		HTTPOnly: true,
 		Secure:   true,
 		SameSite: fiber.CookieSameSiteNoneMode,
+		Domain:   "",
 		Path:     "/",
 		MaxAge:   getAccessTokenAge(),
 	})
@@ -228,6 +229,7 @@ func (h *AuthHandler) LoginHandler(c *fiber.Ctx) error {
 		HTTPOnly: true,
 		Secure:   true,
 		SameSite: fiber.CookieSameSiteNoneMode,
+		Domain:   "",
 		Path:     "/",
 		MaxAge:   getRefreshTokenAge(),
 	})
@@ -321,6 +323,7 @@ func (h *AuthHandler) OAuthCallbackHandler(provider string) http.HandlerFunc {
 			HttpOnly: true,
 			Secure:   true,
 			SameSite: http.SameSiteNoneMode,
+			Domain:   "",
 			Path:     "/",
 			MaxAge:   getAccessTokenAge(),
 		}
@@ -332,6 +335,7 @@ func (h *AuthHandler) OAuthCallbackHandler(provider string) http.HandlerFunc {
 			HttpOnly: true,
 			Secure:   true,
 			SameSite: http.SameSiteNoneMode,
+			Domain:   "",
 			Path:     "/",
 			MaxAge:   getRefreshTokenAge(),
 		}
@@ -436,6 +440,7 @@ func (h *AuthHandler) RefreshTokenHandler(c *fiber.Ctx) error {
 		HTTPOnly: true,
 		Secure:   true,
 		SameSite: fiber.CookieSameSiteNoneMode,
+		Domain:   "",
 		Path:     "/",
 		MaxAge:   getAccessTokenAge(),
 	})
@@ -446,6 +451,7 @@ func (h *AuthHandler) RefreshTokenHandler(c *fiber.Ctx) error {
 		HTTPOnly: true,
 		Secure:   true,
 		SameSite: fiber.CookieSameSiteNoneMode,
+		Domain:   "",
 		Path:     "/",
 		MaxAge:   getRefreshTokenAge(),
 	})
@@ -530,6 +536,7 @@ func (h *AuthHandler) LogoutHandler(c *fiber.Ctx) error {
 		HTTPOnly: true,
 		Secure:   true,
 		SameSite: fiber.CookieSameSiteNoneMode,
+		Domain:   "",
 		MaxAge:   -1,
 		Path:     "/",
 	})
@@ -540,6 +547,7 @@ func (h *AuthHandler) LogoutHandler(c *fiber.Ctx) error {
 		HTTPOnly: true,
 		Secure:   true,
 		SameSite: fiber.CookieSameSiteNoneMode,
+		Domain:   "",
 		MaxAge:   -1,
 		Path:     "/",
 	})

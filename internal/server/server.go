@@ -47,7 +47,8 @@ func (s *FiberServer) RegisterFiberRoutes() {
 	s.App.Use(cors.New(cors.Config{
 		AllowOrigins:     "https://pingspot.vercel.app, http://localhost:3000, http://localhost:5173",
 		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS,PATCH",
-		AllowHeaders:     "Accept,Authorization,Content-Type",
+		AllowHeaders:     "Accept,Authorization,Content-Type,X-Requested-With",
+		ExposeHeaders:    "Set-Cookie",
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
