@@ -16,6 +16,8 @@ WORKDIR /app
 
 COPY --from=builder /app/pingspot .
 
+COPY --from=builder /app/keys ./keys
+
 RUN mkdir -p /app/uploads/main /app/uploads/user
 
 EXPOSE 8080

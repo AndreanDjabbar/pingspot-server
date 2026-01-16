@@ -36,3 +36,11 @@ jobs:
 
           docker push ${{ secrets.ACR_LOGIN_SERVER }}/pingspot-server:latest
           docker push ${{ secrets.ACR_LOGIN_SERVER }}/pingspot-server:${{ github.sha }}
+
+      - name: Deploy to Azure Container Apps
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          acrName: crpingspot
+          containerAppName: pingspot-server
+          resourceGroup: pingspot-rg
+          imageToDeploy: ${{ secrets.ACR_LOGIN_SERVER }}/pingspot-server:${{ github.sha }}
