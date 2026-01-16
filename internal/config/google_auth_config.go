@@ -40,7 +40,7 @@ func InitGoogleAuth() error {
 	store.Options.Path = "/"
 	store.Options.HttpOnly = httpOnly
 	store.Options.Secure = isProduction
-	store.Options.SameSite = http.SameSiteNoneMode
+	store.Options.SameSite = http.SameSiteLaxMode
 
 	gothic.Store = store
 
