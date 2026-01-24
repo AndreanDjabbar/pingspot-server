@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"pingspot/internal/domain/authService/dto"
-	"pingspot/internal/domain/mocks"
+	userMocks "pingspot/internal/domain/mocks/user"
 	"pingspot/internal/domain/model"
 	"pingspot/pkg/utils/tokenutils"
 	"testing"
@@ -28,9 +28,9 @@ func setupAuthTestDB(t *testing.T) *gorm.DB {
 
 func TestNewAuthService(t *testing.T) {
 	t.Run("should create new auth service", func(t *testing.T) {
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
-		mockSessionRepo := new(mocks.MockUserSessionRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
 
 		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
 
@@ -44,9 +44,9 @@ func TestNewAuthService(t *testing.T) {
 func TestAuthService_Register(t *testing.T) {
 	t.Run("should register user successfully", func(t *testing.T) {
 		db := setupAuthTestDB(t)
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
-		mockSessionRepo := new(mocks.MockUserSessionRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
 		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
 
 		ctx := context.Background()
@@ -84,9 +84,9 @@ func TestAuthService_Register(t *testing.T) {
 
 	t.Run("should return error when email already exists", func(t *testing.T) {
 		db := setupAuthTestDB(t)
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
-		mockSessionRepo := new(mocks.MockUserSessionRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
 		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
 
 		ctx := context.Background()
@@ -115,9 +115,9 @@ func TestAuthService_Register(t *testing.T) {
 
 	t.Run("should handle database error during email check", func(t *testing.T) {
 		db := setupAuthTestDB(t)
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
-		mockSessionRepo := new(mocks.MockUserSessionRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
 		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
 
 		ctx := context.Background()
@@ -141,9 +141,9 @@ func TestAuthService_Register(t *testing.T) {
 
 	t.Run("should handle user creation failure", func(t *testing.T) {
 		db := setupAuthTestDB(t)
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
-		mockSessionRepo := new(mocks.MockUserSessionRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
 		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
 
 		ctx := context.Background()
@@ -169,9 +169,9 @@ func TestAuthService_Register(t *testing.T) {
 
 	t.Run("should handle profile creation failure", func(t *testing.T) {
 		db := setupAuthTestDB(t)
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
-		mockSessionRepo := new(mocks.MockUserSessionRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
 		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
 
 		ctx := context.Background()
@@ -215,9 +215,9 @@ func TestAuthService_VerifyUser(t *testing.T) {
 	t.Run("should verify user successfully", func(t *testing.T) {
 		userID := uint(1)
 		ctx := context.Background()
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
-		mockSessionRepo := new(mocks.MockUserSessionRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
 		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
 
 		expectedUser := &model.User{
@@ -243,9 +243,9 @@ func TestAuthService_VerifyUser(t *testing.T) {
 	t.Run("should return error already verified user", func(t *testing.T) {
 		userID := uint(1)
 		ctx := context.Background()
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
-		mockSessionRepo := new(mocks.MockUserSessionRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
 		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
 
 		expectedUser := &model.User{
@@ -267,9 +267,9 @@ func TestAuthService_VerifyUser(t *testing.T) {
 	t.Run("should return error when user not found", func(t *testing.T) {
 		userID := uint(999)
 		ctx := context.Background()
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
-		mockSessionRepo := new(mocks.MockUserSessionRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
 		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
 
 		mockUserRepo.On("GetByID", ctx, userID).Return(nil, gorm.ErrRecordNotFound)
@@ -284,9 +284,9 @@ func TestAuthService_VerifyUser(t *testing.T) {
 	t.Run("should return error when save fails", func(t *testing.T) {
 		userID := uint(1)
 		ctx := context.Background()
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
-		mockSessionRepo := new(mocks.MockUserSessionRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
 		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
 
 		expectedUser := &model.User{
@@ -314,9 +314,9 @@ func TestAuthService_VerifyUser(t *testing.T) {
 func TestAuthService_Login(t *testing.T) {
 	t.Run("should return error when user not found", func(t *testing.T) {
 		db := setupAuthTestDB(t)
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
-		mockSessionRepo := new(mocks.MockUserSessionRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
 		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
 
 		ctx := context.Background()
@@ -339,9 +339,9 @@ func TestAuthService_Login(t *testing.T) {
 
 	t.Run("should return error when password is incorrect", func(t *testing.T) {
 		db := setupAuthTestDB(t)
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
-		mockSessionRepo := new(mocks.MockUserSessionRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
 		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
 
 		ctx := context.Background()
@@ -375,9 +375,9 @@ func TestAuthService_Login(t *testing.T) {
 		t.Skip("Skipping test - requires refactoring service to accept Redis client via dependency injection")
 
 		db := setupAuthTestDB(t)
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
-		mockSessionRepo := new(mocks.MockUserSessionRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
 		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
 
 		ctx := context.Background()
@@ -426,9 +426,9 @@ func TestAuthService_Login(t *testing.T) {
 
 	t.Run("should login successfully - tests parts before Redis interaction", func(t *testing.T) {
 		db := setupAuthTestDB(t)
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
-		mockSessionRepo := new(mocks.MockUserSessionRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
 		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
 
 		ctx := context.Background()
@@ -491,9 +491,9 @@ func TestAuthService_Login(t *testing.T) {
 func TestAuthService_Logout(t *testing.T) {
 	t.Run("should return error when session not found", func(t *testing.T) {
 		t.Skip("Skipping test - requires refactoring service to accept Redis client via dependency injection")
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
-		mockSessionRepo := new(mocks.MockUserSessionRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
 		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
 
 		ctx := context.Background()
@@ -511,9 +511,9 @@ func TestAuthService_Logout(t *testing.T) {
 
 	t.Run("should return error when update fails", func(t *testing.T) {
 		t.Skip("Skipping test - requires refactoring service to accept Redis client via dependency injection")
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
-		mockSessionRepo := new(mocks.MockUserSessionRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
 		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
 
 		ctx := context.Background()
@@ -542,9 +542,9 @@ func TestAuthService_Logout(t *testing.T) {
 
 func TestAuthService_UpdateUserByEmail(t *testing.T) {
 	t.Run("should update user successfully", func(t *testing.T) {
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
-		mockSessionRepo := new(mocks.MockUserSessionRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
 		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
 
 		ctx := context.Background()
@@ -578,9 +578,9 @@ func TestAuthService_UpdateUserByEmail(t *testing.T) {
 	})
 
 	t.Run("should return error when user not found", func(t *testing.T) {
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
-		mockSessionRepo := new(mocks.MockUserSessionRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
 		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
 
 		ctx := context.Background()
@@ -598,9 +598,9 @@ func TestAuthService_UpdateUserByEmail(t *testing.T) {
 	})
 
 	t.Run("should return error when update fails", func(t *testing.T) {
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
-		mockSessionRepo := new(mocks.MockUserSessionRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
 		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
 
 		ctx := context.Background()
@@ -627,9 +627,9 @@ func TestAuthService_UpdateUserByEmail(t *testing.T) {
 
 func TestAuthService_GetUserByEmail(t *testing.T) {
 	t.Run("should get user successfully", func(t *testing.T) {
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
-		mockSessionRepo := new(mocks.MockUserSessionRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
 		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
 
 		ctx := context.Background()
@@ -653,9 +653,9 @@ func TestAuthService_GetUserByEmail(t *testing.T) {
 	})
 
 	t.Run("should return nil when user not found", func(t *testing.T) {
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
-		mockSessionRepo := new(mocks.MockUserSessionRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
 		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
 
 		ctx := context.Background()
@@ -671,9 +671,9 @@ func TestAuthService_GetUserByEmail(t *testing.T) {
 	})
 
 	t.Run("should return error when database error occurs", func(t *testing.T) {
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
-		mockSessionRepo := new(mocks.MockUserSessionRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
 		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
 
 		ctx := context.Background()

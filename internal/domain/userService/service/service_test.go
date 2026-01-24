@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 	"errors"
-	"pingspot/internal/domain/mocks"
+	userMocks "pingspot/internal/domain/mocks/user"
 	"pingspot/internal/domain/model"
 	"pingspot/internal/domain/userService/dto"
 	mainutils "pingspot/pkg/utils/mainUtils"
@@ -28,8 +28,8 @@ func setupTestDB(t *testing.T) *gorm.DB {
 
 func TestNewUserService(t *testing.T) {
 	t.Run("should create new user service", func(t *testing.T) {
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 
 		service := NewUserService(mockUserRepo, mockProfileRepo)
 
@@ -41,8 +41,8 @@ func TestNewUserService(t *testing.T) {
 
 func TestUserService_GetProfile(t *testing.T) {
 	t.Run("should get user profile successfully", func(t *testing.T) {
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		service := NewUserService(mockUserRepo, mockProfileRepo)
 
 		ctx := context.Background()
@@ -75,8 +75,8 @@ func TestUserService_GetProfile(t *testing.T) {
 	})
 
 	t.Run("should return error when user not found", func(t *testing.T) {
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		service := NewUserService(mockUserRepo, mockProfileRepo)
 
 		ctx := context.Background()
@@ -93,8 +93,8 @@ func TestUserService_GetProfile(t *testing.T) {
 	})
 
 	t.Run("should return error on database failure", func(t *testing.T) {
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		service := NewUserService(mockUserRepo, mockProfileRepo)
 
 		ctx := context.Background()
@@ -113,8 +113,8 @@ func TestUserService_GetProfile(t *testing.T) {
 
 func TestUserService_GetProfileByUsername(t *testing.T) {
 	t.Run("should get user profile by username successfully", func(t *testing.T) {
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		service := NewUserService(mockUserRepo, mockProfileRepo)
 
 		ctx := context.Background()
@@ -143,8 +143,8 @@ func TestUserService_GetProfileByUsername(t *testing.T) {
 	})
 
 	t.Run("should return error when username not found", func(t *testing.T) {
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		service := NewUserService(mockUserRepo, mockProfileRepo)
 
 		ctx := context.Background()
@@ -162,8 +162,8 @@ func TestUserService_GetProfileByUsername(t *testing.T) {
 
 func TestUserService_SaveSecurity(t *testing.T) {
 	t.Run("should update password successfully", func(t *testing.T) {
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		service := NewUserService(mockUserRepo, mockProfileRepo)
 
 		ctx := context.Background()
@@ -193,8 +193,8 @@ func TestUserService_SaveSecurity(t *testing.T) {
 	})
 
 	t.Run("should return error when user not found", func(t *testing.T) {
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		service := NewUserService(mockUserRepo, mockProfileRepo)
 
 		ctx := context.Background()
@@ -214,8 +214,8 @@ func TestUserService_SaveSecurity(t *testing.T) {
 	})
 
 	t.Run("should return error when current password is invalid", func(t *testing.T) {
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		service := NewUserService(mockUserRepo, mockProfileRepo)
 
 		ctx := context.Background()
@@ -245,8 +245,8 @@ func TestUserService_SaveSecurity(t *testing.T) {
 
 func TestUserService_SaveProfile(t *testing.T) {
 	t.Run("should save user profile successfully", func(t *testing.T) {
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		service := NewUserService(mockUserRepo, mockProfileRepo)
 
 		ctx := context.Background()
@@ -295,8 +295,8 @@ func TestUserService_SaveProfile(t *testing.T) {
 		mockProfileRepo.AssertExpectations(t)
 	})
 	t.Run("should create new profile when user profile not found", func(t *testing.T) {
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		service := NewUserService(mockUserRepo, mockProfileRepo)
 		ctx := context.Background()
 		userID := uint(1)
@@ -327,8 +327,8 @@ func TestUserService_SaveProfile(t *testing.T) {
 	})
 
 	t.Run("should return error when failed updated user profile", func(t *testing.T) {
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		service := NewUserService(mockUserRepo, mockProfileRepo)
 		ctx := context.Background()
 		userID := uint(1)
@@ -366,8 +366,8 @@ func TestUserService_SaveProfile(t *testing.T) {
 	})
 
 	t.Run("should return error when failed create user profile", func(t *testing.T) {
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		service := NewUserService(mockUserRepo, mockProfileRepo)
 		ctx := context.Background()
 		userID := uint(1)
@@ -395,8 +395,8 @@ func TestUserService_SaveProfile(t *testing.T) {
 
 func TestUserService_GetUserStatistics(t *testing.T) {
 	t.Run("should get user statistics successfully", func(t *testing.T) {
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		service := NewUserService(mockUserRepo, mockProfileRepo)
 
 		ctx := context.Background()
@@ -439,8 +439,8 @@ func TestUserService_GetUserStatistics(t *testing.T) {
 	})
 
 	t.Run("should return error on user count fetch failure", func(t *testing.T) {
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		service := NewUserService(mockUserRepo, mockProfileRepo)
 		ctx := context.Background()
 
@@ -454,8 +454,8 @@ func TestUserService_GetUserStatistics(t *testing.T) {
 	})
 
 	t.Run("should return error on gender count fetch failure", func(t *testing.T) {
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		service := NewUserService(mockUserRepo, mockProfileRepo)
 		ctx := context.Background()
 		mockUserRepo.On("GetUsersCount", ctx).Return(int64(100), nil)
@@ -469,8 +469,8 @@ func TestUserService_GetUserStatistics(t *testing.T) {
 	})
 
 	t.Run("should return error on monthly user count fetch failure", func(t *testing.T) {
-		mockUserRepo := new(mocks.MockUserRepository)
-		mockProfileRepo := new(mocks.MockUserProfileRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		service := NewUserService(mockUserRepo, mockProfileRepo)
 		ctx := context.Background()
 		mockUserRepo.On("GetUsersCount", ctx).Return(int64(100), nil)

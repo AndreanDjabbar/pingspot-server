@@ -2,8 +2,8 @@ package service
 
 import (
 	"context"
-	"pingspot/internal/domain/mocks"
 	"pingspot/internal/domain/mocks/report"
+	userMocks "pingspot/internal/domain/mocks/user"
 	"pingspot/internal/domain/model"
 	mainutils "pingspot/pkg/utils/mainUtils"
 	"testing"
@@ -33,7 +33,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 func TestNewSearchService(t *testing.T) {
 	t.Run("should create new report service", func(t *testing.T) {
 		mockReportRepo := new(report.MockReportRepository)
-		mockUserRepo := new(mocks.MockUserRepository)
+		mockUserRepo := new(userMocks.MockUserRepository)
 		service := NewSearchService(
 			mockUserRepo,
 			mockReportRepo,
@@ -43,12 +43,12 @@ func TestNewSearchService(t *testing.T) {
 }
 
 func setupMocks() (
-	*mocks.MockUserRepository,
+	*userMocks.MockUserRepository,
 	*report.MockReportRepository,
 	*SearchService,
 ) {
 	mockReportRepo := new(report.MockReportRepository)
-	mockUserRepo := new(mocks.MockUserRepository)
+	mockUserRepo := new(userMocks.MockUserRepository)
 
 	service := NewSearchService(
 		mockUserRepo,
