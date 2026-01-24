@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"pingspot/internal/domain/authService/dto"
+	"pingspot/internal/domain/mocks"
 	userMocks "pingspot/internal/domain/mocks/user"
 	"pingspot/internal/domain/model"
 	"pingspot/pkg/utils/tokenutils"
@@ -31,8 +32,9 @@ func TestNewAuthService(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
+		cacheRepo := new(mocks.MockCacheRepository)
 
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
 
 		assert.NotNil(t, service)
 		assert.Equal(t, mockUserRepo, service.userRepo)
@@ -47,7 +49,9 @@ func TestAuthService_Register(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
+		cacheRepo := new(mocks.MockCacheRepository)
+
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
 
 		ctx := context.Background()
 		req := dto.RegisterRequest{
@@ -87,7 +91,8 @@ func TestAuthService_Register(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
+		cacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
 
 		ctx := context.Background()
 		req := dto.RegisterRequest{
@@ -118,7 +123,8 @@ func TestAuthService_Register(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
+		cacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
 
 		ctx := context.Background()
 		req := dto.RegisterRequest{
@@ -144,7 +150,8 @@ func TestAuthService_Register(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
+		cacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
 
 		ctx := context.Background()
 		req := dto.RegisterRequest{
@@ -172,7 +179,8 @@ func TestAuthService_Register(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
+		cacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
 
 		ctx := context.Background()
 		req := dto.RegisterRequest{
@@ -218,7 +226,8 @@ func TestAuthService_VerifyUser(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
+		cacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
 
 		expectedUser := &model.User{
 			ID:         userID,
@@ -246,7 +255,8 @@ func TestAuthService_VerifyUser(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
+		cacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
 
 		expectedUser := &model.User{
 			ID:         userID,
@@ -270,7 +280,8 @@ func TestAuthService_VerifyUser(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
+		cacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
 
 		mockUserRepo.On("GetByID", ctx, userID).Return(nil, gorm.ErrRecordNotFound)
 
@@ -287,7 +298,8 @@ func TestAuthService_VerifyUser(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
+		cacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
 
 		expectedUser := &model.User{
 			ID:         userID,
@@ -317,7 +329,8 @@ func TestAuthService_Login(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
+		cacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
 
 		ctx := context.Background()
 		req := dto.LoginRequest{
@@ -342,7 +355,8 @@ func TestAuthService_Login(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
+		cacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
 
 		ctx := context.Background()
 		req := dto.LoginRequest{
@@ -378,7 +392,8 @@ func TestAuthService_Login(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
+		cacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
 
 		ctx := context.Background()
 		req := dto.LoginRequest{
@@ -406,30 +421,13 @@ func TestAuthService_Login(t *testing.T) {
 		mockUserRepo.AssertExpectations(t)
 	})
 
-	// Note: Full integration test with Redis mock is currently not possible without refactoring
-	// The service uses cache.GetRedis() which returns a global singleton Redis client
-	// To enable proper unit testing with Redis mocks, the AuthService struct should be refactored to:
-	// 1. Accept a Redis client interface in its constructor
-	// 2. Store the Redis client as a field in the struct
-	// 3. Use the injected Redis client instead of calling cache.GetRedis()
-	//
-	// Proposed refactoring:
-	// type RedisClient interface {
-	//     Set(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.StatusCmd
-	//     SAdd(ctx context.Context, key string, members ...interface{}) *redis.IntCmd
-	//     Expire(ctx context.Context, key string, expiration time.Duration) *redis.BoolCmd
-	// }
-	//
-	// func NewAuthService(userRepo, profileRepo, sessionRepo, redisClient RedisClient) *AuthService
-	//
-	// For now, testing Login requires integration tests with an actual Redis instance or in-memory Redis
-
 	t.Run("should login successfully - tests parts before Redis interaction", func(t *testing.T) {
 		db := setupAuthTestDB(t)
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
+		cacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
 
 		ctx := context.Background()
 		password := "password123"
@@ -494,7 +492,8 @@ func TestAuthService_Logout(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
+		cacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
 
 		ctx := context.Background()
 		userID := uint(1)
@@ -514,7 +513,8 @@ func TestAuthService_Logout(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
+		cacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
 
 		ctx := context.Background()
 		userID := uint(1)
@@ -545,7 +545,8 @@ func TestAuthService_UpdateUserByEmail(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
+		cacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
 
 		ctx := context.Background()
 		email := "user@example.com"
@@ -581,7 +582,8 @@ func TestAuthService_UpdateUserByEmail(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
+		cacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
 
 		ctx := context.Background()
 		email := "notfound@example.com"
@@ -601,7 +603,8 @@ func TestAuthService_UpdateUserByEmail(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
+		cacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
 
 		ctx := context.Background()
 		email := "user@example.com"
@@ -630,7 +633,8 @@ func TestAuthService_GetUserByEmail(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
+		cacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
 
 		ctx := context.Background()
 		email := "user@example.com"
@@ -656,7 +660,8 @@ func TestAuthService_GetUserByEmail(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
+		cacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
 
 		ctx := context.Background()
 		email := "notfound@example.com"
@@ -674,7 +679,8 @@ func TestAuthService_GetUserByEmail(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo)
+		cacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
 
 		ctx := context.Background()
 		email := "user@example.com"
