@@ -4,7 +4,7 @@ import (
 	"context"
 	"pingspot/internal/mocks/report"
 	userMocks "pingspot/internal/mocks/user"
-	"pingspot/internal/domain/model"
+	"pingspot/internal/model"
 	mainutils "pingspot/pkg/utils/mainUtils"
 	"testing"
 

@@ -3,11 +3,11 @@ package service
 import (
 	"context"
 	"errors"
+	"pingspot/internal/domain/reportService/dto"
 	"pingspot/internal/mocks/report"
 	taskServiceMocks "pingspot/internal/mocks/task"
 	userMocks "pingspot/internal/mocks/user"
-	"pingspot/internal/domain/model"
-	"pingspot/internal/domain/reportService/dto"
+	"pingspot/internal/model"
 	mainutils "pingspot/pkg/utils/mainUtils"
 	"testing"
 	"time"

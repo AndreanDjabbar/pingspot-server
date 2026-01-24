@@ -2,9 +2,9 @@ package repository
 
 import (
 	"context"
-	"regexp"
-	"pingspot/internal/domain/model"
 	"pingspot/internal/domain/reportService/dto"
+	"pingspot/internal/model"
+	"regexp"
 	"strings"
 
 	"gorm.io/gorm"

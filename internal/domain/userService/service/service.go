@@ -3,12 +3,12 @@ package service
 import (
 	"context"
 	"errors"
-	"pingspot/internal/domain/model"
 	"pingspot/internal/domain/userService/dto"
 	"pingspot/internal/domain/userService/repository"
+	"pingspot/internal/model"
 	apperror "pingspot/pkg/apperror"
-	contextutils "pingspot/pkg/utils/contextUtils"
 	"pingspot/pkg/logger"
+	contextutils "pingspot/pkg/utils/contextUtils"
 	tokenutils "pingspot/pkg/utils/tokenutils"
 
 	"go.uber.org/zap"
@@ -157,7 +157,7 @@ func (s *UserService) GetProfileByUsername(ctx context.Context, username string)
 		ProfilePicture: user.Profile.ProfilePicture,
 		Username:       user.Username,
 		Birthday:       user.Profile.Birthday,
-		Gender:		 	user.Profile.Gender,
+		Gender:         user.Profile.Gender,
 		Email:          user.Email,
 	}, nil
 }

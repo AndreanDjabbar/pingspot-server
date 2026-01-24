@@ -1,9 +1,9 @@
 package util
 
 import (
-	"pingspot/internal/domain/model"
 	reportDTO "pingspot/internal/domain/reportService/dto"
 	"pingspot/internal/domain/userService/dto"
+	"pingspot/internal/model"
 	mainutils "pingspot/pkg/utils/mainUtils"
 	"sort"
 )
@@ -263,40 +263,40 @@ func convertUserToProfile(u *model.User) *dto.UserProfile {
 		Username:       u.Username,
 		FullName:       u.FullName,
 		ProfilePicture: u.Profile.ProfilePicture,
-		Gender:		 u.Profile.Gender,
+		Gender:         u.Profile.Gender,
 		Bio:            u.Profile.Bio,
 		Birthday:       u.Profile.Birthday,
 	}
 }
 
 func ConvertRepliesToDTO(comments []*model.ReportComment, users map[uint]*model.User, parentsComment map[string]*model.ReportComment) []*reportDTO.CommentReply {
-    replies := make([]*reportDTO.CommentReply, 0, len(comments))
-    
-    for _, comment := range comments {
-        user := users[comment.UserID]
-        if user == nil {
-            continue
-        }
-        
-        replyDTO := convertToReplyDTO(comment, user)
-        
-        if comment.ParentCommentID != nil {
-            parentID := comment.ParentCommentID.Hex()
-            if parentComment, exists := parentsComment[parentID]; exists {
-                if parentUser, userExists := users[parentComment.UserID]; userExists {
-                    if replyDTO.UserInformation.UserID != parentUser.ID {
-                        replyDTO.ReplyTo = convertUserToProfile(parentUser)
-                    }
-                }
-            }
-        }
-        
-        replies = append(replies, replyDTO)
-    }
-    
-    sort.Slice(replies, func(i, j int) bool {
-        return replies[i].CreatedAt < replies[j].CreatedAt
-    })
-    
-    return replies
+	replies := make([]*reportDTO.CommentReply, 0, len(comments))
+
+	for _, comment := range comments {
+		user := users[comment.UserID]
+		if user == nil {
+			continue
+		}
+
+		replyDTO := convertToReplyDTO(comment, user)
+
+		if comment.ParentCommentID != nil {
+			parentID := comment.ParentCommentID.Hex()
+			if parentComment, exists := parentsComment[parentID]; exists {
+				if parentUser, userExists := users[parentComment.UserID]; userExists {
+					if replyDTO.UserInformation.UserID != parentUser.ID {
+						replyDTO.ReplyTo = convertUserToProfile(parentUser)
+					}
+				}
+			}
+		}
+
+		replies = append(replies, replyDTO)
+	}
+
+	sort.Slice(replies, func(i, j int) bool {
+		return replies[i].CreatedAt < replies[j].CreatedAt
+	})
+
+	return replies
 }

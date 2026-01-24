@@ -1,7 +1,7 @@
 package util
 
 import (
-	"pingspot/internal/domain/model"
+	"pingspot/internal/model"
 	mainutils "pingspot/pkg/utils/mainUtils"
 	"time"
 )

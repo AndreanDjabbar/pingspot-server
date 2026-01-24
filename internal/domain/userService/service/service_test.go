@@ -3,9 +3,9 @@ package service
 import (
 	"context"
 	"errors"
-	userMocks "pingspot/internal/mocks/user"
-	"pingspot/internal/domain/model"
 	"pingspot/internal/domain/userService/dto"
+	userMocks "pingspot/internal/mocks/user"
+	"pingspot/internal/model"
 	mainutils "pingspot/pkg/utils/mainUtils"
 	"testing"
 
@@ -313,7 +313,7 @@ func TestUserService_SaveProfile(t *testing.T) {
 		mockUserRepo.On("UpdateFullNameTX", ctx, mock.Anything, userID, req.FullName).Return(nil)
 		mockProfileRepo.On("GetByIDTX", ctx, mock.Anything, userID).Return(nil, gorm.ErrRecordNotFound)
 		mockProfileRepo.On("CreateTX", ctx, mock.Anything, mock.AnythingOfType("*model.UserProfile")).Return(nil, nil)
-		
+
 		profileResponse, err := service.SaveProfile(ctx, db, userID, req)
 
 		require.NoError(t, err)
@@ -356,7 +356,7 @@ func TestUserService_SaveProfile(t *testing.T) {
 		mockUserRepo.On("UpdateFullNameTX", ctx, mock.Anything, userID, req.FullName).Return(nil)
 		mockProfileRepo.On("GetByIDTX", ctx, mock.Anything, userID).Return(&existingUser.Profile, nil)
 		mockProfileRepo.On("UpdateTX", ctx, mock.Anything, mock.AnythingOfType("*model.UserProfile")).Return(nil, errors.New("update failed"))
-		
+
 		profileResponse, err := service.SaveProfile(ctx, db, userID, req)
 
 		assert.Error(t, err)
@@ -408,8 +408,8 @@ func TestUserService_GetUserStatistics(t *testing.T) {
 				"2024-03": 50,
 			},
 			UsersByGender: map[string]int64{
-				"male": 40,
-				"female": 50,
+				"male":    40,
+				"female":  50,
 				"unknown": 10,
 			},
 		}
@@ -417,8 +417,8 @@ func TestUserService_GetUserStatistics(t *testing.T) {
 		mockUserRepo.On("GetUsersCount", ctx).Return(int64(100), nil)
 
 		mockUserRepo.On("GetByUserGenderCount", ctx).Return(map[string]int64{
-			"male": 40,
-			"female": 50,
+			"male":    40,
+			"female":  50,
 			"unknown": 10,
 		}, nil)
 
@@ -475,8 +475,8 @@ func TestUserService_GetUserStatistics(t *testing.T) {
 		ctx := context.Background()
 		mockUserRepo.On("GetUsersCount", ctx).Return(int64(100), nil)
 		mockUserRepo.On("GetByUserGenderCount", ctx).Return(map[string]int64{
-			"male": 40,
-			"female": 50,
+			"male":    40,
+			"female":  50,
 			"unknown": 10,
 		}, nil)
 		mockUserRepo.On("GetMonthlyUserCounts", ctx).Return(nil, errors.New("database error"))

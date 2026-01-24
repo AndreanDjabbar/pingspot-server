@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"pingspot/internal/domain/authService/dto"
 	"pingspot/internal/domain/authService/util"
-	"pingspot/internal/domain/model"
 	userRepo "pingspot/internal/domain/userService/repository"
+	"pingspot/internal/model"
 	cacheRepo "pingspot/internal/repository"
 	apperror "pingspot/pkg/apperror"
 	"pingspot/pkg/logger"
@@ -36,20 +36,20 @@ type AuthService struct {
 	userRepo        userRepo.UserRepository
 	userSessionRepo userRepo.UserSessionRepository
 	userProfileRepo userRepo.UserProfileRepository
-	cacheRepo cacheRepo.CacheRepository
+	cacheRepo       cacheRepo.CacheRepository
 }
 
 func NewAuthService(
 	userRepo userRepo.UserRepository,
 	userProfileRepo userRepo.UserProfileRepository,
 	userSessionRepo userRepo.UserSessionRepository,
-	cacheRepo		cacheRepo.CacheRepository,
+	cacheRepo cacheRepo.CacheRepository,
 ) *AuthService {
 	return &AuthService{
 		userRepo:        userRepo,
 		userProfileRepo: userProfileRepo,
 		userSessionRepo: userSessionRepo,
-		cacheRepo: cacheRepo,
+		cacheRepo:       cacheRepo,
 	}
 }
 
@@ -281,26 +281,26 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
 	storedHashedRefreshToken, err := s.cacheRepo.Get(context.Background(), refreshKey)
 
 	var userSession *model.UserSession
-	
+
 	if err != nil {
 		logger.Warn("Refresh token not found in Redis, checking PostgreSQL",
 			zap.String("refresh_token_id", refreshTokenID),
 			zap.Error(err),
 		)
-		
+
 		userSession, err = s.userSessionRepo.GetByRefreshTokenID(ctx, refreshTokenID)
 		if err != nil {
 			return "", "", apperror.New(401, "USER_SESSION_NOT_FOUND", "Sesi user tidak ditemukan", err.Error())
 		}
-		
+
 		if !userSession.IsActive || time.Now().Unix() > userSession.ExpiresAt {
 			return "", "", apperror.New(401, "SESSION_INVALID", "Sesi sudah tidak aktif atau kedaluwarsa", "")
 		}
-		
+
 		if userSession.HashedRefreshToken != hashedRefreshToken {
 			return "", "", apperror.New(401, "REFRESH_TOKEN_INVALID", "Refresh token tidak cocok", "")
 		}
-		
+
 		remainingDuration := time.Until(time.Unix(userSession.ExpiresAt, 0))
 		if remainingDuration > 0 {
 			err = s.cacheRepo.Set(context.Background(), refreshKey, hashedRefreshToken, remainingDuration)
@@ -308,7 +308,7 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
 				logger.Warn("Failed to restore refresh token to Redis", zap.Error(err))
 			}
 		}
-		
+
 		storedHashedRefreshToken = userSession.HashedRefreshToken
 	} else if storedHashedRefreshToken != hashedRefreshToken {
 		return "", "", apperror.New(401, "REFRESH_TOKEN_INVALID", "Refresh token tidak cocok", "")
@@ -325,7 +325,7 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
 			return "", "", apperror.New(401, "USER_SESSION_NOT_FOUND", "Sesi user tidak ditemukan", err.Error())
 		}
 	}
-	
+
 	if !userSession.IsActive || time.Now().Unix() > userSession.ExpiresAt {
 		return "", "", apperror.New(401, "SESSION_INVALID", "Sesi sudah tidak aktif atau kedaluwarsa", "")
 	}

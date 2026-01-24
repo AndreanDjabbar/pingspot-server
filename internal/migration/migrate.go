@@ -1,7 +1,7 @@
 package migration
 
 import (
-	"pingspot/internal/domain/model"
+	"pingspot/internal/model"
 	"pingspot/pkg/logger"
 
 	"github.com/go-gormigrate/gormigrate/v2"

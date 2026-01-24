@@ -6,7 +6,7 @@ import (
 	"pingspot/internal/domain/authService/dto"
 	"pingspot/internal/mocks"
 	userMocks "pingspot/internal/mocks/user"
-	"pingspot/internal/domain/model"
+	"pingspot/internal/model"
 	"pingspot/pkg/utils/tokenutils"
 	"testing"
 
@@ -466,12 +466,12 @@ func TestAuthService_Login(t *testing.T) {
 		// 2. Password verification
 		// 3. User verification status check
 		// 4. Session creation in database
-		// 
+		//
 		// It cannot test:
 		// - Refresh token storage in Redis
 		// - User session ID storage in Redis set
 		// - Redis TTL operations
-		
+
 		t.Skip("Test will fail at Redis interaction - service needs refactoring to accept Redis client via DI")
 
 		user, accessToken, refreshToken, err := service.Login(ctx, db, req)
@@ -695,7 +695,6 @@ func TestAuthService_GetUserByEmail(t *testing.T) {
 		mockUserRepo.AssertExpectations(t)
 	})
 }
-
 
 func TestAuthService_RefreshToken(t *testing.T) {
 	t.Skip("Skipping test - requires refactoring service to accept Redis client via dependency injection")

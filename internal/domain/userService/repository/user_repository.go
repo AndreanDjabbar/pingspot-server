@@ -3,8 +3,8 @@ package repository
 import (
 	"context"
 	"fmt"
+	"pingspot/internal/model"
 	"regexp"
-	"pingspot/internal/domain/model"
 	"strings"
 
 	"gorm.io/gorm"
@@ -47,15 +47,15 @@ func (r *userRepository) Get(ctx context.Context) (*[]model.User, error) {
 func (r *userRepository) GetUsersCount(ctx context.Context) (int64, error) {
 	var count int64
 	if err := r.db.WithContext(ctx).
-	Preload("Profile").
-	Model(&model.User{}).
-	Count(&count).Error; err != nil {
+		Preload("Profile").
+		Model(&model.User{}).
+		Count(&count).Error; err != nil {
 		return 0, err
 	}
 	return count, nil
 }
 
-func (r * userRepository) GetByUserGenderCount(ctx context.Context) (map[string]int64, error) {
+func (r *userRepository) GetByUserGenderCount(ctx context.Context) (map[string]int64, error) {
 	var results []struct {
 		Gender string
 		Count  int64
@@ -76,7 +76,7 @@ func (r * userRepository) GetByUserGenderCount(ctx context.Context) (map[string]
 	return genderCountMap, nil
 }
 
-func (r * userRepository) GetMonthlyUserCounts(ctx context.Context) (map[string]int64, error) {
+func (r *userRepository) GetMonthlyUserCounts(ctx context.Context) (map[string]int64, error) {
 	var results []struct {
 		Month string
 		Count int64
@@ -121,33 +121,33 @@ func (r *userRepository) FullTextSearchUsers(ctx context.Context, searchQuery st
 }
 
 func (r *userRepository) FullTextSearchUsersPaginated(ctx context.Context, searchQuery string, limit int, cursorID uint) (*[]model.User, error) {
-    var users []model.User
+	var users []model.User
 
-    if strings.TrimSpace(searchQuery) == "" {
-        return &users, nil
-    }
-    
-    searchQuery = strings.ToLower(searchQuery)
-    searchQuery = regexp.MustCompile(`[^a-z0-9\s]`).ReplaceAllString(searchQuery, "")
-    searchQuery = strings.TrimSpace(searchQuery)
-    searchQuery = regexp.MustCompile(`\s+`).ReplaceAllString(searchQuery, " & ")
-    searchQuery += ":*"
-	
-    tx := r.db.WithContext(ctx).
-        Preload("Profile").
-        Where("search_vector @@ to_tsquery('simple', ?)", searchQuery)
+	if strings.TrimSpace(searchQuery) == "" {
+		return &users, nil
+	}
 
-    if cursorID != 0 {
-        tx = tx.Where("id > ?", cursorID)
-    }
+	searchQuery = strings.ToLower(searchQuery)
+	searchQuery = regexp.MustCompile(`[^a-z0-9\s]`).ReplaceAllString(searchQuery, "")
+	searchQuery = strings.TrimSpace(searchQuery)
+	searchQuery = regexp.MustCompile(`\s+`).ReplaceAllString(searchQuery, " & ")
+	searchQuery += ":*"
 
-    err := tx.
+	tx := r.db.WithContext(ctx).
+		Preload("Profile").
+		Where("search_vector @@ to_tsquery('simple', ?)", searchQuery)
+
+	if cursorID != 0 {
+		tx = tx.Where("id > ?", cursorID)
+	}
+
+	err := tx.
 		Order(fmt.Sprintf("ts_rank(search_vector, to_tsquery('simple', '%s')) DESC", searchQuery)).
-        Order("id ASC").
-        Limit(limit).
-        Find(&users).Error
-    
-    return &users, err
+		Order("id ASC").
+		Limit(limit).
+		Find(&users).Error
+
+	return &users, err
 }
 
 func (r *userRepository) GetByIDs(ctx context.Context, userIDs []uint) ([]model.User, error) {

@@ -2,7 +2,7 @@ package repository
 
 import (
 	"context"
-	"pingspot/internal/domain/model"
+	"pingspot/internal/model"
 
 	"gorm.io/gorm"
 )
