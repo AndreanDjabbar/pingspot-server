@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 	"errors"
-	"pingspot/internal/domain/mocks"
 	"pingspot/internal/domain/mocks/report"
+	taskServiceMocks "pingspot/internal/domain/mocks/task"
 	userMocks "pingspot/internal/domain/mocks/user"
 	"pingspot/internal/domain/model"
 	"pingspot/internal/domain/reportService/dto"
@@ -49,7 +49,7 @@ func TestNewReportService(t *testing.T) {
 		mockReportReactionRepo := new(report.MockReportReactionRepository)
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockUserProfileRepo := new(userMocks.MockUserProfileRepository)
-		mockTaskService := new(mocks.MockTaskService)
+		mockTaskService := new(taskServiceMocks.MockTaskService)
 		service := NewreportService(
 			mockReportRepo,
 			mockReportLocationRepo,
@@ -76,7 +76,7 @@ func setupMocks() (
 	*userMocks.MockUserProfileRepository,
 	*report.MockReportProgressRepository,
 	*report.MockReportVoteRepository,
-	*mocks.MockTaskService,
+	*taskServiceMocks.MockTaskService,
 	*report.MockReportCommentRepository,
 	*ReportService,
 ) {
@@ -88,7 +88,7 @@ func setupMocks() (
 	mockUserProfileRepo := new(userMocks.MockUserProfileRepository)
 	mockReportProgressRepo := new(report.MockReportProgressRepository)
 	mockReportVoteRepo := new(report.MockReportVoteRepository)
-	mockTaskService := new(mocks.MockTaskService)
+	mockTaskService := new(taskServiceMocks.MockTaskService)
 	mockReportCommentRepo := new(report.MockReportCommentRepository)
 
 	service := NewreportService(
