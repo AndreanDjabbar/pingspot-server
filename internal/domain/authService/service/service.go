@@ -8,8 +8,8 @@ import (
 	"pingspot/internal/domain/authService/dto"
 	"pingspot/internal/domain/authService/util"
 	"pingspot/internal/domain/model"
-	"pingspot/internal/domain/userService/repository"
-	"pingspot/internal/infrastructure/cache"
+	userRepo "pingspot/internal/domain/userService/repository"
+	cacheRepo "pingspot/internal/repository"
 	apperror "pingspot/pkg/apperror"
 	"pingspot/pkg/logger"
 	contextutils "pingspot/pkg/utils/contextUtils"
@@ -33,20 +33,23 @@ func getRefreshTokenDuration() time.Duration {
 }
 
 type AuthService struct {
-	userRepo        repository.UserRepository
-	userSessionRepo repository.UserSessionRepository
-	userProfileRepo repository.UserProfileRepository
+	userRepo        userRepo.UserRepository
+	userSessionRepo userRepo.UserSessionRepository
+	userProfileRepo userRepo.UserProfileRepository
+	cacheRepo cacheRepo.CacheRepository
 }
 
 func NewAuthService(
-	userRepo repository.UserRepository,
-	userProfileRepo repository.UserProfileRepository,
-	userSessionRepo repository.UserSessionRepository,
+	userRepo userRepo.UserRepository,
+	userProfileRepo userRepo.UserProfileRepository,
+	userSessionRepo userRepo.UserSessionRepository,
+	cacheRepo		cacheRepo.CacheRepository,
 ) *AuthService {
 	return &AuthService{
 		userRepo:        userRepo,
 		userProfileRepo: userProfileRepo,
 		userSessionRepo: userSessionRepo,
+		cacheRepo: cacheRepo,
 	}
 }
 
@@ -167,7 +170,6 @@ func (s *AuthService) Login(ctx context.Context, db *gorm.DB, req dto.LoginReque
 		}
 		verificationLink := fmt.Sprintf("%s/auth/verify-account/%s/%d/%s", env.ClientURL(), randomCode1, user.ID, randomCode2)
 
-		redisClient := cache.GetRedis()
 		linkData := map[string]string{
 			"link1": randomCode1,
 			"link2": randomCode2,
@@ -181,7 +183,7 @@ func (s *AuthService) Login(ctx context.Context, db *gorm.DB, req dto.LoginReque
 			return nil, "", "", apperror.New(500, "VERIFICATION_CODE_SAVE_FAILED", "Gagal menyimpan kode verifikasi", err.Error())
 		}
 		redisKey := fmt.Sprintf("link:%d", user.ID)
-		err = redisClient.Set(context.Background(), redisKey, linkJSON, 5*time.Minute).Err()
+		err = s.cacheRepo.Set(context.Background(), redisKey, linkJSON, 5*time.Minute)
 		if err != nil {
 			logger.Error("Failed to save verification link to Redis",
 				zap.String("request_id", requestID),
@@ -227,10 +229,8 @@ func (s *AuthService) Login(ctx context.Context, db *gorm.DB, req dto.LoginReque
 
 	accessToken := tokenutils.GenerateAccessToken(user.ID, userSession.ID, user.Email, user.Username, user.FullName)
 
-	redisClient := cache.GetRedis()
-
 	refreshKey := fmt.Sprintf("refresh_token:%s", refreshTokenID)
-	err = redisClient.Set(context.Background(), refreshKey, hashedRefreshToken, getRefreshTokenDuration()).Err()
+	err = s.cacheRepo.Set(context.Background(), refreshKey, hashedRefreshToken, getRefreshTokenDuration())
 	if err != nil {
 		logger.Error("Failed to save refresh token to Redis",
 			zap.String("request_id", requestID),
@@ -240,7 +240,7 @@ func (s *AuthService) Login(ctx context.Context, db *gorm.DB, req dto.LoginReque
 	}
 
 	userSessionKey := fmt.Sprintf("user_session:%d", user.ID)
-	err = redisClient.SAdd(context.Background(), userSessionKey, userSession.ID).Err()
+	err = s.cacheRepo.SAdd(context.Background(), userSessionKey, userSession.ID)
 	if err != nil {
 		logger.Error("Failed to save user session ID to Redis set",
 			zap.String("request_id", requestID),
@@ -249,7 +249,7 @@ func (s *AuthService) Login(ctx context.Context, db *gorm.DB, req dto.LoginReque
 		return nil, "", "", apperror.New(500, "USER_SESSION_SAVE_FAILED", "Gagal menyimpan sesi user", err.Error())
 	}
 
-	err = redisClient.Expire(context.Background(), userSessionKey, getRefreshTokenDuration()).Err()
+	_, err = s.cacheRepo.Expire(context.Background(), userSessionKey, getRefreshTokenDuration())
 	if err != nil {
 		logger.Warn("Failed to set TTL on user session set",
 			zap.String("request_id", requestID),
@@ -276,10 +276,9 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
 	refreshTokenID := claims["refresh_token_id"].(string)
 	hashedRefreshToken := tokenutils.HashSHA256String(refreshToken)
 
-	redisClient := cache.GetRedis()
 	refreshKey := fmt.Sprintf("refresh_token:%s", refreshTokenID)
-	fmt.Println("REFRESH KEY: ", refreshKey)
-	storedHashedRefreshToken, err := redisClient.Get(context.Background(), refreshKey).Result()
+
+	storedHashedRefreshToken, err := s.cacheRepo.Get(context.Background(), refreshKey)
 
 	var userSession *model.UserSession
 	
@@ -304,7 +303,7 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
 		
 		remainingDuration := time.Until(time.Unix(userSession.ExpiresAt, 0))
 		if remainingDuration > 0 {
-			err = redisClient.Set(context.Background(), refreshKey, hashedRefreshToken, remainingDuration).Err()
+			err = s.cacheRepo.Set(context.Background(), refreshKey, hashedRefreshToken, remainingDuration)
 			if err != nil {
 				logger.Warn("Failed to restore refresh token to Redis", zap.Error(err))
 			}
@@ -335,12 +334,12 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
 	newRefreshToken := tokenutils.GenerateRefreshToken(userID, newRefreshTokenID)
 	newHashedRefreshToken := tokenutils.HashSHA256String(newRefreshToken)
 
-	if err := redisClient.Del(context.Background(), refreshKey).Err(); err != nil {
+	if err := s.cacheRepo.Del(context.Background(), refreshKey); err != nil {
 		logger.Warn("Failed to delete old refresh token", zap.Error(err))
 	}
 
 	newRefreshKey := fmt.Sprintf("refresh_token:%s", newRefreshTokenID)
-	if err := redisClient.Set(context.Background(), newRefreshKey, newHashedRefreshToken, getRefreshTokenDuration()).Err(); err != nil {
+	if err := s.cacheRepo.Set(context.Background(), newRefreshKey, newHashedRefreshToken, getRefreshTokenDuration()); err != nil {
 		return "", "", apperror.New(500, "REFRESH_TOKEN_SAVE_FAILED", "Gagal menyimpan refresh token baru", err.Error())
 	}
 
@@ -358,9 +357,8 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
 }
 
 func (s *AuthService) Logout(ctx context.Context, userID uint, refreshTokenID string) error {
-	redisClient := cache.GetRedis()
 	refreshKey := fmt.Sprintf("refresh_token:%s", refreshTokenID)
-	if err := redisClient.Del(context.Background(), refreshKey).Err(); err != nil {
+	if err := s.cacheRepo.Del(context.Background(), refreshKey); err != nil {
 		logger.Warn("Failed to delete refresh token from Redis", zap.Error(err))
 	}
 	userSession, err := s.userSessionRepo.GetByRefreshTokenID(ctx, refreshTokenID)
@@ -372,7 +370,7 @@ func (s *AuthService) Logout(ctx context.Context, userID uint, refreshTokenID st
 		return apperror.New(500, "USER_SESSION_UPDATE_FAILED", "Gagal memperbarui sesi user", err.Error())
 	}
 	userSessionKey := fmt.Sprintf("user_session:%d", userID)
-	if err := redisClient.SRem(context.Background(), userSessionKey, userSession.ID).Err(); err != nil {
+	if err := s.cacheRepo.SRem(context.Background(), userSessionKey, userSession.ID); err != nil {
 		logger.Warn("Failed to remove user session ID from Redis set", zap.Error(err))
 	}
 	return nil
