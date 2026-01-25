@@ -271,7 +271,7 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
 	if err != nil {
 		return "", "", apperror.New(401, "INVALID_REFRESH_TOKEN", "Refresh token tidak valid", err.Error())
 	}
-	fmt.Println("CLAIMS: ", claims)
+	
 	userID := uint(claims["user_id"].(float64))
 	refreshTokenID := claims["refresh_token_id"].(string)
 	hashedRefreshToken := tokenutils.HashSHA256String(refreshToken)
