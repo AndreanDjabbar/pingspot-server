@@ -2,13 +2,21 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
+	"os"
+	"path/filepath"
 	"pingspot/internal/domain/authService/dto"
 	"pingspot/internal/mocks"
 	userMocks "pingspot/internal/mocks/user"
 	"pingspot/internal/model"
 	"pingspot/pkg/utils/tokenutils"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -25,6 +33,46 @@ func setupAuthTestDB(t *testing.T) *gorm.DB {
 	require.NoError(t, err)
 
 	return db
+}
+
+func setupTestKeys(t *testing.T) {
+    keysDir := filepath.Join("keys")
+    err := os.MkdirAll(keysDir, 0755)
+    require.NoError(t, err)
+    
+    privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+    require.NoError(t, err)
+    
+    privateKeyFile := filepath.Join(keysDir, "private.pem")
+    privateKeyPEM := &pem.Block{
+        Type:  "RSA PRIVATE KEY",
+        Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
+    }
+    privateFile, err := os.Create(privateKeyFile)
+    require.NoError(t, err)
+    defer privateFile.Close()
+    
+    err = pem.Encode(privateFile, privateKeyPEM)
+    require.NoError(t, err)
+    
+    publicKeyFile := filepath.Join(keysDir, "public.pem")
+    publicKeyBytes, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+    require.NoError(t, err)
+    
+    publicKeyPEM := &pem.Block{
+        Type:  "PUBLIC KEY",
+        Bytes: publicKeyBytes,
+    }
+    publicFile, err := os.Create(publicKeyFile)
+    require.NoError(t, err)
+    defer publicFile.Close()
+    
+    err = pem.Encode(publicFile, publicKeyPEM)
+    require.NoError(t, err)
+    
+    t.Cleanup(func() {
+        os.RemoveAll(keysDir)
+    })
 }
 
 func TestNewAuthService(t *testing.T) {
@@ -421,13 +469,14 @@ func TestAuthService_Login(t *testing.T) {
 		mockUserRepo.AssertExpectations(t)
 	})
 
-	t.Run("should login successfully - tests parts before Redis interaction", func(t *testing.T) {
+	t.Run("should login successfully", func(t *testing.T) {
 		db := setupAuthTestDB(t)
+		setupTestKeys(t)
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
-		cacheRepo := new(mocks.MockCacheRepository)
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
+		mockCacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, mockCacheRepo)
 
 		ctx := context.Background()
 		password := "password123"
@@ -460,19 +509,13 @@ func TestAuthService_Login(t *testing.T) {
 		}
 		mockSessionRepo.On("CreateTX", ctx, mock.AnythingOfType("*gorm.DB"), mock.AnythingOfType("*model.UserSession")).Return(createdSession, nil)
 
-		// Note: This test will fail at Redis interaction since we can't mock the global singleton
-		// The test validates:
-		// 1. User lookup by email
-		// 2. Password verification
-		// 3. User verification status check
-		// 4. Session creation in database
-		//
-		// It cannot test:
-		// - Refresh token storage in Redis
-		// - User session ID storage in Redis set
-		// - Redis TTL operations
+		mockCacheRepo.On("Set", mock.Anything, mock.MatchedBy(func(key string) bool {
+			return strings.HasPrefix(key, "refresh_token:")
+		}), mock.AnythingOfType("string"), mock.AnythingOfType("time.Duration")).Return(nil)
 
-		t.Skip("Test will fail at Redis interaction - service needs refactoring to accept Redis client via DI")
+		mockCacheRepo.On("SAdd", mock.Anything, "user_session:1", mock.AnythingOfType("[]interface {}")).Return(nil)
+
+		mockCacheRepo.On("Expire", mock.Anything, "user_session:1", mock.AnythingOfType("time.Duration")).Return(true, nil)
 
 		user, accessToken, refreshToken, err := service.Login(ctx, db, req)
 
@@ -481,40 +524,22 @@ func TestAuthService_Login(t *testing.T) {
 		assert.NotEmpty(t, accessToken)
 		assert.NotEmpty(t, refreshToken)
 		assert.Equal(t, existingUser.Email, user.Email)
+		assert.Equal(t, existingUser.ID, user.ID)
+		assert.Equal(t, existingUser.Username, user.Username)
+		
 		mockUserRepo.AssertExpectations(t)
 		mockSessionRepo.AssertExpectations(t)
+		mockCacheRepo.AssertExpectations(t)
 	})
 }
 
 func TestAuthService_Logout(t *testing.T) {
-	t.Run("should return error when session not found", func(t *testing.T) {
-		t.Skip("Skipping test - requires refactoring service to accept Redis client via dependency injection")
+	t.Run("should logout successfully", func(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
-		cacheRepo := new(mocks.MockCacheRepository)
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
-
-		ctx := context.Background()
-		userID := uint(1)
-		refreshTokenID := "invalid-token-id"
-
-		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(nil, gorm.ErrRecordNotFound)
-
-		err := service.Logout(ctx, userID, refreshTokenID)
-
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "Gagal mengambil sesi user")
-		mockSessionRepo.AssertExpectations(t)
-	})
-
-	t.Run("should return error when update fails", func(t *testing.T) {
-		t.Skip("Skipping test - requires refactoring service to accept Redis client via dependency injection")
-		mockUserRepo := new(userMocks.MockUserRepository)
-		mockProfileRepo := new(userMocks.MockUserProfileRepository)
-		mockSessionRepo := new(userMocks.MockUserSessionRepository)
-		cacheRepo := new(mocks.MockCacheRepository)
-		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
+		mockCacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, mockCacheRepo)
 
 		ctx := context.Background()
 		userID := uint(1)
@@ -527,6 +552,61 @@ func TestAuthService_Logout(t *testing.T) {
 			IsActive:       true,
 		}
 
+		mockCacheRepo.On("Del", mock.Anything, "refresh_token:valid-token-id").Return(nil)
+		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(userSession, nil)
+		mockSessionRepo.On("Update", ctx, mock.MatchedBy(func(session *model.UserSession) bool {
+			return session.IsActive == false && session.ID == userSession.ID
+		})).Return(nil)
+		mockCacheRepo.On("SRem", mock.Anything, "user_session:1", mock.AnythingOfType("[]interface {}")).Return(nil)
+
+		err := service.Logout(ctx, userID, refreshTokenID)
+
+		assert.NoError(t, err)
+		mockSessionRepo.AssertExpectations(t)
+		mockCacheRepo.AssertExpectations(t)
+	})
+
+	t.Run("should return error when session not found", func(t *testing.T) {
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
+		mockCacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, mockCacheRepo)
+
+		ctx := context.Background()
+		userID := uint(1)
+		refreshTokenID := "invalid-token-id"
+
+		mockCacheRepo.On("Del", mock.Anything, "refresh_token:invalid-token-id").Return(nil)
+		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(nil, gorm.ErrRecordNotFound)
+
+		err := service.Logout(ctx, userID, refreshTokenID)
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "Gagal mengambil sesi user")
+		mockSessionRepo.AssertExpectations(t)
+		mockCacheRepo.AssertExpectations(t)
+	})
+
+	t.Run("should return error when update fails", func(t *testing.T) {
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
+		mockCacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, mockCacheRepo)
+
+		ctx := context.Background()
+		userID := uint(1)
+		refreshTokenID := "valid-token-id"
+
+		userSession := &model.UserSession{
+			ID:             1,
+			UserID:         userID,
+			RefreshTokenID: refreshTokenID,
+			IsActive:       true,
+		}
+
+		mockCacheRepo.On("Del", mock.Anything, "refresh_token:valid-token-id").Return(nil)
 		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(userSession, nil)
 		mockSessionRepo.On("Update", ctx, mock.MatchedBy(func(session *model.UserSession) bool {
 			return session.IsActive == false
@@ -537,6 +617,72 @@ func TestAuthService_Logout(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "Gagal memperbarui sesi user")
 		mockSessionRepo.AssertExpectations(t)
+		mockCacheRepo.AssertExpectations(t)
+	})
+
+	t.Run("should succeed even when Redis Del fails", func(t *testing.T) {
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
+		mockCacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, mockCacheRepo)
+
+		ctx := context.Background()
+		userID := uint(1)
+		refreshTokenID := "valid-token-id"
+
+		userSession := &model.UserSession{
+			ID:             1,
+			UserID:         userID,
+			RefreshTokenID: refreshTokenID,
+			IsActive:       true,
+		}
+
+		mockCacheRepo.On("Del", mock.Anything, "refresh_token:valid-token-id").Return(errors.New("redis error"))
+		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(userSession, nil)
+		mockSessionRepo.On("Update", ctx, mock.MatchedBy(func(session *model.UserSession) bool {
+			return session.IsActive == false
+		})).Return(nil)
+		mockCacheRepo.On("SRem", mock.Anything, "user_session:1", mock.AnythingOfType("[]interface {}")).Return(nil)
+
+		err := service.Logout(ctx, userID, refreshTokenID)
+
+		assert.NoError(t, err)
+		mockSessionRepo.AssertExpectations(t)
+		mockCacheRepo.AssertExpectations(t)
+	})
+
+	t.Run("should succeed even when Redis SRem fails", func(t *testing.T) {
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
+		mockCacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, mockCacheRepo)
+
+		ctx := context.Background()
+		userID := uint(1)
+		refreshTokenID := "valid-token-id"
+
+		userSession := &model.UserSession{
+			ID:             1,
+			UserID:         userID,
+			RefreshTokenID: refreshTokenID,
+			IsActive:       true,
+		}
+
+		mockCacheRepo.On("Del", mock.Anything, "refresh_token:valid-token-id").Return(nil)
+		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(userSession, nil)
+		mockSessionRepo.On("Update", ctx, mock.MatchedBy(func(session *model.UserSession) bool {
+			return session.IsActive == false
+		})).Return(nil)
+
+		mockCacheRepo.On("SRem", mock.Anything, "user_session:1", mock.AnythingOfType("[]interface {}")).Return(errors.New("redis error"))
+
+		err := service.Logout(ctx, userID, refreshTokenID)
+
+		assert.NoError(t, err)
+		mockSessionRepo.AssertExpectations(t)
+		mockCacheRepo.AssertExpectations(t)
 	})
 }
 
@@ -697,5 +843,421 @@ func TestAuthService_GetUserByEmail(t *testing.T) {
 }
 
 func TestAuthService_RefreshToken(t *testing.T) {
-	t.Skip("Skipping test - requires refactoring service to accept Redis client via dependency injection")
+	setupTestKeys(t)
+
+	t.Run("should refresh token successfully when found in Redis", func(t *testing.T) {
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
+		mockCacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, mockCacheRepo)
+
+		ctx := context.Background()
+		userID := uint(1)
+		refreshTokenID := "test-refresh-token-id"
+		
+		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
+		hashedRefreshToken := tokenutils.HashSHA256String(refreshToken)
+
+		existingUser := &model.User{
+			ID:       userID,
+			Email:    "user@example.com",
+			Username: "testuser",
+			FullName: "Test User",
+		}
+
+		userSession := &model.UserSession{
+			ID:                 1,
+			UserID:             userID,
+			RefreshTokenID:     refreshTokenID,
+			HashedRefreshToken: hashedRefreshToken,
+			IsActive:           true,
+			ExpiresAt:          time.Now().Add(24 * time.Hour).Unix(),
+		}
+
+		mockCacheRepo.On("Get", mock.Anything, "refresh_token:"+refreshTokenID).Return(hashedRefreshToken, nil)
+		mockUserRepo.On("GetByID", ctx, userID).Return(existingUser, nil)
+		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(userSession, nil)
+		
+		mockCacheRepo.On("Del", mock.Anything, "refresh_token:"+refreshTokenID).Return(nil)
+		
+		mockCacheRepo.On("Set", mock.Anything, mock.MatchedBy(func(key string) bool {
+			return strings.HasPrefix(key, "refresh_token:") && key != "refresh_token:"+refreshTokenID
+		}), mock.AnythingOfType("string"), mock.AnythingOfType("time.Duration")).Return(nil)
+		
+		mockSessionRepo.On("Update", ctx, mock.AnythingOfType("*model.UserSession")).Return(nil)
+
+		accessToken, newRefreshToken, err := service.RefreshToken(ctx, refreshToken)
+
+		assert.NoError(t, err)
+		assert.NotEmpty(t, accessToken)
+		assert.NotEmpty(t, newRefreshToken)
+		assert.NotEqual(t, refreshToken, newRefreshToken)
+		mockCacheRepo.AssertExpectations(t)
+		mockUserRepo.AssertExpectations(t)
+		mockSessionRepo.AssertExpectations(t)
+	})
+
+	t.Run("should refresh token successfully when not in Redis but found in DB", func(t *testing.T) {
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
+		mockCacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, mockCacheRepo)
+
+		ctx := context.Background()
+		userID := uint(1)
+		refreshTokenID := "test-refresh-token-id"
+		
+		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
+		hashedRefreshToken := tokenutils.HashSHA256String(refreshToken)
+
+		existingUser := &model.User{
+			ID:       userID,
+			Email:    "user@example.com",
+			Username: "testuser",
+			FullName: "Test User",
+		}
+
+		userSession := &model.UserSession{
+			ID:                 1,
+			UserID:             userID,
+			RefreshTokenID:     refreshTokenID,
+			HashedRefreshToken: hashedRefreshToken,
+			IsActive:           true,
+			ExpiresAt:          time.Now().Add(24 * time.Hour).Unix(),
+		}
+
+		mockCacheRepo.On("Get", mock.Anything, "refresh_token:"+refreshTokenID).Return("", errors.New("key not found"))
+		
+		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(userSession, nil)
+		
+		mockCacheRepo.On("Set", mock.Anything, "refresh_token:"+refreshTokenID, hashedRefreshToken, mock.AnythingOfType("time.Duration")).Return(nil)
+		
+		mockUserRepo.On("GetByID", ctx, userID).Return(existingUser, nil)
+		
+		mockCacheRepo.On("Del", mock.Anything, "refresh_token:"+refreshTokenID).Return(nil)
+		
+		mockCacheRepo.On("Set", mock.Anything, mock.MatchedBy(func(key string) bool {
+			return strings.HasPrefix(key, "refresh_token:") && key != "refresh_token:"+refreshTokenID
+		}), mock.AnythingOfType("string"), mock.AnythingOfType("time.Duration")).Return(nil)
+		
+		mockSessionRepo.On("Update", ctx, mock.AnythingOfType("*model.UserSession")).Return(nil)
+
+		accessToken, newRefreshToken, err := service.RefreshToken(ctx, refreshToken)
+
+		assert.NoError(t, err)
+		assert.NotEmpty(t, accessToken)
+		assert.NotEmpty(t, newRefreshToken)
+		mockCacheRepo.AssertExpectations(t)
+		mockUserRepo.AssertExpectations(t)
+		mockSessionRepo.AssertExpectations(t)
+	})
+
+	t.Run("should return error when refresh token is invalid", func(t *testing.T) {
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
+		mockCacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, mockCacheRepo)
+
+		ctx := context.Background()
+		invalidRefreshToken := "invalid.token.here"
+
+		accessToken, newRefreshToken, err := service.RefreshToken(ctx, invalidRefreshToken)
+
+		assert.Error(t, err)
+		assert.Empty(t, accessToken)
+		assert.Empty(t, newRefreshToken)
+		assert.Contains(t, err.Error(), "Refresh token tidak valid")
+	})
+
+	t.Run("should return error when session not found in DB", func(t *testing.T) {
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
+		mockCacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, mockCacheRepo)
+
+		ctx := context.Background()
+		userID := uint(1)
+		refreshTokenID := "test-refresh-token-id"
+		
+		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
+
+		mockCacheRepo.On("Get", mock.Anything, "refresh_token:"+refreshTokenID).Return("", errors.New("key not found"))
+		
+		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(nil, gorm.ErrRecordNotFound)
+
+		accessToken, newRefreshToken, err := service.RefreshToken(ctx, refreshToken)
+
+		assert.Error(t, err)
+		assert.Empty(t, accessToken)
+		assert.Empty(t, newRefreshToken)
+		assert.Contains(t, err.Error(), "Sesi user tidak ditemukan")
+		mockCacheRepo.AssertExpectations(t)
+		mockSessionRepo.AssertExpectations(t)
+	})
+
+	t.Run("should return error when session is inactive", func(t *testing.T) {
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
+		mockCacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, mockCacheRepo)
+
+		ctx := context.Background()
+		userID := uint(1)
+		refreshTokenID := "test-refresh-token-id"
+		
+		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
+		hashedRefreshToken := tokenutils.HashSHA256String(refreshToken)
+
+		userSession := &model.UserSession{
+			ID:                 1,
+			UserID:             userID,
+			RefreshTokenID:     refreshTokenID,
+			HashedRefreshToken: hashedRefreshToken,
+			IsActive:           false,
+			ExpiresAt:          time.Now().Add(24 * time.Hour).Unix(),
+		}
+
+		mockCacheRepo.On("Get", mock.Anything, "refresh_token:"+refreshTokenID).Return("", errors.New("key not found"))
+		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(userSession, nil)
+
+		accessToken, newRefreshToken, err := service.RefreshToken(ctx, refreshToken)
+
+		assert.Error(t, err)
+		assert.Empty(t, accessToken)
+		assert.Empty(t, newRefreshToken)
+		assert.Contains(t, err.Error(), "Sesi sudah tidak aktif atau kedaluwarsa")
+		mockCacheRepo.AssertExpectations(t)
+		mockSessionRepo.AssertExpectations(t)
+	})
+
+	t.Run("should return error when session is expired", func(t *testing.T) {
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
+		mockCacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, mockCacheRepo)
+
+		ctx := context.Background()
+		userID := uint(1)
+		refreshTokenID := "test-refresh-token-id"
+		
+		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
+		hashedRefreshToken := tokenutils.HashSHA256String(refreshToken)
+
+		userSession := &model.UserSession{
+			ID:                 1,
+			UserID:             userID,
+			RefreshTokenID:     refreshTokenID,
+			HashedRefreshToken: hashedRefreshToken,
+			IsActive:           true,
+			ExpiresAt:          time.Now().Add(-1 * time.Hour).Unix(),
+		}
+
+		mockCacheRepo.On("Get", mock.Anything, "refresh_token:"+refreshTokenID).Return("", errors.New("key not found"))
+		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(userSession, nil)
+
+		accessToken, newRefreshToken, err := service.RefreshToken(ctx, refreshToken)
+
+		assert.Error(t, err)
+		assert.Empty(t, accessToken)
+		assert.Empty(t, newRefreshToken)
+		assert.Contains(t, err.Error(), "Sesi sudah tidak aktif atau kedaluwarsa")
+		mockCacheRepo.AssertExpectations(t)
+		mockSessionRepo.AssertExpectations(t)
+	})
+
+	t.Run("should return error when hashed token doesn't match (from Redis)", func(t *testing.T) {
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
+		mockCacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, mockCacheRepo)
+
+		ctx := context.Background()
+		userID := uint(1)
+		refreshTokenID := "test-refresh-token-id"
+		
+		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
+		wrongHashedToken := "wrong-hashed-token"
+
+		mockCacheRepo.On("Get", mock.Anything, "refresh_token:"+refreshTokenID).Return(wrongHashedToken, nil)
+
+		accessToken, newRefreshToken, err := service.RefreshToken(ctx, refreshToken)
+
+		assert.Error(t, err)
+		assert.Empty(t, accessToken)
+		assert.Empty(t, newRefreshToken)
+		assert.Contains(t, err.Error(), "Refresh token tidak cocok")
+		mockCacheRepo.AssertExpectations(t)
+	})
+
+	t.Run("should return error when hashed token doesn't match (from DB)", func(t *testing.T) {
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
+		mockCacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, mockCacheRepo)
+
+		ctx := context.Background()
+		userID := uint(1)
+		refreshTokenID := "test-refresh-token-id"
+		
+		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
+		wrongHashedToken := "wrong-hashed-token"
+
+		userSession := &model.UserSession{
+			ID:                 1,
+			UserID:             userID,
+			RefreshTokenID:     refreshTokenID,
+			HashedRefreshToken: wrongHashedToken,
+			IsActive:           true,
+			ExpiresAt:          time.Now().Add(24 * time.Hour).Unix(),
+		}
+
+		mockCacheRepo.On("Get", mock.Anything, "refresh_token:"+refreshTokenID).Return("", errors.New("key not found"))
+		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(userSession, nil)
+
+		accessToken, newRefreshToken, err := service.RefreshToken(ctx, refreshToken)
+
+		assert.Error(t, err)
+		assert.Empty(t, accessToken)
+		assert.Empty(t, newRefreshToken)
+		assert.Contains(t, err.Error(), "Refresh token tidak cocok")
+		mockCacheRepo.AssertExpectations(t)
+		mockSessionRepo.AssertExpectations(t)
+	})
+
+	t.Run("should return error when user not found", func(t *testing.T) {
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
+		mockCacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, mockCacheRepo)
+
+		ctx := context.Background()
+		userID := uint(1)
+		refreshTokenID := "test-refresh-token-id"
+		
+		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
+		hashedRefreshToken := tokenutils.HashSHA256String(refreshToken)
+
+		mockCacheRepo.On("Get", mock.Anything, "refresh_token:"+refreshTokenID).Return(hashedRefreshToken, nil)
+		mockUserRepo.On("GetByID", ctx, userID).Return(nil, gorm.ErrRecordNotFound)
+
+		accessToken, newRefreshToken, err := service.RefreshToken(ctx, refreshToken)
+
+		assert.Error(t, err)
+		assert.Empty(t, accessToken)
+		assert.Empty(t, newRefreshToken)
+		assert.Contains(t, err.Error(), "Gagal mengambil data user")
+		mockCacheRepo.AssertExpectations(t)
+		mockUserRepo.AssertExpectations(t)
+	})
+
+	t.Run("should return error when saving new refresh token to Redis fails", func(t *testing.T) {
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
+		mockCacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, mockCacheRepo)
+
+		ctx := context.Background()
+		userID := uint(1)
+		refreshTokenID := "test-refresh-token-id"
+		
+		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
+		hashedRefreshToken := tokenutils.HashSHA256String(refreshToken)
+
+		existingUser := &model.User{
+			ID:       userID,
+			Email:    "user@example.com",
+			Username: "testuser",
+			FullName: "Test User",
+		}
+
+		userSession := &model.UserSession{
+			ID:                 1,
+			UserID:             userID,
+			RefreshTokenID:     refreshTokenID,
+			HashedRefreshToken: hashedRefreshToken,
+			IsActive:           true,
+			ExpiresAt:          time.Now().Add(24 * time.Hour).Unix(),
+		}
+
+		mockCacheRepo.On("Get", mock.Anything, "refresh_token:"+refreshTokenID).Return(hashedRefreshToken, nil)
+		mockUserRepo.On("GetByID", ctx, userID).Return(existingUser, nil)
+		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(userSession, nil)
+		mockCacheRepo.On("Del", mock.Anything, "refresh_token:"+refreshTokenID).Return(nil)
+		
+		mockCacheRepo.On("Set", mock.Anything, mock.MatchedBy(func(key string) bool {
+			return strings.HasPrefix(key, "refresh_token:") && key != "refresh_token:"+refreshTokenID
+		}), mock.AnythingOfType("string"), mock.AnythingOfType("time.Duration")).Return(errors.New("redis error"))
+
+		accessToken, newRefreshToken, err := service.RefreshToken(ctx, refreshToken)
+
+		assert.Error(t, err)
+		assert.Empty(t, accessToken)
+		assert.Empty(t, newRefreshToken)
+		assert.Contains(t, err.Error(), "Gagal menyimpan refresh token baru")
+		mockCacheRepo.AssertExpectations(t)
+		mockUserRepo.AssertExpectations(t)
+		mockSessionRepo.AssertExpectations(t)
+	})
+
+	t.Run("should return error when session update fails", func(t *testing.T) {
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
+		mockCacheRepo := new(mocks.MockCacheRepository)
+		service := NewAuthService(mockUserRepo, mockProfileRepo, mockSessionRepo, mockCacheRepo)
+
+		ctx := context.Background()
+		userID := uint(1)
+		refreshTokenID := "test-refresh-token-id"
+		
+		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
+		hashedRefreshToken := tokenutils.HashSHA256String(refreshToken)
+
+		existingUser := &model.User{
+			ID:       userID,
+			Email:    "user@example.com",
+			Username: "testuser",
+			FullName: "Test User",
+		}
+
+		userSession := &model.UserSession{
+			ID:                 1,
+			UserID:             userID,
+			RefreshTokenID:     refreshTokenID,
+			HashedRefreshToken: hashedRefreshToken,
+			IsActive:           true,
+			ExpiresAt:          time.Now().Add(24 * time.Hour).Unix(),
+		}
+
+		mockCacheRepo.On("Get", mock.Anything, "refresh_token:"+refreshTokenID).Return(hashedRefreshToken, nil)
+		mockUserRepo.On("GetByID", ctx, userID).Return(existingUser, nil)
+		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(userSession, nil)
+		mockCacheRepo.On("Del", mock.Anything, "refresh_token:"+refreshTokenID).Return(nil)
+		mockCacheRepo.On("Set", mock.Anything, mock.MatchedBy(func(key string) bool {
+			return strings.HasPrefix(key, "refresh_token:") && key != "refresh_token:"+refreshTokenID
+		}), mock.AnythingOfType("string"), mock.AnythingOfType("time.Duration")).Return(nil)
+		
+		// Session update fails
+		mockSessionRepo.On("Update", ctx, mock.AnythingOfType("*model.UserSession")).Return(errors.New("database error"))
+
+		accessToken, newRefreshToken, err := service.RefreshToken(ctx, refreshToken)
+
+		assert.Error(t, err)
+		assert.Empty(t, accessToken)
+		assert.Empty(t, newRefreshToken)
+		assert.Contains(t, err.Error(), "Gagal memperbarui sesi")
+		mockCacheRepo.AssertExpectations(t)
+		mockUserRepo.AssertExpectations(t)
+		mockSessionRepo.AssertExpectations(t)
+	})
 }
