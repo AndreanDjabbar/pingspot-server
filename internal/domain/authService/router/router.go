@@ -58,6 +58,7 @@ func RegisterAuthRoutes(app *fiber.App) {
 	)
 
 	authRoute.Post("/logout", 
+	middleware.ValidateAccessToken(),
 	middleware.TimeoutMiddleware(5*time.Second),
 	middleware.UserRateLimiterMiddleware(middleware.NewRateLimiter(middleware.RateLimiterConfig{
 		Window:      10 * time.Minute,
