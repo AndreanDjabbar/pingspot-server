@@ -6,7 +6,8 @@ import (
 	"pingspot/pkg/logger"
 	"pingspot/pkg/utils/env"
 	"pingspot/pkg/utils/response"
-
+	_ "pingspot/docs"
+	"github.com/gofiber/swagger"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 )
@@ -39,7 +40,8 @@ func New() *FiberServer {
 	app.Use(middleware.GlobalRateLimiterMiddleware())
 
 	defaultRoute := app.Group("/pingspot/api")
-	defaultRoute.Get("/", DefaultHandler)
+	
+	defaultRoute.Get("/swagger/*", swagger.HandlerDefault)
 
 	router.RegisterRoutes(app)
 
