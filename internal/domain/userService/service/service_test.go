@@ -30,8 +30,9 @@ func TestNewUserService(t *testing.T) {
 	t.Run("should create new user service", func(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		db := setupTestDB(t)
 
-		service := NewUserService(mockUserRepo, mockProfileRepo)
+		service := NewUserService(db, mockUserRepo, mockProfileRepo)
 
 		assert.NotNil(t, service)
 		assert.Equal(t, mockUserRepo, service.userRepo)
@@ -43,7 +44,8 @@ func TestUserService_GetProfile(t *testing.T) {
 	t.Run("should get user profile successfully", func(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
-		service := NewUserService(mockUserRepo, mockProfileRepo)
+		db := setupTestDB(t)
+		service := NewUserService(db, mockUserRepo, mockProfileRepo)
 
 		ctx := context.Background()
 		userID := uint(1)
@@ -77,7 +79,8 @@ func TestUserService_GetProfile(t *testing.T) {
 	t.Run("should return error when user not found", func(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
-		service := NewUserService(mockUserRepo, mockProfileRepo)
+		db := setupTestDB(t)
+		service := NewUserService(db, mockUserRepo, mockProfileRepo)
 
 		ctx := context.Background()
 		userID := uint(999)
@@ -95,7 +98,8 @@ func TestUserService_GetProfile(t *testing.T) {
 	t.Run("should return error on database failure", func(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
-		service := NewUserService(mockUserRepo, mockProfileRepo)
+		db := setupTestDB(t)
+		service := NewUserService(db, mockUserRepo, mockProfileRepo)
 
 		ctx := context.Background()
 		userID := uint(1)
@@ -115,7 +119,8 @@ func TestUserService_GetProfileByUsername(t *testing.T) {
 	t.Run("should get user profile by username successfully", func(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
-		service := NewUserService(mockUserRepo, mockProfileRepo)
+		db := setupTestDB(t)
+		service := NewUserService(db, mockUserRepo, mockProfileRepo)
 
 		ctx := context.Background()
 		username := "johndoe"
@@ -145,7 +150,8 @@ func TestUserService_GetProfileByUsername(t *testing.T) {
 	t.Run("should return error when username not found", func(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
-		service := NewUserService(mockUserRepo, mockProfileRepo)
+		db := setupTestDB(t)
+		service := NewUserService(db, mockUserRepo, mockProfileRepo)
 
 		ctx := context.Background()
 		username := "nonexistent"
@@ -164,7 +170,8 @@ func TestUserService_SaveSecurity(t *testing.T) {
 	t.Run("should update password successfully", func(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
-		service := NewUserService(mockUserRepo, mockProfileRepo)
+		db := setupTestDB(t)
+		service := NewUserService(db, mockUserRepo, mockProfileRepo)
 
 		ctx := context.Background()
 		userID := uint(1)
@@ -195,7 +202,8 @@ func TestUserService_SaveSecurity(t *testing.T) {
 	t.Run("should return error when user not found", func(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
-		service := NewUserService(mockUserRepo, mockProfileRepo)
+		db := setupTestDB(t)
+		service := NewUserService(db, mockUserRepo, mockProfileRepo)
 
 		ctx := context.Background()
 		userID := uint(999)
@@ -216,7 +224,8 @@ func TestUserService_SaveSecurity(t *testing.T) {
 	t.Run("should return error when current password is invalid", func(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
-		service := NewUserService(mockUserRepo, mockProfileRepo)
+		db := setupTestDB(t)
+		service := NewUserService(db, mockUserRepo, mockProfileRepo)
 
 		ctx := context.Background()
 		userID := uint(1)
@@ -247,7 +256,8 @@ func TestUserService_SaveProfile(t *testing.T) {
 	t.Run("should save user profile successfully", func(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
-		service := NewUserService(mockUserRepo, mockProfileRepo)
+		db := setupTestDB(t)
+		service := NewUserService(db, mockUserRepo, mockProfileRepo)
 
 		ctx := context.Background()
 		userID := uint(1)
@@ -277,8 +287,6 @@ func TestUserService_SaveProfile(t *testing.T) {
 			Gender:         req.Gender,
 		}
 
-		db := setupTestDB(t)
-
 		mockUserRepo.On("UpdateFullNameTX", ctx, mock.Anything, userID, req.FullName).Return(nil)
 		mockProfileRepo.On("GetByIDTX", ctx, mock.Anything, userID).Return(&existingUser.Profile, nil)
 		mockProfileRepo.On("UpdateTX", ctx, mock.Anything, mock.AnythingOfType("*model.UserProfile")).Return(updatedProfile, nil)
@@ -297,7 +305,8 @@ func TestUserService_SaveProfile(t *testing.T) {
 	t.Run("should create new profile when user profile not found", func(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
-		service := NewUserService(mockUserRepo, mockProfileRepo)
+		db := setupTestDB(t)
+		service := NewUserService(db, mockUserRepo, mockProfileRepo)
 		ctx := context.Background()
 		userID := uint(1)
 		req := dto.SaveUserProfileRequest{
@@ -307,8 +316,6 @@ func TestUserService_SaveProfile(t *testing.T) {
 			Birthday:       mainutils.StrPtrOrNil("1995-05-15"),
 			Gender:         mainutils.StrPtrOrNil("female"),
 		}
-
-		db := setupTestDB(t)
 
 		mockUserRepo.On("UpdateFullNameTX", ctx, mock.Anything, userID, req.FullName).Return(nil)
 		mockProfileRepo.On("GetByIDTX", ctx, mock.Anything, userID).Return(nil, gorm.ErrRecordNotFound)
@@ -329,7 +336,8 @@ func TestUserService_SaveProfile(t *testing.T) {
 	t.Run("should return error when failed updated user profile", func(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
-		service := NewUserService(mockUserRepo, mockProfileRepo)
+		db := setupTestDB(t)
+		service := NewUserService(db, mockUserRepo, mockProfileRepo)
 		ctx := context.Background()
 		userID := uint(1)
 		req := dto.SaveUserProfileRequest{
@@ -351,8 +359,6 @@ func TestUserService_SaveProfile(t *testing.T) {
 			},
 		}
 
-		db := setupTestDB(t)
-
 		mockUserRepo.On("UpdateFullNameTX", ctx, mock.Anything, userID, req.FullName).Return(nil)
 		mockProfileRepo.On("GetByIDTX", ctx, mock.Anything, userID).Return(&existingUser.Profile, nil)
 		mockProfileRepo.On("UpdateTX", ctx, mock.Anything, mock.AnythingOfType("*model.UserProfile")).Return(nil, errors.New("update failed"))
@@ -368,7 +374,8 @@ func TestUserService_SaveProfile(t *testing.T) {
 	t.Run("should return error when failed create user profile", func(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
-		service := NewUserService(mockUserRepo, mockProfileRepo)
+		db := setupTestDB(t)
+		service := NewUserService(db, mockUserRepo, mockProfileRepo)
 		ctx := context.Background()
 		userID := uint(1)
 		req := dto.SaveUserProfileRequest{
@@ -378,7 +385,6 @@ func TestUserService_SaveProfile(t *testing.T) {
 			Birthday:       mainutils.StrPtrOrNil("1995-05-15"),
 			Gender:         mainutils.StrPtrOrNil("female"),
 		}
-		db := setupTestDB(t)
 
 		mockUserRepo.On("UpdateFullNameTX", ctx, mock.Anything, userID, req.FullName).Return(nil)
 		mockProfileRepo.On("GetByIDTX", ctx, mock.Anything, userID).Return(nil, gorm.ErrRecordNotFound)
@@ -397,7 +403,8 @@ func TestUserService_GetUserStatistics(t *testing.T) {
 	t.Run("should get user statistics successfully", func(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
-		service := NewUserService(mockUserRepo, mockProfileRepo)
+		db := setupTestDB(t)
+		service := NewUserService(db, mockUserRepo, mockProfileRepo)
 
 		ctx := context.Background()
 		expectedStats := dto.GetUserStatisticsResponse{
@@ -441,7 +448,8 @@ func TestUserService_GetUserStatistics(t *testing.T) {
 	t.Run("should return error on user count fetch failure", func(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
-		service := NewUserService(mockUserRepo, mockProfileRepo)
+		db := setupTestDB(t)
+		service := NewUserService(db, mockUserRepo, mockProfileRepo)
 		ctx := context.Background()
 
 		mockUserRepo.On("GetUsersCount", ctx).Return(int64(0), errors.New("database error"))
@@ -456,7 +464,8 @@ func TestUserService_GetUserStatistics(t *testing.T) {
 	t.Run("should return error on gender count fetch failure", func(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
-		service := NewUserService(mockUserRepo, mockProfileRepo)
+		db := setupTestDB(t)
+		service := NewUserService(db, mockUserRepo, mockProfileRepo)
 		ctx := context.Background()
 		mockUserRepo.On("GetUsersCount", ctx).Return(int64(100), nil)
 		mockUserRepo.On("GetByUserGenderCount", ctx).Return(nil, errors.New("database error"))
@@ -471,7 +480,8 @@ func TestUserService_GetUserStatistics(t *testing.T) {
 	t.Run("should return error on monthly user count fetch failure", func(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
-		service := NewUserService(mockUserRepo, mockProfileRepo)
+		db := setupTestDB(t)
+		service := NewUserService(db, mockUserRepo, mockProfileRepo)
 		ctx := context.Background()
 		mockUserRepo.On("GetUsersCount", ctx).Return(int64(100), nil)
 		mockUserRepo.On("GetByUserGenderCount", ctx).Return(map[string]int64{
