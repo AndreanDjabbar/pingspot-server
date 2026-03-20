@@ -24,6 +24,8 @@ import (
 )
 
 type ReportService struct {
+	postgreDB          *gorm.DB
+	mongoDB            *mongo.Client
 	reportRepo         reportRepository.ReportRepository
 	reportLocationRepo reportRepository.ReportLocationRepository
 	reportImageRepo    reportRepository.ReportImageRepository
@@ -37,6 +39,8 @@ type ReportService struct {
 }
 
 func NewreportService(
+	postgreDB *gorm.DB,
+	mongoDB *mongo.Client,
 	reportRepo reportRepository.ReportRepository,
 	locationRepo reportRepository.ReportLocationRepository,
 	reportReaction reportRepository.ReportReactionRepository,
@@ -49,6 +53,8 @@ func NewreportService(
 	reportCommentRepo reportRepository.ReportCommentRepository,
 ) *ReportService {
 	return &ReportService{
+		postgreDB:          postgreDB,
+		mongoDB:            mongoDB,
 		reportRepo:         reportRepo,
 		reportLocationRepo: locationRepo,
 		reportImageRepo:    imageRepo,
@@ -62,7 +68,7 @@ func NewreportService(
 	}
 }
 
-func (s *ReportService) CreateReport(ctx context.Context, db *gorm.DB, userID uint, req dto.CreateReportRequest) (*dto.CreateReportResponse, error) {
+func (s *ReportService) CreateReport(ctx context.Context, userID uint, req dto.CreateReportRequest) (*dto.CreateReportResponse, error) {
 	requestID := contextutils.GetRequestID(ctx)
 	logger.Info("Creating report",
 		zap.String("request_id", requestID),
@@ -70,7 +76,7 @@ func (s *ReportService) CreateReport(ctx context.Context, db *gorm.DB, userID ui
 		zap.String("report_type", req.ReportType),
 	)
 
-	tx := db.Begin()
+	tx := s.postgreDB.Begin()
 	if tx.Error != nil {
 		logger.Error("Failed to start transaction",
 			zap.String("request_id", requestID),
@@ -160,8 +166,8 @@ func (s *ReportService) CreateReport(ctx context.Context, db *gorm.DB, userID ui
 	return reportResult, nil
 }
 
-func (s *ReportService) EditReport(ctx context.Context, db *gorm.DB, userID, reportID uint, req dto.EditReportRequest) (*dto.EditReportResponse, error) {
-	tx := db.Begin()
+func (s *ReportService) EditReport(ctx context.Context, userID, reportID uint, req dto.EditReportRequest) (*dto.EditReportResponse, error) {
+	tx := s.postgreDB.Begin()
 	if tx.Error != nil {
 		return nil, apperror.New(500, "TRANSACTION_START_FAILED", "Gagal memulai transaksi", tx.Error.Error())
 	}
@@ -264,8 +270,8 @@ func (s *ReportService) EditReport(ctx context.Context, db *gorm.DB, userID, rep
 	return reportResult, nil
 }
 
-func (s *ReportService) DeleteReport(ctx context.Context, db *gorm.DB, userID, reportID uint, deleteType string) error {
-	tx := db.Begin()
+func (s *ReportService) DeleteReport(ctx context.Context, userID, reportID uint, deleteType string) error {
+	tx := s.postgreDB.Begin()
 	if tx.Error != nil {
 		return apperror.New(500, "TRANSACTION_START_FAILED", "Gagal memulai transaksi", tx.Error.Error())
 	}
@@ -632,8 +638,8 @@ func (s *ReportService) GetReportByID(ctx context.Context, userID, reportID uint
 	return &result, nil
 }
 
-func (s *ReportService) ReactToReport(ctx context.Context, db *gorm.DB, userID uint, reportID uint, reactionType string) (*dto.ReactReportResponse, error) {
-	tx := db.Begin()
+func (s *ReportService) ReactToReport(ctx context.Context, userID uint, reportID uint, reactionType string) (*dto.ReactReportResponse, error) {
+	tx := s.postgreDB.Begin()
 	if tx.Error != nil {
 		return nil, apperror.New(500, "TRANSACTION_START_FAILED", "Gagal memulai transaksi", tx.Error.Error())
 	}
@@ -703,8 +709,8 @@ func (s *ReportService) ReactToReport(ctx context.Context, db *gorm.DB, userID u
 	return response, nil
 }
 
-func (s *ReportService) VoteToReport(ctx context.Context, db *gorm.DB, userID uint, reportID uint, voteType string) (*dto.GetVoteReportResponse, error) {
-	tx := db.Begin()
+func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID uint, voteType string) (*dto.GetVoteReportResponse, error) {
+	tx := s.postgreDB.Begin()
 	if tx.Error != nil {
 		return nil, apperror.New(500, "TRANSACTION_START_FAILED", "Gagal memulai transaksi", tx.Error.Error())
 	}
@@ -857,8 +863,8 @@ func (s *ReportService) VoteToReport(ctx context.Context, db *gorm.DB, userID ui
 	}, nil
 }
 
-func (s *ReportService) UploadProgressReport(ctx context.Context, db *gorm.DB, userID, reportID uint, req dto.UploadProgressReportRequest) (*dto.UploadProgressReportResponse, error) {
-	tx := db.Begin()
+func (s *ReportService) UploadProgressReport(ctx context.Context, userID, reportID uint, req dto.UploadProgressReportRequest) (*dto.UploadProgressReportResponse, error) {
+	tx := s.postgreDB.Begin()
 	if tx.Error != nil {
 		return nil, apperror.New(500, "TRANSACTION_START_FAILED", "gagal memulai transaksi", tx.Error.Error())
 	}
@@ -970,7 +976,7 @@ func (s *ReportService) GetProgressReports(ctx context.Context, reportID uint) (
 	return response, nil
 }
 
-func (s *ReportService) CreateReportComment(ctx context.Context, db *mongo.Client, userID, reportID uint, req dto.CreateReportCommentRequest) (*dto.CreateReportCommentResponse, error) {
+func (s *ReportService) CreateReportComment(ctx context.Context, userID, reportID uint, req dto.CreateReportCommentRequest) (*dto.CreateReportCommentResponse, error) {
 	report, err := s.reportRepo.GetByID(ctx, reportID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
