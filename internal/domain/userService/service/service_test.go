@@ -291,7 +291,7 @@ func TestUserService_SaveProfile(t *testing.T) {
 		mockProfileRepo.On("GetByIDTX", ctx, mock.Anything, userID).Return(&existingUser.Profile, nil)
 		mockProfileRepo.On("UpdateTX", ctx, mock.Anything, mock.AnythingOfType("*model.UserProfile")).Return(updatedProfile, nil)
 
-		profileResponse, err := service.SaveProfile(ctx, db, userID, req)
+		profileResponse, err := service.SaveProfile(ctx, userID, req)
 
 		require.NoError(t, err)
 		assert.NotNil(t, profileResponse)
@@ -321,7 +321,7 @@ func TestUserService_SaveProfile(t *testing.T) {
 		mockProfileRepo.On("GetByIDTX", ctx, mock.Anything, userID).Return(nil, gorm.ErrRecordNotFound)
 		mockProfileRepo.On("CreateTX", ctx, mock.Anything, mock.AnythingOfType("*model.UserProfile")).Return(nil, nil)
 
-		profileResponse, err := service.SaveProfile(ctx, db, userID, req)
+		profileResponse, err := service.SaveProfile(ctx, userID, req)
 
 		require.NoError(t, err)
 		assert.NotNil(t, profileResponse)
@@ -363,7 +363,7 @@ func TestUserService_SaveProfile(t *testing.T) {
 		mockProfileRepo.On("GetByIDTX", ctx, mock.Anything, userID).Return(&existingUser.Profile, nil)
 		mockProfileRepo.On("UpdateTX", ctx, mock.Anything, mock.AnythingOfType("*model.UserProfile")).Return(nil, errors.New("update failed"))
 
-		profileResponse, err := service.SaveProfile(ctx, db, userID, req)
+		profileResponse, err := service.SaveProfile(ctx, userID, req)
 
 		assert.Error(t, err)
 		assert.Nil(t, profileResponse)
@@ -389,7 +389,7 @@ func TestUserService_SaveProfile(t *testing.T) {
 		mockUserRepo.On("UpdateFullNameTX", ctx, mock.Anything, userID, req.FullName).Return(nil)
 		mockProfileRepo.On("GetByIDTX", ctx, mock.Anything, userID).Return(nil, gorm.ErrRecordNotFound)
 		mockProfileRepo.On("CreateTX", ctx, mock.Anything, mock.AnythingOfType("*model.UserProfile")).Return(nil, errors.New("create failed"))
-		profileResponse, err := service.SaveProfile(ctx, db, userID, req)
+		profileResponse, err := service.SaveProfile(ctx, userID, req)
 
 		assert.Error(t, err)
 		assert.Nil(t, profileResponse)
