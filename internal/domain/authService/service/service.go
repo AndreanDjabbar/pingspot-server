@@ -33,6 +33,7 @@ func getRefreshTokenDuration() time.Duration {
 }
 
 type AuthService struct {
+	db			  *gorm.DB
 	userRepo        userRepo.UserRepository
 	userSessionRepo userRepo.UserSessionRepository
 	userProfileRepo userRepo.UserProfileRepository
@@ -40,12 +41,14 @@ type AuthService struct {
 }
 
 func NewAuthService(
+	db *gorm.DB,
 	userRepo userRepo.UserRepository,
 	userProfileRepo userRepo.UserProfileRepository,
 	userSessionRepo userRepo.UserSessionRepository,
 	cacheRepo cacheRepo.CacheRepository,
 ) *AuthService {
 	return &AuthService{
+		db:			  db,
 		userRepo:        userRepo,
 		userProfileRepo: userProfileRepo,
 		userSessionRepo: userSessionRepo,
