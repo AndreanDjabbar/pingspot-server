@@ -36,43 +36,43 @@ func setupAuthTestDB(t *testing.T) *gorm.DB {
 }
 
 func setupTestKeys(t *testing.T) {
-    keysDir := filepath.Join("keys")
-    err := os.MkdirAll(keysDir, 0755)
-    require.NoError(t, err)
-    
-    privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-    require.NoError(t, err)
-    
-    privateKeyFile := filepath.Join(keysDir, "private.pem")
-    privateKeyPEM := &pem.Block{
-        Type:  "RSA PRIVATE KEY",
-        Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
-    }
-    privateFile, err := os.Create(privateKeyFile)
-    require.NoError(t, err)
-    defer privateFile.Close()
-    
-    err = pem.Encode(privateFile, privateKeyPEM)
-    require.NoError(t, err)
-    
-    publicKeyFile := filepath.Join(keysDir, "public.pem")
-    publicKeyBytes, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
-    require.NoError(t, err)
-    
-    publicKeyPEM := &pem.Block{
-        Type:  "PUBLIC KEY",
-        Bytes: publicKeyBytes,
-    }
-    publicFile, err := os.Create(publicKeyFile)
-    require.NoError(t, err)
-    defer publicFile.Close()
-    
-    err = pem.Encode(publicFile, publicKeyPEM)
-    require.NoError(t, err)
-    
-    t.Cleanup(func() {
-        os.RemoveAll(keysDir)
-    })
+	keysDir := filepath.Join("keys")
+	err := os.MkdirAll(keysDir, 0755)
+	require.NoError(t, err)
+
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	privateKeyFile := filepath.Join(keysDir, "private.pem")
+	privateKeyPEM := &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
+	}
+	privateFile, err := os.Create(privateKeyFile)
+	require.NoError(t, err)
+	defer privateFile.Close()
+
+	err = pem.Encode(privateFile, privateKeyPEM)
+	require.NoError(t, err)
+
+	publicKeyFile := filepath.Join(keysDir, "public.pem")
+	publicKeyBytes, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	require.NoError(t, err)
+
+	publicKeyPEM := &pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: publicKeyBytes,
+	}
+	publicFile, err := os.Create(publicKeyFile)
+	require.NoError(t, err)
+	defer publicFile.Close()
+
+	err = pem.Encode(publicFile, publicKeyPEM)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		os.RemoveAll(keysDir)
+	})
 }
 
 func TestNewAuthService(t *testing.T) {
@@ -125,7 +125,7 @@ func TestAuthService_Register(t *testing.T) {
 
 		mockProfileRepo.On("CreateTX", ctx, mock.AnythingOfType("*gorm.DB"), mock.AnythingOfType("*model.UserProfile")).Return(&model.UserProfile{UserID: 1}, nil)
 
-		user, err := service.Register(ctx, db, req, true)
+		user, err := service.Register(ctx, req, true)
 
 		require.NoError(t, err)
 		assert.NotNil(t, user)
@@ -159,7 +159,7 @@ func TestAuthService_Register(t *testing.T) {
 
 		mockUserRepo.On("GetByEmail", ctx, req.Email).Return(existingUser, nil)
 
-		user, err := service.Register(ctx, db, req, false)
+		user, err := service.Register(ctx, req, false)
 
 		assert.Error(t, err)
 		assert.Nil(t, user)
@@ -187,7 +187,7 @@ func TestAuthService_Register(t *testing.T) {
 		dbError := errors.New("database connection error")
 		mockUserRepo.On("GetByEmail", ctx, req.Email).Return(nil, dbError)
 
-		user, err := service.Register(ctx, db, req, false)
+		user, err := service.Register(ctx, req, false)
 
 		assert.Error(t, err)
 		assert.Nil(t, user)
@@ -200,7 +200,7 @@ func TestAuthService_Register(t *testing.T) {
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
 		cacheRepo := new(mocks.MockCacheRepository)
-		service := NewAuthService(db, 	mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
+		service := NewAuthService(db, mockUserRepo, mockProfileRepo, mockSessionRepo, cacheRepo)
 
 		ctx := context.Background()
 		req := dto.RegisterRequest{
@@ -216,7 +216,7 @@ func TestAuthService_Register(t *testing.T) {
 		createError := errors.New("failed to create user")
 		mockUserRepo.On("CreateTX", ctx, mock.AnythingOfType("*gorm.DB"), mock.AnythingOfType("*model.User")).Return(nil, createError)
 
-		user, err := service.Register(ctx, db, req, false)
+		user, err := service.Register(ctx, req, false)
 
 		assert.Error(t, err)
 		assert.Nil(t, user)
@@ -252,7 +252,7 @@ func TestAuthService_Register(t *testing.T) {
 		profileError := errors.New("failed to create profile")
 		mockProfileRepo.On("CreateTX", ctx, mock.AnythingOfType("*gorm.DB"), mock.AnythingOfType("*model.UserProfile")).Return(nil, profileError)
 
-		user, err := service.Register(ctx, db, req, false)
+		user, err := service.Register(ctx, req, false)
 
 		assert.Error(t, err)
 		assert.Nil(t, user)
@@ -393,7 +393,7 @@ func TestAuthService_Login(t *testing.T) {
 
 		mockUserRepo.On("GetByEmail", ctx, req.Email).Return(nil, gorm.ErrRecordNotFound)
 
-		user, accessToken, refreshToken, err := service.Login(ctx, db, req)
+		user, accessToken, refreshToken, err := service.Login(ctx, req)
 
 		assert.Error(t, err)
 		assert.Nil(t, user)
@@ -428,7 +428,7 @@ func TestAuthService_Login(t *testing.T) {
 
 		mockUserRepo.On("GetByEmail", ctx, req.Email).Return(existingUser, nil)
 
-		user, accessToken, refreshToken, err := service.Login(ctx, db, req)
+		user, accessToken, refreshToken, err := service.Login(ctx, req)
 
 		assert.Error(t, err)
 		assert.Nil(t, user)
@@ -464,7 +464,7 @@ func TestAuthService_Login(t *testing.T) {
 
 		mockUserRepo.On("GetByEmail", ctx, req.Email).Return(existingUser, nil)
 
-		user, accessToken, refreshToken, err := service.Login(ctx, db, req)
+		user, accessToken, refreshToken, err := service.Login(ctx, req)
 
 		assert.Error(t, err)
 		assert.Nil(t, user)
@@ -522,7 +522,7 @@ func TestAuthService_Login(t *testing.T) {
 
 		mockCacheRepo.On("Expire", mock.Anything, "user_session:1", mock.AnythingOfType("time.Duration")).Return(true, nil)
 
-		user, accessToken, refreshToken, err := service.Login(ctx, db, req)
+		user, accessToken, refreshToken, err := service.Login(ctx, req)
 
 		require.NoError(t, err)
 		assert.NotNil(t, user)
@@ -531,7 +531,7 @@ func TestAuthService_Login(t *testing.T) {
 		assert.Equal(t, existingUser.Email, user.Email)
 		assert.Equal(t, existingUser.ID, user.ID)
 		assert.Equal(t, existingUser.Username, user.Username)
-		
+
 		mockUserRepo.AssertExpectations(t)
 		mockSessionRepo.AssertExpectations(t)
 		mockCacheRepo.AssertExpectations(t)
@@ -872,7 +872,7 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		ctx := context.Background()
 		userID := uint(1)
 		refreshTokenID := "test-refresh-token-id"
-		
+
 		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
 		hashedRefreshToken := tokenutils.HashSHA256String(refreshToken)
 
@@ -895,13 +895,13 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		mockCacheRepo.On("Get", mock.Anything, "refresh_token:"+refreshTokenID).Return(hashedRefreshToken, nil)
 		mockUserRepo.On("GetByID", ctx, userID).Return(existingUser, nil)
 		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(userSession, nil)
-		
+
 		mockCacheRepo.On("Del", mock.Anything, "refresh_token:"+refreshTokenID).Return(nil)
-		
+
 		mockCacheRepo.On("Set", mock.Anything, mock.MatchedBy(func(key string) bool {
 			return strings.HasPrefix(key, "refresh_token:") && key != "refresh_token:"+refreshTokenID
 		}), mock.AnythingOfType("string"), mock.AnythingOfType("time.Duration")).Return(nil)
-		
+
 		mockSessionRepo.On("Update", ctx, mock.AnythingOfType("*model.UserSession")).Return(nil)
 
 		accessToken, newRefreshToken, err := service.RefreshToken(ctx, refreshToken)
@@ -926,7 +926,7 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		ctx := context.Background()
 		userID := uint(1)
 		refreshTokenID := "test-refresh-token-id"
-		
+
 		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
 		hashedRefreshToken := tokenutils.HashSHA256String(refreshToken)
 
@@ -947,19 +947,19 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		}
 
 		mockCacheRepo.On("Get", mock.Anything, "refresh_token:"+refreshTokenID).Return("", errors.New("key not found"))
-		
+
 		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(userSession, nil)
-		
+
 		mockCacheRepo.On("Set", mock.Anything, "refresh_token:"+refreshTokenID, hashedRefreshToken, mock.AnythingOfType("time.Duration")).Return(nil)
-		
+
 		mockUserRepo.On("GetByID", ctx, userID).Return(existingUser, nil)
-		
+
 		mockCacheRepo.On("Del", mock.Anything, "refresh_token:"+refreshTokenID).Return(nil)
-		
+
 		mockCacheRepo.On("Set", mock.Anything, mock.MatchedBy(func(key string) bool {
 			return strings.HasPrefix(key, "refresh_token:") && key != "refresh_token:"+refreshTokenID
 		}), mock.AnythingOfType("string"), mock.AnythingOfType("time.Duration")).Return(nil)
-		
+
 		mockSessionRepo.On("Update", ctx, mock.AnythingOfType("*model.UserSession")).Return(nil)
 
 		accessToken, newRefreshToken, err := service.RefreshToken(ctx, refreshToken)
@@ -1002,11 +1002,11 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		ctx := context.Background()
 		userID := uint(1)
 		refreshTokenID := "test-refresh-token-id"
-		
+
 		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
 
 		mockCacheRepo.On("Get", mock.Anything, "refresh_token:"+refreshTokenID).Return("", errors.New("key not found"))
-		
+
 		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(nil, gorm.ErrRecordNotFound)
 
 		accessToken, newRefreshToken, err := service.RefreshToken(ctx, refreshToken)
@@ -1030,7 +1030,7 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		ctx := context.Background()
 		userID := uint(1)
 		refreshTokenID := "test-refresh-token-id"
-		
+
 		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
 		hashedRefreshToken := tokenutils.HashSHA256String(refreshToken)
 
@@ -1067,7 +1067,7 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		ctx := context.Background()
 		userID := uint(1)
 		refreshTokenID := "test-refresh-token-id"
-		
+
 		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
 		hashedRefreshToken := tokenutils.HashSHA256String(refreshToken)
 
@@ -1104,7 +1104,7 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		ctx := context.Background()
 		userID := uint(1)
 		refreshTokenID := "test-refresh-token-id"
-		
+
 		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
 		wrongHashedToken := "wrong-hashed-token"
 
@@ -1130,7 +1130,7 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		ctx := context.Background()
 		userID := uint(1)
 		refreshTokenID := "test-refresh-token-id"
-		
+
 		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
 		wrongHashedToken := "wrong-hashed-token"
 
@@ -1167,7 +1167,7 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		ctx := context.Background()
 		userID := uint(1)
 		refreshTokenID := "test-refresh-token-id"
-		
+
 		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
 		hashedRefreshToken := tokenutils.HashSHA256String(refreshToken)
 
@@ -1190,12 +1190,12 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		mockSessionRepo := new(userMocks.MockUserSessionRepository)
 		mockCacheRepo := new(mocks.MockCacheRepository)
 		db := setupAuthTestDB(t)
-		service := NewAuthService(db, 	mockUserRepo, mockProfileRepo, mockSessionRepo, mockCacheRepo)
+		service := NewAuthService(db, mockUserRepo, mockProfileRepo, mockSessionRepo, mockCacheRepo)
 
 		ctx := context.Background()
 		userID := uint(1)
 		refreshTokenID := "test-refresh-token-id"
-		
+
 		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
 		hashedRefreshToken := tokenutils.HashSHA256String(refreshToken)
 
@@ -1219,7 +1219,7 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		mockUserRepo.On("GetByID", ctx, userID).Return(existingUser, nil)
 		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(userSession, nil)
 		mockCacheRepo.On("Del", mock.Anything, "refresh_token:"+refreshTokenID).Return(nil)
-		
+
 		mockCacheRepo.On("Set", mock.Anything, mock.MatchedBy(func(key string) bool {
 			return strings.HasPrefix(key, "refresh_token:") && key != "refresh_token:"+refreshTokenID
 		}), mock.AnythingOfType("string"), mock.AnythingOfType("time.Duration")).Return(errors.New("redis error"))
@@ -1246,7 +1246,7 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		ctx := context.Background()
 		userID := uint(1)
 		refreshTokenID := "test-refresh-token-id"
-		
+
 		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
 		hashedRefreshToken := tokenutils.HashSHA256String(refreshToken)
 
@@ -1273,7 +1273,7 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		mockCacheRepo.On("Set", mock.Anything, mock.MatchedBy(func(key string) bool {
 			return strings.HasPrefix(key, "refresh_token:") && key != "refresh_token:"+refreshTokenID
 		}), mock.AnythingOfType("string"), mock.AnythingOfType("time.Duration")).Return(nil)
-		
+
 		// Session update fails
 		mockSessionRepo.On("Update", ctx, mock.AnythingOfType("*model.UserSession")).Return(errors.New("database error"))
 
