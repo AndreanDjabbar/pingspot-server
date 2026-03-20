@@ -9,7 +9,6 @@ import (
 	"pingspot/internal/domain/reportService/dto"
 	"pingspot/internal/domain/reportService/service"
 	"pingspot/internal/domain/reportService/validation"
-	"pingspot/internal/infrastructure/database"
 	apperror "pingspot/pkg/apperror"
 	"pingspot/pkg/logger"
 	mainutils "pingspot/pkg/utils/mainUtils"
@@ -185,7 +184,6 @@ func (h *ReportHandler) CreateReportHandler(c *fiber.Ctx) error {
 		Image5URL:         mainutils.StrPtrOrNil(images[4]),
 	}
 
-	db := database.GetPostgresDB()
 	if err := validation.Validate.Struct(req); err != nil {
 		errors := validation.FormatCreateReportValidationErrors(err)
 		logger.Error("Validation failed", zap.Error(err))
@@ -199,7 +197,7 @@ func (h *ReportHandler) CreateReportHandler(c *fiber.Ctx) error {
 	}
 	userID := uint(claims["user_id"].(float64))
 
-	result, err := h.reportService.CreateReport(ctx, db, userID, req)
+	result, err := h.reportService.CreateReport(ctx, userID, req)
 	if err != nil {
 		for i := range files {
 			os.Remove(filepath.Join("uploads/main/report", images[i]))
@@ -380,7 +378,6 @@ func (h *ReportHandler) EditReportHandler(c *fiber.Ctx) error {
 		Image5URL:         mainutils.StrPtrOrNil(images[4]),
 	}
 
-	db := database.GetPostgresDB()
 	if err := validation.Validate.Struct(req); err != nil {
 		errors := validation.FormatEditReportValidationErrors(err)
 		logger.Error("Validation failed", zap.Error(err))
@@ -404,7 +401,7 @@ func (h *ReportHandler) EditReportHandler(c *fiber.Ctx) error {
 		}
 	}
 
-	result, err := h.reportService.EditReport(ctx, db, userID, uintReportID, req)
+	result, err := h.reportService.EditReport(ctx, userID, uintReportID, req)
 	if err != nil {
 		for _, file := range newImages {
 			for k := range file {
@@ -520,9 +517,7 @@ func (h *ReportHandler) ReactionReportHandler(c *fiber.Ctx) error {
 		return response.ResponseError(c, 401, "Token tidak valid", "", "Anda harus login terlebih dahulu")
 	}
 	userID := uint(claims["user_id"].(float64))
-	db := database.GetPostgresDB()
-
-	reaction, err := h.reportService.ReactToReport(ctx, db, userID, uintReportID, req.ReactionType)
+	reaction, err := h.reportService.ReactToReport(ctx, userID, uintReportID, req.ReactionType)
 	if err != nil {
 		logger.Error("Failed to react to report", zap.Uint("reportID", uintReportID), zap.Uint("userID", userID), zap.Error(err))
 		if appErr, ok := err.(*apperror.AppError); ok {
@@ -558,8 +553,7 @@ func (h *ReportHandler) VoteReportHandler(c *fiber.Ctx) error {
 		return response.ResponseError(c, 401, "Token tidak valid", "", "Anda harus login terlebih dahulu")
 	}
 	userID := uint(claims["user_id"].(float64))
-	db := database.GetPostgresDB()
-	vote, err := h.reportService.VoteToReport(ctx, db, userID, uintReportID, req.VoteType)
+	vote, err := h.reportService.VoteToReport(ctx, userID, uintReportID, req.VoteType)
 	if err != nil {
 		logger.Error("Failed to vote to report", zap.Uint("reportID", uintReportID), zap.Uint("userID", userID), zap.Error(err))
 		if appErr, ok := err.(*apperror.AppError); ok {
@@ -646,9 +640,7 @@ func (h *ReportHandler) UploadProgressReportHandler(c *fiber.Ctx) error {
 	}
 	userID := uint(claims["user_id"].(float64))
 
-	db := database.GetPostgresDB()
-
-	newProgress, err := h.reportService.UploadProgressReport(ctx, db, userID, uintReportID, req)
+	newProgress, err := h.reportService.UploadProgressReport(ctx, userID, uintReportID, req)
 	if err != nil {
 		logger.Error("Failed to upload progress report", zap.Uint("reportID", uintReportID), zap.Uint("userID", userID), zap.Error(err))
 		if appErr, ok := err.(*apperror.AppError); ok {
@@ -693,8 +685,7 @@ func (h *ReportHandler) DeleteReportHandler(c *fiber.Ctx) error {
 		return response.ResponseError(c, 401, "Token tidak valid", "", "Anda harus login terlebih dahulu")
 	}
 	userID := uint(claims["user_id"].(float64))
-	db := database.GetPostgresDB()
-	err = h.reportService.DeleteReport(ctx, db, userID, uintReportID, "soft")
+	err = h.reportService.DeleteReport(ctx, userID, uintReportID, "soft")
 	if err != nil {
 		logger.Error("Failed to delete report", zap.Uint("reportID", uintReportID), zap.Uint("userID", userID), zap.Error(err))
 		if appErr, ok := err.(*apperror.AppError); ok {
@@ -838,9 +829,7 @@ func (h *ReportHandler) CreateReportCommentHandler(c *fiber.Ctx) error {
 		logger.Error("Validation failed", zap.Error(err))
 		return response.ResponseError(c, 400, "Validasi gagal", "errors", errors)
 	}
-	db := database.GetMongoDB()
-
-	newComment, err := h.reportService.CreateReportComment(ctx, db, userID, uintReportID, req)
+	newComment, err := h.reportService.CreateReportComment(ctx, userID, uintReportID, req)
 	if err != nil {
 		os.Remove(filepath.Join("uploads/main/report/comments", imageName))
 		logger.Error("Failed to create report comment", zap.Uint("reportID", uintReportID), zap.Uint("userID", userID), zap.Error(err))
@@ -874,7 +863,7 @@ func (h *ReportHandler) GetReportCommentsHandler(c *fiber.Ctx) error {
 		lastComment := comments.Comments[len(comments.Comments)-1]
 		nextCursor = mainutils.StrPtrOrNil(lastComment.CommentID)
 	}
-	
+
 	mappedData := fiber.Map{
 		"comments":   comments,
 		"nextCursor": nextCursor,
@@ -910,13 +899,13 @@ func (h *ReportHandler) GetReportCommentRepliesHandler(c *fiber.Ctx) error {
 		return response.ResponseError(c, 500, "Gagal mendapatkan balasan komentar laporan", "", err.Error())
 	}
 	var nextCursor *string = nil
-	
+
 	if replies.HasMore && len(replies.Replies) > 0 {
 		lastComment := replies.Replies[len(replies.Replies)-1]
 		nextCursor = mainutils.StrPtrOrNil(lastComment.CommentID)
 	}
 	mappedData := fiber.Map{
-		"replies":   replies,
+		"replies":    replies,
 		"nextCursor": nextCursor,
 	}
 	return response.ResponseSuccess(c, 200, "Sukses mengambil balasan komentar laporan", "data", mappedData)

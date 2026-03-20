@@ -10,7 +10,6 @@ import (
 	"pingspot/internal/domain/authService/util"
 	"pingspot/internal/domain/authService/validation"
 	"pingspot/internal/infrastructure/cache"
-	"pingspot/internal/infrastructure/database"
 	apperror "pingspot/pkg/apperror"
 	"pingspot/pkg/logger"
 	"pingspot/pkg/utils/env"
@@ -66,8 +65,7 @@ func (h *AuthHandler) RegisterHandler(c *fiber.Ctx) error {
 		logger.Error("Validation failed", zap.Error(err))
 		return response.ResponseError(c, 400, "Validasi gagal", "errors", errors)
 	}
-	db := database.GetPostgresDB()
-	user, err := h.authService.Register(ctx, db, req, false)
+	user, err := h.authService.Register(ctx, req, false)
 	if err != nil {
 		logger.Error("Registration failed", zap.Error(err))
 		if appErr, ok := err.(*apperror.AppError); ok {
@@ -184,7 +182,6 @@ func (h *AuthHandler) VerificationHandler(c *fiber.Ctx) error {
 
 func (h *AuthHandler) LoginHandler(c *fiber.Ctx) error {
 	ctx := c.UserContext()
-	db := database.GetPostgresDB()
 	var req dto.LoginRequest
 	if err := c.BodyParser(&req); err != nil {
 		logger.Error("Failed to parse request body", zap.Error(err))
@@ -203,7 +200,7 @@ func (h *AuthHandler) LoginHandler(c *fiber.Ctx) error {
 	req.IPAddress = userIP
 	req.UserAgent = userAgent
 
-	_, accessToken, refreshToken, err := h.authService.Login(ctx, db, req)
+	_, accessToken, refreshToken, err := h.authService.Login(ctx, req)
 	if err != nil {
 		logger.Error("Login failed", zap.Error(err))
 		if appErr, ok := err.(*apperror.AppError); ok {
@@ -287,8 +284,7 @@ func (h *AuthHandler) OAuthCallbackHandler(provider string) http.HandlerFunc {
 				Provider:   provider,
 				ProviderID: &providerId,
 			}
-			db := database.GetPostgresDB()
-			createdUser, err := h.authService.Register(ctx, db, newUser, true)
+			createdUser, err := h.authService.Register(ctx, newUser, true)
 			if err != nil {
 				logger.Error("Error registering new user", zap.String("provider", provider), zap.Error(err))
 				http.Error(w, "Terdapat masalah saat registrasi", http.StatusInternalServerError)
@@ -297,8 +293,6 @@ func (h *AuthHandler) OAuthCallbackHandler(provider string) http.HandlerFunc {
 			logger.Info("New user registered", zap.String("provider", provider), zap.String("user_id", fmt.Sprintf("%d", createdUser.ID)))
 			existingUser = createdUser
 		}
-
-		db := database.GetPostgresDB()
 
 		var loginReq dto.LoginRequest
 		loginReq.Email = existingUser.Email
@@ -310,7 +304,7 @@ func (h *AuthHandler) OAuthCallbackHandler(provider string) http.HandlerFunc {
 		loginReq.IPAddress = userIP
 		loginReq.UserAgent = userAgent
 
-		_, accessToken, refreshToken, err := h.authService.Login(ctx, db, loginReq)
+		_, accessToken, refreshToken, err := h.authService.Login(ctx, loginReq)
 		if err != nil {
 			logger.Error("Login failed for OAuth user", zap.String("provider", provider), zap.Error(err))
 			http.Error(w, "Terdapat masalah saat login", http.StatusInternalServerError)

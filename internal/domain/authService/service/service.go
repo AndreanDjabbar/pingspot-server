@@ -33,6 +33,7 @@ func getRefreshTokenDuration() time.Duration {
 }
 
 type AuthService struct {
+	db              *gorm.DB
 	userRepo        userRepo.UserRepository
 	userSessionRepo userRepo.UserSessionRepository
 	userProfileRepo userRepo.UserProfileRepository
@@ -40,12 +41,14 @@ type AuthService struct {
 }
 
 func NewAuthService(
+	db *gorm.DB,
 	userRepo userRepo.UserRepository,
 	userProfileRepo userRepo.UserProfileRepository,
 	userSessionRepo userRepo.UserSessionRepository,
 	cacheRepo cacheRepo.CacheRepository,
 ) *AuthService {
 	return &AuthService{
+		db:              db,
 		userRepo:        userRepo,
 		userProfileRepo: userProfileRepo,
 		userSessionRepo: userSessionRepo,
@@ -53,7 +56,7 @@ func NewAuthService(
 	}
 }
 
-func (s *AuthService) Register(ctx context.Context, db *gorm.DB, req dto.RegisterRequest, isVerified bool) (*model.User, error) {
+func (s *AuthService) Register(ctx context.Context, req dto.RegisterRequest, isVerified bool) (*model.User, error) {
 	requestID := contextutils.GetRequestID(ctx)
 	logger.Info("Registering new user",
 		zap.String("request_id", requestID),
@@ -61,7 +64,7 @@ func (s *AuthService) Register(ctx context.Context, db *gorm.DB, req dto.Registe
 		zap.String("provider", req.Provider),
 	)
 
-	tx := db.Begin()
+	tx := s.db.Begin()
 	if tx.Error != nil {
 		logger.Error("Failed to start transaction",
 			zap.String("request_id", requestID),
@@ -133,7 +136,7 @@ func (s *AuthService) Register(ctx context.Context, db *gorm.DB, req dto.Registe
 	return createdUser, nil
 }
 
-func (s *AuthService) Login(ctx context.Context, db *gorm.DB, req dto.LoginRequest) (*model.User, string, string, error) {
+func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (*model.User, string, string, error) {
 	requestID := contextutils.GetRequestID(ctx)
 	logger.Info("User login attempt",
 		zap.String("request_id", requestID),
@@ -199,7 +202,7 @@ func (s *AuthService) Login(ctx context.Context, db *gorm.DB, req dto.LoginReque
 	refreshToken := tokenutils.GenerateRefreshToken(user.ID, refreshTokenID)
 	hashedRefreshToken := tokenutils.HashSHA256String(refreshToken)
 
-	tx := db.Begin()
+	tx := s.db.Begin()
 	userSession, err := s.userSessionRepo.CreateTX(ctx, tx, &model.UserSession{
 		UserID:             user.ID,
 		ExpiresAt:          time.Now().Add(getRefreshTokenDuration()).Unix(),
@@ -271,7 +274,7 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
 	if err != nil {
 		return "", "", apperror.New(401, "INVALID_REFRESH_TOKEN", "Refresh token tidak valid", err.Error())
 	}
-	
+
 	userID := uint(claims["user_id"].(float64))
 	refreshTokenID := claims["refresh_token_id"].(string)
 	hashedRefreshToken := tokenutils.HashSHA256String(refreshToken)

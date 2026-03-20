@@ -94,8 +94,6 @@ func main() {
 
 	server := server.New()
 
-	server.RegisterFiberRoutes()
-
 	port, _ := strconv.Atoi(env.Port())
 	host := env.Host()
 	logger.Info("Starting server on port", zap.Int("port", port), zap.String("host", host))

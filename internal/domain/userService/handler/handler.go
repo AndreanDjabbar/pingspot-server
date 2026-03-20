@@ -6,7 +6,6 @@ import (
 	"pingspot/internal/domain/userService/dto"
 	"pingspot/internal/domain/userService/service"
 	"pingspot/internal/domain/userService/validation"
-	"pingspot/internal/infrastructure/database"
 	apperror "pingspot/pkg/apperror"
 	"pingspot/pkg/logger"
 	mainutils "pingspot/pkg/utils/mainUtils"
@@ -120,8 +119,7 @@ func (h *UserHandler) SaveUserProfileHandler(c *fiber.Ctx) error {
 	}
 	userId := uint(claims["user_id"].(float64))
 	ctx := c.UserContext()
-	database := database.GetPostgresDB()
-	newProfile, err := h.userService.SaveProfile(ctx, database, userId, req)
+	newProfile, err := h.userService.SaveProfile(ctx, userId, req)
 	if err != nil {
 		logger.Error("Failed to save user profile", zap.Error(err))
 		if appErr, ok := err.(*apperror.AppError); ok {

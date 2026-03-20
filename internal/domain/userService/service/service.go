@@ -18,23 +18,25 @@ import (
 type UserService struct {
 	userRepo        repository.UserRepository
 	userProfileRepo repository.UserProfileRepository
+	db              *gorm.DB
 }
 
-func NewUserService(userRepo repository.UserRepository, userProfileRepo repository.UserProfileRepository) *UserService {
+func NewUserService(db *gorm.DB, userRepo repository.UserRepository, userProfileRepo repository.UserProfileRepository) *UserService {
 	return &UserService{
+		db:              db,
 		userRepo:        userRepo,
 		userProfileRepo: userProfileRepo,
 	}
 }
 
-func (s *UserService) SaveProfile(ctx context.Context, db *gorm.DB, userID uint, req dto.SaveUserProfileRequest) (*dto.SaveUserProfileResponse, error) {
+func (s *UserService) SaveProfile(ctx context.Context, userID uint, req dto.SaveUserProfileRequest) (*dto.SaveUserProfileResponse, error) {
 	requestID := contextutils.GetRequestID(ctx)
 	logger.Info("Saving user profile",
 		zap.String("request_id", requestID),
 		zap.Uint("user_id", userID),
 	)
 
-	tx := db.Begin()
+	tx := s.db.Begin()
 	if tx.Error != nil {
 		logger.Error("Failed to start transaction",
 			zap.String("request_id", requestID),

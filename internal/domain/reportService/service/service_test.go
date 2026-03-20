@@ -40,6 +40,8 @@ func setupTestDB(t *testing.T) *gorm.DB {
 
 func TestNewReportService(t *testing.T) {
 	t.Run("should create new report service", func(t *testing.T) {
+		postgreDB := setupTestDB(t)
+
 		mockReportRepo := new(report.MockReportRepository)
 		mockReportImageRepo := new(report.MockReportImageRepository)
 		mockReportProgressRepo := new(report.MockReportProgressRepository)
@@ -51,6 +53,8 @@ func TestNewReportService(t *testing.T) {
 		mockUserProfileRepo := new(userMocks.MockUserProfileRepository)
 		mockTaskService := new(taskServiceMocks.MockTaskService)
 		service := NewreportService(
+			postgreDB,
+			nil,
 			mockReportRepo,
 			mockReportLocationRepo,
 			mockReportReactionRepo,
@@ -92,6 +96,8 @@ func setupMocks() (
 	mockReportCommentRepo := new(report.MockReportCommentRepository)
 
 	service := NewreportService(
+		nil,
+		nil,
 		mockReportRepo,
 		mockReportLocationRepo,
 		mockReportReactionRepo,
@@ -111,7 +117,6 @@ func setupMocks() (
 
 func TestReportService_CreateReport(t *testing.T) {
 	ctx := context.Background()
-	db := setupTestDB(t)
 
 	t.Run("should create report successfully", func(t *testing.T) {
 		mockReportRepo, mockReportLocationRepo, _, mockReportImageRepo, _, _, _, _, _, _, service := setupMocks()
@@ -137,7 +142,7 @@ func TestReportService_CreateReport(t *testing.T) {
 		mockReportLocationRepo.On("Create", ctx, mock.AnythingOfType("*model.ReportLocation"), mock.AnythingOfType("*gorm.DB")).Return(nil)
 		mockReportImageRepo.On("Create", ctx, mock.AnythingOfType("*model.ReportImage"), mock.AnythingOfType("*gorm.DB")).Return(nil)
 
-		result, err := service.CreateReport(ctx, db, 1, req)
+		result, err := service.CreateReport(ctx, 1, req)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
@@ -160,7 +165,7 @@ func TestReportService_CreateReport(t *testing.T) {
 		mockReportRepo.On("Create", ctx, mock.AnythingOfType("*model.Report"), mock.AnythingOfType("*gorm.DB")).
 			Return(errors.New("database error"))
 
-		result, err := service.CreateReport(ctx, db, 1, req)
+		result, err := service.CreateReport(ctx, 1, req)
 
 		assert.Error(t, err)
 		assert.Nil(t, result)
@@ -171,7 +176,6 @@ func TestReportService_CreateReport(t *testing.T) {
 
 func TestReportService_EditReport(t *testing.T) {
 	ctx := context.Background()
-	db := setupTestDB(t)
 
 	t.Run("should edit report successfully", func(t *testing.T) {
 		mockReportRepo, mockReportLocationRepo, _, mockReportImageRepo, _, _, _, _, _, _, service := setupMocks()
@@ -214,7 +218,7 @@ func TestReportService_EditReport(t *testing.T) {
 		mockReportImageRepo.On("UpdateTX", ctx, mock.AnythingOfType("*gorm.DB"), mock.AnythingOfType("*model.ReportImage")).
 			Return(&model.ReportImage{}, nil)
 
-		result, err := service.EditReport(ctx, db, 1, 1, req)
+		result, err := service.EditReport(ctx, 1, 1, req)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
@@ -232,7 +236,7 @@ func TestReportService_EditReport(t *testing.T) {
 
 		mockReportRepo.On("GetByIDTX", ctx, mock.AnythingOfType("*gorm.DB"), uint(1)).Return(nil, gorm.ErrRecordNotFound)
 
-		result, err := service.EditReport(ctx, db, 1, 1, req)
+		result, err := service.EditReport(ctx, 1, 1, req)
 
 		assert.Error(t, err)
 		assert.Nil(t, result, err.Error())
@@ -254,7 +258,7 @@ func TestReportService_EditReport(t *testing.T) {
 
 		mockReportRepo.On("GetByIDTX", ctx, mock.AnythingOfType("*gorm.DB"), uint(1)).Return(existingReport, nil)
 
-		result, err := service.EditReport(ctx, db, 1, 1, req)
+		result, err := service.EditReport(ctx, 1, 1, req)
 
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "tidak memiliki izin")
@@ -265,7 +269,6 @@ func TestReportService_EditReport(t *testing.T) {
 
 func TestReportService_DeleteReport(t *testing.T) {
 	ctx := context.Background()
-	db := setupTestDB(t)
 
 	t.Run("should soft delete report successfully", func(t *testing.T) {
 		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks()
@@ -281,7 +284,7 @@ func TestReportService_DeleteReport(t *testing.T) {
 		mockReportRepo.On("UpdateTX", ctx, mock.AnythingOfType("*gorm.DB"), mock.AnythingOfType("*model.Report")).
 			Return(&model.Report{}, nil)
 
-		err := service.DeleteReport(ctx, db, 1, 1, "soft")
+		err := service.DeleteReport(ctx, 1, 1, "soft")
 
 		assert.NoError(t, err)
 		mockReportRepo.AssertExpectations(t)
@@ -301,7 +304,7 @@ func TestReportService_DeleteReport(t *testing.T) {
 		mockReportRepo.On("DeleteTX", ctx, mock.AnythingOfType("*gorm.DB"), mock.AnythingOfType("*model.Report")).
 			Return(&model.Report{}, nil)
 
-		err := service.DeleteReport(ctx, db, 1, 1, "hard")
+		err := service.DeleteReport(ctx, 1, 1, "hard")
 
 		assert.Nil(t, err)
 		assert.NoError(t, err)
@@ -313,7 +316,7 @@ func TestReportService_DeleteReport(t *testing.T) {
 
 		mockReportRepo.On("GetByIDTX", ctx, mock.AnythingOfType("*gorm.DB"), uint(1)).Return(nil, gorm.ErrRecordNotFound)
 
-		err := service.DeleteReport(ctx, db, 1, 1, "soft")
+		err := service.DeleteReport(ctx, 1, 1, "soft")
 
 		assert.Error(t, err)
 		mockReportRepo.AssertExpectations(t)
@@ -506,7 +509,6 @@ func TestReportService_GetReportByID(t *testing.T) {
 
 func TestReportService_ReactToReport(t *testing.T) {
 	ctx := context.Background()
-	db := setupTestDB(t)
 
 	t.Run("should create new like reaction successfully", func(t *testing.T) {
 		_, _, mockReportReactionRepo, _, _, _, _, _, _, _, service := setupMocks()
@@ -524,7 +526,7 @@ func TestReportService_ReactToReport(t *testing.T) {
 				Type:     model.Like,
 			}, nil)
 
-		result, err := service.ReactToReport(ctx, db, 1, 1, "LIKE")
+		result, err := service.ReactToReport(ctx, 1, 1, "LIKE")
 
 		var totalLike int64 = 0
 		if result.ReactionType == "LIKE" {
@@ -551,7 +553,7 @@ func TestReportService_ReactToReport(t *testing.T) {
 			Return(existingReportReaction, nil)
 		mockReportReactionRepo.On("DeleteTX", ctx, mock.AnythingOfType("*gorm.DB"), existingReportReaction).
 			Return(nil)
-		result, err := service.ReactToReport(ctx, db, 1, 1, "LIKE")
+		result, err := service.ReactToReport(ctx, 1, 1, "LIKE")
 
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
@@ -576,7 +578,7 @@ func TestReportService_ReactToReport(t *testing.T) {
 				ReportID: 1,
 				Type:     model.Dislike,
 			}, nil)
-		result, err := service.ReactToReport(ctx, db, 1, 1, "DISLIKE")
+		result, err := service.ReactToReport(ctx, 1, 1, "DISLIKE")
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		mockReportReactionRepo.AssertExpectations(t)
@@ -585,7 +587,6 @@ func TestReportService_ReactToReport(t *testing.T) {
 
 func TestReportService_VoteToReport(t *testing.T) {
 	ctx := context.Background()
-	db := setupTestDB(t)
 
 	t.Run("should create new vote successfully", func(t *testing.T) {
 		mockReportRepo, _, _, _, _, _, _, mockReportVoteRepo, _, _, service := setupMocks()
@@ -617,7 +618,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 		mockReportRepo.On("UpdateTX", ctx, mock.AnythingOfType("*gorm.DB"), mock.AnythingOfType("*model.Report")).
 			Return(&model.Report{}, nil)
 
-		result, err := service.VoteToReport(ctx, db, 1, 1, "RESOLVED")
+		result, err := service.VoteToReport(ctx, 1, 1, "RESOLVED")
 
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
@@ -635,7 +636,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 
 		mockReportRepo.On("GetByID", ctx, uint(1)).Return(existingReport, nil)
 
-		result, err := service.VoteToReport(ctx, db, 1, 1, "RESOLVED")
+		result, err := service.VoteToReport(ctx, 1, 1, "RESOLVED")
 
 		assert.Error(t, err)
 		assert.Nil(t, result)
@@ -648,7 +649,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 
 		mockReportRepo.On("GetByID", ctx, uint(999)).Return(nil, gorm.ErrRecordNotFound)
 
-		result, err := service.VoteToReport(ctx, db, 1, 999, "RESOLVED")
+		result, err := service.VoteToReport(ctx, 1, 999, "RESOLVED")
 
 		assert.Error(t, err)
 		assert.Nil(t, result)
@@ -667,7 +668,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 
 		mockReportRepo.On("GetByID", ctx, uint(1)).Return(existingReport, nil)
 
-		result, err := service.VoteToReport(ctx, db, 1, 1, "RESOLVED")
+		result, err := service.VoteToReport(ctx, 1, 1, "RESOLVED")
 
 		assert.Error(t, err)
 		assert.Nil(t, result)
@@ -686,7 +687,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 
 		mockReportRepo.On("GetByID", ctx, uint(1)).Return(existingReport, nil)
 
-		result, err := service.VoteToReport(ctx, db, 1, 1, "RESOLVED")
+		result, err := service.VoteToReport(ctx, 1, 1, "RESOLVED")
 
 		assert.Error(t, err)
 		assert.Nil(t, result)
@@ -705,7 +706,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 
 		mockReportRepo.On("GetByID", ctx, uint(1)).Return(existingReport, nil)
 
-		result, err := service.VoteToReport(ctx, db, 1, 1, "RESOLVED")
+		result, err := service.VoteToReport(ctx, 1, 1, "RESOLVED")
 
 		assert.Error(t, err)
 		assert.Nil(t, result)
@@ -735,7 +736,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 			Return(existingVote, nil)
 		mockReportVoteRepo.On("DeleteTX", ctx, mock.AnythingOfType("*gorm.DB"), existingVote).Return(nil)
 
-		result, err := service.VoteToReport(ctx, db, 1, 1, "RESOLVED")
+		result, err := service.VoteToReport(ctx, 1, 1, "RESOLVED")
 
 		assert.NoError(t, err)
 		assert.Nil(t, result)
@@ -780,7 +781,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 		mockReportRepo.On("UpdateTX", ctx, mock.AnythingOfType("*gorm.DB"), mock.AnythingOfType("*model.Report")).
 			Return(&model.Report{}, nil)
 
-		result, err := service.VoteToReport(ctx, db, 1, 1, "RESOLVED")
+		result, err := service.VoteToReport(ctx, 1, 1, "RESOLVED")
 
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
@@ -824,7 +825,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 				ReportStatus: model.NOT_RESOLVED,
 			}, nil)
 
-		result, err := service.VoteToReport(ctx, db, 1, 1, "NOT_RESOLVED")
+		result, err := service.VoteToReport(ctx, 1, 1, "NOT_RESOLVED")
 
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
@@ -864,7 +865,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 			return r.ReportStatus == model.ON_PROGRESS
 		})).Return(&model.Report{}, nil)
 
-		result, err := service.VoteToReport(ctx, db, 1, 1, "ON_PROGRESS")
+		result, err := service.VoteToReport(ctx, 1, 1, "ON_PROGRESS")
 
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
@@ -895,7 +896,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 		mockReportVoteRepo.On("GetReportVoteCountsTX", ctx, mock.AnythingOfType("*gorm.DB"), uint(1)).
 			Return(nil, errors.New("database error"))
 
-		result, err := service.VoteToReport(ctx, db, 1, 1, "RESOLVED")
+		result, err := service.VoteToReport(ctx, 1, 1, "RESOLVED")
 
 		assert.Error(t, err)
 		assert.Nil(t, result)
@@ -932,7 +933,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 		mockReportVoteRepo.On("GetTotalVoteCountTX", ctx, mock.AnythingOfType("*gorm.DB"), uint(1)).
 			Return(int64(0), errors.New("database error"))
 
-		result, err := service.VoteToReport(ctx, db, 1, 1, "RESOLVED")
+		result, err := service.VoteToReport(ctx, 1, 1, "RESOLVED")
 
 		assert.Error(t, err)
 		assert.Nil(t, result)
@@ -943,7 +944,6 @@ func TestReportService_VoteToReport(t *testing.T) {
 
 func TestReportService_UploadProgressReport(t *testing.T) {
 	ctx := context.Background()
-	db := setupTestDB(t)
 
 	t.Run("should upload progress successfully", func(t *testing.T) {
 		mockReportRepo, _, _, _, _, _, mockReportProgressRepo, _, _, _, service := setupMocks()
@@ -968,7 +968,7 @@ func TestReportService_UploadProgressReport(t *testing.T) {
 		mockReportRepo.On("UpdateTX", ctx, mock.AnythingOfType("*gorm.DB"), mock.AnythingOfType("*model.Report")).
 			Return(&model.Report{}, nil)
 
-		result, err := service.UploadProgressReport(ctx, db, 1, 1, req)
+		result, err := service.UploadProgressReport(ctx, 1, 1, req)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
@@ -991,7 +991,7 @@ func TestReportService_UploadProgressReport(t *testing.T) {
 
 		mockReportRepo.On("GetByID", ctx, uint(1)).Return(existingReport, nil)
 
-		result, err := service.UploadProgressReport(ctx, db, 1, 1, req)
+		result, err := service.UploadProgressReport(ctx, 1, 1, req)
 
 		assert.Error(t, err)
 		assert.Nil(t, result)
@@ -1015,7 +1015,7 @@ func TestReportService_UploadProgressReport(t *testing.T) {
 
 		mockReportRepo.On("GetByID", ctx, uint(1)).Return(existingReport, nil)
 
-		result, err := service.UploadProgressReport(ctx, db, currentUserID, 1, req)
+		result, err := service.UploadProgressReport(ctx, currentUserID, 1, req)
 
 		assert.Error(t, err)
 		assert.Nil(t, result)
@@ -1038,7 +1038,7 @@ func TestReportService_UploadProgressReport(t *testing.T) {
 
 		mockReportRepo.On("GetByID", ctx, uint(1)).Return(existingReport, nil)
 
-		result, err := service.UploadProgressReport(ctx, db, 1, 1, req)
+		result, err := service.UploadProgressReport(ctx, 1, 1, req)
 		assert.Error(t, err)
 		assert.Nil(t, result)
 		mockReportRepo.AssertExpectations(t)
@@ -1062,7 +1062,7 @@ func TestReportService_UploadProgressReport(t *testing.T) {
 		mockReportProgressRepo.On("CreateTX", ctx, mock.AnythingOfType("*gorm.DB"), mock.AnythingOfType("*model.ReportProgress")).
 			Return(nil, errors.New("database error"))
 
-		result, err := service.UploadProgressReport(ctx, db, 1, 1, req)
+		result, err := service.UploadProgressReport(ctx, 1, 1, req)
 
 		assert.Error(t, err)
 		assert.Nil(t, result)
@@ -1218,7 +1218,7 @@ func TestReportService_CreateReportComment(t *testing.T) {
 		mockReportCommentRepo.On("Create", ctx, mock.AnythingOfType("*model.ReportComment")).
 			Return(&model.ReportComment{ID: primitive.NewObjectID()}, nil)
 
-		result, err := service.CreateReportComment(ctx, nil, 1, 1, req)
+		result, err := service.CreateReportComment(ctx, 1, 1, req)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
@@ -1254,7 +1254,7 @@ func TestReportService_CreateReportComment(t *testing.T) {
 		mockUserProfileRepo.On("GetByUserID", ctx, uint(1)).Return(userProfile, nil)
 		mockReportCommentRepo.On("Create", ctx, mock.AnythingOfType("*model.ReportComment")).
 			Return(&model.ReportComment{ID: primitive.NewObjectID()}, nil)
-		result, err := service.CreateReportComment(ctx, nil, 1, 1, req)
+		result, err := service.CreateReportComment(ctx, 1, 1, req)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
@@ -1272,7 +1272,7 @@ func TestReportService_CreateReportComment(t *testing.T) {
 
 		mockReportRepo.On("GetByID", ctx, uint(1)).Return(nil, gorm.ErrRecordNotFound)
 
-		result, err := service.CreateReportComment(ctx, nil, 1, 1, req)
+		result, err := service.CreateReportComment(ctx, 1, 1, req)
 
 		assert.Error(t, err)
 		assert.Nil(t, result)
