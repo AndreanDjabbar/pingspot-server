@@ -25,9 +25,23 @@ func New() *FiberServer {
 	app.Static("/user", "./uploads/user")
 	app.Static("/main", "./uploads/main")
 
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     "https://pingspot.vercel.app, http://localhost:3000, http://localhost:5173",
+		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS,PATCH",
+		AllowHeaders:     "Accept,Authorization,Content-Type,X-Requested-With",
+		ExposeHeaders:    "Set-Cookie",
+		AllowCredentials: true,
+		MaxAge:           300,
+	}))
+
 	app.Use(middleware.RequestIDMiddleware())
 	app.Use(middleware.LoggingMiddleware())
 	app.Use(middleware.GlobalRateLimiterMiddleware())
+
+	defaultRoute := app.Group("/pingspot/api")
+	defaultRoute.Get("/", DefaultHandler)
+
+	router.RegisterRoutes(app)
 
 	return &FiberServer{
 		App: app,
@@ -41,19 +55,4 @@ func DefaultHandler(c *fiber.Ctx) error {
 		"repository": env.GithubRepoURL(),
 	}
 	return response.ResponseSuccess(c, 200, "Welcome to Pingspot API", "data", data)
-}
-
-func (s *FiberServer) RegisterFiberRoutes() {
-	s.App.Use(cors.New(cors.Config{
-		AllowOrigins:     "https://pingspot.vercel.app, http://localhost:3000, http://localhost:5173",
-		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS,PATCH",
-		AllowHeaders:     "Accept,Authorization,Content-Type,X-Requested-With",
-		ExposeHeaders:    "Set-Cookie",
-		AllowCredentials: true,
-		MaxAge:           300,
-	}))
-	defaultRoute := s.App.Group("/pingspot/api")
-	defaultRoute.Get("/", DefaultHandler)
-
-	router.RegisterRoutes(s.App)
 }
