@@ -27,7 +27,7 @@ func New() *FiberServer {
 	app.Static("/main", "./uploads/main")
 
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "https://pingspot.vercel.app, http://localhost:3000, http://localhost:5173",
+		AllowOrigins:     env.AllowedOrigins(),
 		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS,PATCH",
 		AllowHeaders:     "Accept,Authorization,Content-Type,X-Requested-With",
 		ExposeHeaders:    "Set-Cookie",
@@ -40,8 +40,10 @@ func New() *FiberServer {
 	app.Use(middleware.GlobalRateLimiterMiddleware())
 
 	defaultRoute := app.Group("/pingspot/api")
-	
-	defaultRoute.Get("/swagger/*", swagger.HandlerDefault)
+
+	if env.NodeEnv() == "development" {
+		defaultRoute.Get("/swagger/*", swagger.HandlerDefault)
+	}
 
 	router.RegisterRoutes(app)
 
