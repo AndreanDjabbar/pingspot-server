@@ -2,9 +2,11 @@ package logger
 
 import (
 	"os"
+	"path/filepath"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 var Logger *zap.Logger
@@ -14,7 +16,7 @@ func InitLogger(logfile string) error {
 		logfile = "./internal/log/app.log"
 	}
 
-	dir := "./internal/log"
+	dir := filepath.Dir(logfile)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
@@ -25,9 +27,12 @@ func InitLogger(logfile string) error {
 		level = zap.InfoLevel
 	}
 
-	logFile, err := os.OpenFile(logfile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
+	logFile := &lumberjack.Logger{
+		Filename:   logfile,
+		MaxSize:    10,
+		MaxBackups: 7, 
+		MaxAge:     20,
+		Compress:   true,
 	}
 
 	consoleEncoderConfig := zap.NewDevelopmentEncoderConfig()
@@ -54,7 +59,12 @@ func InitLogger(logfile string) error {
 
 	core := zapcore.NewTee(fileCore, consoleCore)
 
-	Logger = zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1))
+	Logger = zap.New(
+		core,
+		zap.AddCaller(),
+		zap.AddCallerSkip(1),
+		zap.AddStacktrace(zap.ErrorLevel),
+	)
 	return nil
 }
 
