@@ -36,6 +36,11 @@ func (m *MockCacheRepository) Del(ctx context.Context, key string) error {
 	return args.Error(0)
 }
 
+func (m *MockCacheRepository) TTL(ctx context.Context, key string) (time.Duration, error) {
+	args := m.Called(ctx, key)
+	return args.Get(0).(time.Duration), args.Error(1)
+}
+
 func (m *MockCacheRepository) SRem(ctx context.Context, key string, members ...any) error {
 	args := m.Called(ctx, key, members)
 	return args.Error(0)
