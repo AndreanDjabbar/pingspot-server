@@ -18,26 +18,13 @@ import (
 )
 
 func GetClientIP(c *fiber.Ctx) string {
-	if ip := c.Get("X-Forwarded-For"); ip != "" {
-		if idx := len(ip); idx > 0 {
-			for i := 0; i < idx; i++ {
-				if ip[i] == ',' {
-					return ip[:i]
-				}
-			}
-			return ip
-		}
+	ip := c.IP()
+
+	if ip == "::1" {
+		ip = "127.0.0.1"
 	}
 
-	if ip := c.Get("X-Real-IP"); ip != "" {
-		return ip
-	}
-
-	if ip := c.Get("CF-Connecting-IP"); ip != "" {
-		return ip
-	}
-
-	return c.IP()
+	return ip
 }
 
 func GetHTTPClientIP(r *http.Request) string {
