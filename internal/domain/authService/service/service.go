@@ -148,8 +148,8 @@ func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (*model.U
 		return nil, "", "", apperror.New(401, "INVALID_CREDENTIALS", "Email atau password salah", err.Error())
 	}
 
-	if user.Provider == model.ProviderEmail {
-		if user.Password == nil || !tokenutils.CheckHashString(req.Password, *user.Password) {
+	if model.Provider(req.Provider) == model.ProviderEmail {
+		if !tokenutils.CheckHashString(req.Password, *user.Password) {
 			return nil, "", "", apperror.New(401, "INVALID_CREDENTIALS", "Email atau password salah", "")
 		}
 	}
