@@ -75,6 +75,13 @@ func FormatLoginValidationErrors(err error) map[string]string {
 			if e.Tag() == "min" {
 				errors["password"] = "Password minimal 6 karakter"
 			}
+		case "Provider":
+			if e.Tag() == "required" {
+				errors["provider"] = "Provider wajib diisi"
+			}
+			if e.Tag() == "oneof" {
+				errors["provider"] = "Provider harus salah satu dari EMAIL, GOOGLE, atau GITHUB"
+			}
 		}
 	}
 	return errors
