@@ -17,6 +17,7 @@ import (
 	"pingspot/pkg/utils/response"
 	"pingspot/pkg/utils/tokenutils"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -275,13 +276,18 @@ func (h *AuthHandler) OAuthCallbackHandler(provider string) http.HandlerFunc {
 			http.Error(w, "Terdapat masalah", http.StatusNotFound)
 			return
 		}
-
+		randomCode, err := tokenutils.GenerateRandomCode(5)
+		if err != nil {
+			logger.Error("Error generating random code", zap.Error(err))
+			http.Error(w, "Terdapat masalah", http.StatusInternalServerError)
+			return
+		}
 		if existingUser == nil {
 			newUser := dto.RegisterRequest{
-				Username:   nickName,
+				Username:   fmt.Sprintf("%s_%s", nickName, randomCode),
 				Email:      email,
 				FullName:   fullName,
-				Provider:   provider,
+				Provider:   strings.ToUpper(provider),
 				ProviderID: &providerId,
 			}
 			createdUser, err := h.authService.Register(ctx, newUser, true)
@@ -303,7 +309,8 @@ func (h *AuthHandler) OAuthCallbackHandler(provider string) http.HandlerFunc {
 
 		loginReq.IPAddress = userIP
 		loginReq.UserAgent = userAgent
-
+		loginReq.Provider = strings.ToUpper(provider)
+		
 		_, accessToken, refreshToken, err := h.authService.Login(ctx, loginReq)
 		if err != nil {
 			logger.Error("Login failed for OAuth user", zap.String("provider", provider), zap.Error(err))
