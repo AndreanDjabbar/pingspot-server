@@ -15,6 +15,7 @@ type CacheRepository interface {
 	Del(ctx context.Context, key string) error
 	SRem(ctx context.Context, key string, members ...any) error
 	SIsMember(ctx context.Context, key string, member any) (bool, error)
+	TTL(ctx context.Context, key string) (time.Duration, error)
 }
 
 type cacheRepository struct {
@@ -39,6 +40,10 @@ func (r *cacheRepository) Expire(ctx context.Context, key string, expiration tim
 
 func (r *cacheRepository) Del(ctx context.Context, key string) error {
     return (*r.rdb).Del(ctx, key).Err()
+}
+
+func (r *cacheRepository) TTL(ctx context.Context, key string) (time.Duration, error) {
+	return (*r.rdb).TTL(ctx, key).Result()
 }
 
 func (r *cacheRepository) SRem(ctx context.Context, key string, members ...any) error {

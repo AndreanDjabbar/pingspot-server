@@ -148,8 +148,8 @@ func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (*model.U
 		return nil, "", "", apperror.New(401, "INVALID_CREDENTIALS", "Email atau password salah", err.Error())
 	}
 
-	if user.Provider == model.ProviderEmail {
-		if user.Password == nil || !tokenutils.CheckHashString(req.Password, *user.Password) {
+	if model.Provider(req.Provider) == model.ProviderEmail {
+		if !tokenutils.CheckHashString(req.Password, *user.Password) {
 			return nil, "", "", apperror.New(401, "INVALID_CREDENTIALS", "Email atau password salah", "")
 		}
 	}
@@ -427,4 +427,45 @@ func (s *AuthService) GetUserByEmail(ctx context.Context, email string) (*model.
 		return nil, apperror.New(500, "USER_FETCH_FAILED", "Gagal mengambil data user", err.Error())
 	}
 	return user, nil
+}
+
+func (s * AuthService) ForgotPasswordEmailVerification(ctx context.Context, req dto.ForgotPasswordEmailVerificationRequest) error {
+	user, err := s.userRepo.GetByEmail(ctx, req.Email)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return apperror.New(404, "USER_NOT_FOUND", "User tidak ditemukan", err.Error())
+		}
+		return apperror.New(500, "USER_FETCH_FAILED", "Gagal mengambil data user", err.Error())
+	}
+
+	if user != nil {
+		existingRedisKey := fmt.Sprintf("forgot_password:%s", req.Email)
+		remainingTime, err := s.cacheRepo.TTL(ctx, existingRedisKey)
+		if err == nil && remainingTime > 0 {
+			return apperror.New(
+				429,
+				"TOO_MANY_REQUESTS",
+				fmt.Sprintf("Anda sudah melakukan permintaan sebelumnya, silahkan cek email anda atau coba lagi dalam %d detik", int(remainingTime.Seconds())),
+				"",
+			)
+		}
+
+		verificationCode, err := tokenutils.GenerateRandomCode(200)
+		if err != nil {
+			logger.Error("Failed to generate verification code", zap.Error(err))
+			return apperror.New(500, "CODE_GENERATION_FAILED", "Gagal membuat kode verifikasi", err.Error())
+		}
+		
+		redisKey := fmt.Sprintf("forgot_password:%s", req.Email)
+		err = s.cacheRepo.Set(ctx, redisKey, verificationCode, 300*time.Second)
+		if err != nil {
+			logger.Error("Failed to save verification code to Redis", zap.Error(err))
+			return apperror.New(500, "CODE_GENERATION_FAILED", "Gagal membuat kode verifikasi", err.Error())
+		}
+	
+		verificationLink := fmt.Sprintf("%s/auth/forgot-password/verification?code=%s&email=%s", env.ClientURL(), verificationCode, req.Email)
+		go util.SendPasswordResetEmail(req.Email, req.Email, verificationLink)
+		return nil
+	}
+	return apperror.New(404, "USER_NOT_FOUND", "User tidak ditemukan", "")
 }

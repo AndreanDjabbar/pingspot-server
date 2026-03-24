@@ -17,6 +17,7 @@ import (
 	"pingspot/pkg/utils/response"
 	"pingspot/pkg/utils/tokenutils"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -275,13 +276,18 @@ func (h *AuthHandler) OAuthCallbackHandler(provider string) http.HandlerFunc {
 			http.Error(w, "Terdapat masalah", http.StatusNotFound)
 			return
 		}
-
+		randomCode, err := tokenutils.GenerateRandomCode(5)
+		if err != nil {
+			logger.Error("Error generating random code", zap.Error(err))
+			http.Error(w, "Terdapat masalah", http.StatusInternalServerError)
+			return
+		}
 		if existingUser == nil {
 			newUser := dto.RegisterRequest{
-				Username:   nickName,
+				Username:   fmt.Sprintf("%s_%s", nickName, randomCode),
 				Email:      email,
 				FullName:   fullName,
-				Provider:   provider,
+				Provider:   strings.ToUpper(provider),
 				ProviderID: &providerId,
 			}
 			createdUser, err := h.authService.Register(ctx, newUser, true)
@@ -303,7 +309,8 @@ func (h *AuthHandler) OAuthCallbackHandler(provider string) http.HandlerFunc {
 
 		loginReq.IPAddress = userIP
 		loginReq.UserAgent = userAgent
-
+		loginReq.Provider = strings.ToUpper(provider)
+		
 		_, accessToken, refreshToken, err := h.authService.Login(ctx, loginReq)
 		if err != nil {
 			logger.Error("Login failed for OAuth user", zap.String("provider", provider), zap.Error(err))
@@ -356,31 +363,15 @@ func (h *AuthHandler) ForgotPasswordEmailVerificationHandler(c *fiber.Ctx) error
 		return response.ResponseError(c, 400, "Validasi gagal", "errors", errors)
 	}
 
-	user, err := h.authService.GetUserByEmail(ctx, req.Email)
+	err := h.authService.ForgotPasswordEmailVerification(ctx, req)
 	if err != nil {
-		logger.Error("Failed to get user by email", zap.Error(err))
+		logger.Error("Forgot password email verification failed", zap.Error(err))
 		if appErr, ok := err.(*apperror.AppError); ok {
 			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Gagal mendapatkan pengguna", "", err.Error())
+		return response.ResponseError(c, 500, "Gagal memproses permintaan", "", err.Error())
 	}
-	if user != nil {
-		redisClient := cache.GetRedis()
-		verificationCode, err := tokenutils.GenerateRandomCode(200)
-		if err != nil {
-			logger.Error("Failed to generate verification code", zap.Error(err))
-			return response.ResponseError(c, 500, "Gagal membuat kode verifikasi", "", err.Error())
-		}
-		verificationLink := fmt.Sprintf("%s/auth/forgot-password/verification?code=%s&email=%s", env.ClientURL(), verificationCode, req.Email)
-		redisKey := fmt.Sprintf("forgot_password:%s", req.Email)
-		err = redisClient.Set(c.Context(), redisKey, verificationCode, 300*time.Second).Err()
-		if err != nil {
-			logger.Error("Failed to save verification code to Redis", zap.Error(err))
-			return response.ResponseError(c, 500, "Gagal menyimpan kode verifikasi ke Redis", "", err.Error())
-		}
-
-		go util.SendPasswordResetEmail(req.Email, req.Email, verificationLink)
-	}
+	
 	return response.ResponseSuccess(c, 200, "Silahkan cek email anda untuk verifikasi pengaturan ulang kata sandi", "data", nil)
 }
 

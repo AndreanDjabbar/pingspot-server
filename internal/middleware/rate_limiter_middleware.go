@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"pingspot/internal/infrastructure/cache"
-	"pingspot/pkg/apperror"
 	"pingspot/pkg/logger"
 	"pingspot/pkg/utils/env"
 	mainutils "pingspot/pkg/utils/mainUtils"
+	"pingspot/pkg/utils/response"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -134,13 +134,16 @@ func GlobalRateLimiterMiddleware() fiber.Handler {
 				zap.Int("count", count),
 				zap.Int("limit", limiter.config.MaxRequests),
 			)
-			return apperror.New(
-				fiber.StatusTooManyRequests,
-				"RATE_LIMIT_EXCEEDED",
-				"Too many requests. Please try again later.",
-				fmt.Sprintf("Rate limit exceeded. Maximum %d requests per %s allowed.",
+			return response.ResponseError(
+				c,
+				429,
+				"Terlalu banyak permintaan. Silakan coba lagi nanti.",
+				fmt.Sprintf(
+					"Batas permintaan telah tercapai. Maksimal %d permintaan dalam %s.",
 					limiter.config.MaxRequests,
-					limiter.config.Window),
+					limiter.config.Window,
+				),
+				nil,
 			)
 		}
 		return c.Next()
@@ -153,7 +156,6 @@ func UserRateLimiterMiddleware(limiter *RateLimiter) fiber.Handler {
 		if userID == nil {
 			userID = mainutils.GetClientIP(c)
 		}
-
 		identifier := fmt.Sprintf("rate_limit:user:%v", userID)
 
 		allowed, count, err := limiter.Allow(c.Context(), identifier)
@@ -168,13 +170,16 @@ func UserRateLimiterMiddleware(limiter *RateLimiter) fiber.Handler {
 				zap.Int("count", count),
 				zap.Int("limit", limiter.config.MaxRequests),
 			)
-			return apperror.New(
-				fiber.StatusTooManyRequests,
-				"RATE_LIMIT_EXCEEDED",
-				"Too many requests. Please try again later.",
-				fmt.Sprintf("Rate limit exceeded. Maximum %d requests per %s allowed.",
+			return response.ResponseError(
+				c,
+				429,
+				"Terlalu banyak permintaan. Silakan coba lagi nanti.",
+				fmt.Sprintf(
+					"Batas permintaan telah tercapai. Maksimal %d permintaan dalam %s.",
 					limiter.config.MaxRequests,
-					limiter.config.Window),
+					limiter.config.Window,
+				),
+				nil,
 			)
 		}
 
