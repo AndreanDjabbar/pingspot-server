@@ -539,6 +539,8 @@ func TestAuthService_Login(t *testing.T) {
 }
 
 func TestAuthService_Logout(t *testing.T) {
+	setupTestKeys(t)
+
 	t.Run("should logout successfully", func(t *testing.T) {
 		mockUserRepo := new(userMocks.MockUserRepository)
 		mockProfileRepo := new(userMocks.MockUserProfileRepository)
@@ -550,6 +552,7 @@ func TestAuthService_Logout(t *testing.T) {
 		ctx := context.Background()
 		userID := uint(1)
 		refreshTokenID := "valid-token-id"
+		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
 
 		userSession := &model.UserSession{
 			ID:             1,
@@ -563,13 +566,30 @@ func TestAuthService_Logout(t *testing.T) {
 		mockSessionRepo.On("Update", ctx, mock.MatchedBy(func(session *model.UserSession) bool {
 			return session.IsActive == false && session.ID == userSession.ID
 		})).Return(nil)
-		mockCacheRepo.On("SRem", mock.Anything, "user_session:1", mock.AnythingOfType("[]interface {}")).Return(nil)
+		mockCacheRepo.On("SRem", mock.Anything, "user_session:1", mock.AnythingOfType("uint")).Return(nil)
 
-		err := service.Logout(ctx, userID, refreshTokenID)
+		err := service.Logout(ctx, refreshToken)
 
 		assert.NoError(t, err)
 		mockSessionRepo.AssertExpectations(t)
 		mockCacheRepo.AssertExpectations(t)
+	})
+
+	t.Run("should return error when token is invalid", func(t *testing.T) {
+		mockUserRepo := new(userMocks.MockUserRepository)
+		mockProfileRepo := new(userMocks.MockUserProfileRepository)
+		mockSessionRepo := new(userMocks.MockUserSessionRepository)
+		mockCacheRepo := new(mocks.MockCacheRepository)
+		db := setupAuthTestDB(t)
+		service := NewAuthService(db, mockUserRepo, mockProfileRepo, mockSessionRepo, mockCacheRepo)
+
+		ctx := context.Background()
+		invalidRefreshToken := "invalid-token"
+
+		err := service.Logout(ctx, invalidRefreshToken)
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "Refresh token tidak valid")
 	})
 
 	t.Run("should return error when session not found", func(t *testing.T) {
@@ -583,11 +603,12 @@ func TestAuthService_Logout(t *testing.T) {
 		ctx := context.Background()
 		userID := uint(1)
 		refreshTokenID := "invalid-token-id"
+		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
 
 		mockCacheRepo.On("Del", mock.Anything, "refresh_token:invalid-token-id").Return(nil)
 		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(nil, gorm.ErrRecordNotFound)
 
-		err := service.Logout(ctx, userID, refreshTokenID)
+		err := service.Logout(ctx, refreshToken)
 
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "Gagal mengambil sesi user")
@@ -606,6 +627,7 @@ func TestAuthService_Logout(t *testing.T) {
 		ctx := context.Background()
 		userID := uint(1)
 		refreshTokenID := "valid-token-id"
+		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
 
 		userSession := &model.UserSession{
 			ID:             1,
@@ -620,7 +642,7 @@ func TestAuthService_Logout(t *testing.T) {
 			return session.IsActive == false
 		})).Return(errors.New("database error"))
 
-		err := service.Logout(ctx, userID, refreshTokenID)
+		err := service.Logout(ctx, refreshToken)
 
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "Gagal memperbarui sesi user")
@@ -639,6 +661,7 @@ func TestAuthService_Logout(t *testing.T) {
 		ctx := context.Background()
 		userID := uint(1)
 		refreshTokenID := "valid-token-id"
+		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
 
 		userSession := &model.UserSession{
 			ID:             1,
@@ -652,9 +675,9 @@ func TestAuthService_Logout(t *testing.T) {
 		mockSessionRepo.On("Update", ctx, mock.MatchedBy(func(session *model.UserSession) bool {
 			return session.IsActive == false
 		})).Return(nil)
-		mockCacheRepo.On("SRem", mock.Anything, "user_session:1", mock.AnythingOfType("[]interface {}")).Return(nil)
+		mockCacheRepo.On("SRem", mock.Anything, "user_session:1", mock.AnythingOfType("uint")).Return(nil)
 
-		err := service.Logout(ctx, userID, refreshTokenID)
+		err := service.Logout(ctx, refreshToken)
 
 		assert.NoError(t, err)
 		mockSessionRepo.AssertExpectations(t)
@@ -672,6 +695,7 @@ func TestAuthService_Logout(t *testing.T) {
 		ctx := context.Background()
 		userID := uint(1)
 		refreshTokenID := "valid-token-id"
+		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
 
 		userSession := &model.UserSession{
 			ID:             1,
@@ -686,9 +710,9 @@ func TestAuthService_Logout(t *testing.T) {
 			return session.IsActive == false
 		})).Return(nil)
 
-		mockCacheRepo.On("SRem", mock.Anything, "user_session:1", mock.AnythingOfType("[]interface {}")).Return(errors.New("redis error"))
+		mockCacheRepo.On("SRem", mock.Anything, "user_session:1", mock.AnythingOfType("uint")).Return(errors.New("redis error"))
 
-		err := service.Logout(ctx, userID, refreshTokenID)
+		err := service.Logout(ctx, refreshToken)
 
 		assert.NoError(t, err)
 		mockSessionRepo.AssertExpectations(t)

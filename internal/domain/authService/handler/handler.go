@@ -2,27 +2,20 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"pingspot/internal/domain/authService/dto"
 	"pingspot/internal/domain/authService/service"
-	"pingspot/internal/domain/authService/util"
 	"pingspot/internal/domain/authService/validation"
-	"pingspot/internal/infrastructure/cache"
 	apperror "pingspot/pkg/apperror"
 	"pingspot/pkg/logger"
 	"pingspot/pkg/utils/env"
 	mainutils "pingspot/pkg/utils/mainUtils"
 	"pingspot/pkg/utils/response"
-	"pingspot/pkg/utils/tokenutils"
 	"strconv"
-	"strings"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/markbates/goth/gothic"
-	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
 
@@ -75,46 +68,13 @@ func (h *AuthHandler) RegisterHandler(c *fiber.Ctx) error {
 		return response.ResponseError(c, 500, "Registrasi gagal", "", err.Error())
 	}
 
-	newUser := map[string]any{
-		"id":         user.ID,
-		"username":   user.Username,
-		"email":      user.Email,
-		"created_at": user.CreatedAt,
-		"updated_at": user.UpdatedAt,
+	if err := h.authService.SendRegistrationVerificationEmail(ctx, user); err != nil {
+		logger.Error("Failed to send verification email", zap.Error(err))
+		if appErr, ok := err.(*apperror.AppError); ok {
+			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+		}
+		return response.ResponseError(c, 500, "Gagal mengirim email verifikasi", "", err.Error())
 	}
-
-	randomCode1, err := tokenutils.GenerateRandomCode(150)
-	if err != nil {
-		logger.Error("Failed to generate random code", zap.Error(err))
-		return response.ResponseError(c, 500, "Gagal membuat kode acak", "", err.Error())
-	}
-	randomCode2, err := tokenutils.GenerateRandomCode(150)
-	if err != nil {
-		logger.Error("Failed to generate random code", zap.Error(err))
-		return response.ResponseError(c, 500, "Gagal membuat kode acak", "", err.Error())
-	}
-	verificationLink := fmt.Sprintf("%s/auth/verification?code1=%s&userId=%d&code2=%s", env.ClientURL(), randomCode1, user.ID, randomCode2)
-
-	redisClient := cache.GetRedis()
-
-	linkData := map[string]string{
-		"link1": randomCode1,
-		"link2": randomCode2,
-	}
-	linkJSON, err := json.Marshal(linkData)
-	if err != nil {
-		logger.Error("Failed to marshal verification link data", zap.Error(err))
-		return response.ResponseError(c, 500, "Gagal menyimpan kode verifikasi", "", err.Error())
-	}
-
-	redisKey := fmt.Sprintf("link:%d", newUser["id"])
-	err = redisClient.Set(c.Context(), redisKey, linkJSON, 300*time.Second).Err()
-	if err != nil {
-		logger.Error("Failed to save verification link to Redis", zap.Error(err))
-		return response.ResponseError(c, 500, "Gagal menyimpan kode verifikasi ke Redis", "", err.Error())
-	}
-
-	go util.SendVerificationEmail(newUser["email"].(string), newUser["username"].(string), verificationLink)
 
 	logger.Info("User registered successfully", zap.String("user_id", fmt.Sprintf("%d", user.ID)))
 
@@ -131,47 +91,19 @@ func (h *AuthHandler) VerificationHandler(c *fiber.Ctx) error {
 		return response.ResponseError(c, 400, "Parameter tidak lengkap", "", nil)
 	}
 
-	redisClient := cache.GetRedis()
-	redisKey := fmt.Sprintf("link:%s", userId)
-	linkData, err := redisClient.Get(c.Context(), redisKey).Result()
-	if err != nil {
-		var errorMsg string
-		if err == redis.Nil {
-			errorMsg = "Link verifikasi tidak ditemukan atau sudah kadaluarsa"
-		} else {
-			errorMsg = "Gagal mendapatkan kode verifikasi"
-		}
-		logger.Error("Failed to get verification link from Redis", zap.Error(err))
-		return response.ResponseError(c, 500, "Gagal mendapatkan kode verifikasi", "", errorMsg)
-	}
-
-	var link map[string]string
-	if err := json.Unmarshal([]byte(linkData), &link); err != nil {
-		logger.Error("Failed to unmarshal verification link data", zap.Error(err))
-		return response.ResponseError(c, 500, "Gagal memproses link verifikasi", "", err.Error())
-	}
-
-	if link["link1"] != code1 || link["link2"] != code2 {
-		return response.ResponseError(c, 400, "link verifikasi tidak valid", "", "Link verifikasi tidak valid")
-	}
-
 	userIdUint, err := strconv.ParseUint(userId, 10, 32)
 	if err != nil {
 		logger.Error("Invalid user ID format", zap.Error(err))
 		return response.ResponseError(c, 400, "ID pengguna tidak valid", "", err.Error())
 	}
 
-	user, err := h.authService.VerifyUser(ctx, uint(userIdUint))
+	user, err := h.authService.VerifyRegistrationCode(ctx, code1, code2, uint(userIdUint))
 	if err != nil {
 		logger.Error("Verification failed", zap.Error(err))
 		if appErr, ok := err.(*apperror.AppError); ok {
 			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
 		return response.ResponseError(c, 500, "Verifikasi gagal", "", err.Error())
-	}
-
-	if err := redisClient.Del(c.Context(), redisKey).Err(); err != nil {
-		logger.Error("Failed to delete verification link from Redis", zap.Error(err))
 	}
 
 	return response.ResponseSuccess(c, 200, "Akun berhasil diverifikasi", "data", dto.VerificationResponse{
@@ -260,6 +192,7 @@ func (h *AuthHandler) OAuthCallbackHandler(provider string) http.HandlerFunc {
 			http.Error(w, "Authentication failed", http.StatusUnauthorized)
 			return
 		}
+
 		email := user.Email
 		fullName := user.Name
 		nickName := user.RawData["given_name"].(string)
@@ -267,80 +200,41 @@ func (h *AuthHandler) OAuthCallbackHandler(provider string) http.HandlerFunc {
 			nickName = user.RawData["name"].(string)
 		}
 		providerId := user.RawData["id"].(string)
-		logger.Info("OAuth user authenticated", zap.String("provider", provider), zap.String("email", email), zap.String("name", fullName))
-
-		ctx := r.Context()
-		existingUser, err := h.authService.GetUserByEmail(ctx, email)
-		if err != nil {
-			logger.Error("Error retrieving user by email", zap.Error(err))
-			http.Error(w, "Terdapat masalah", http.StatusNotFound)
-			return
-		}
-		randomCode, err := tokenutils.GenerateRandomCode(5)
-		if err != nil {
-			logger.Error("Error generating random code", zap.Error(err))
-			http.Error(w, "Terdapat masalah", http.StatusInternalServerError)
-			return
-		}
-		if existingUser == nil {
-			newUser := dto.RegisterRequest{
-				Username:   fmt.Sprintf("%s_%s", nickName, randomCode),
-				Email:      email,
-				FullName:   fullName,
-				Provider:   strings.ToUpper(provider),
-				ProviderID: &providerId,
-			}
-			createdUser, err := h.authService.Register(ctx, newUser, true)
-			if err != nil {
-				logger.Error("Error registering new user", zap.String("provider", provider), zap.Error(err))
-				http.Error(w, "Terdapat masalah saat registrasi", http.StatusInternalServerError)
-				return
-			}
-			logger.Info("New user registered", zap.String("provider", provider), zap.String("user_id", fmt.Sprintf("%d", createdUser.ID)))
-			existingUser = createdUser
-		}
-
-		var loginReq dto.LoginRequest
-		loginReq.Email = existingUser.Email
-		loginReq.Password = ""
 
 		userIP := mainutils.GetHTTPClientIP(r)
 		userAgent := mainutils.GetHTTPUserAgent(r)
 
-		loginReq.IPAddress = userIP
-		loginReq.UserAgent = userAgent
-		loginReq.Provider = strings.ToUpper(provider)
-		
-		_, accessToken, refreshToken, err := h.authService.Login(ctx, loginReq)
+		ctx := r.Context()
+		accessToken, refreshToken, err := h.authService.HandleOAuthCallback(ctx, email, fullName, nickName, user.Name, providerId, provider, userIP, userAgent)
 		if err != nil {
-			logger.Error("Login failed for OAuth user", zap.String("provider", provider), zap.Error(err))
-			http.Error(w, "Terdapat masalah saat login", http.StatusInternalServerError)
+			logger.Error("OAuth callback handler failed", zap.String("provider", provider), zap.Error(err))
+			if appErr, ok := err.(*apperror.AppError); ok {
+				http.Error(w, appErr.Message, appErr.StatusCode)
+			} else {
+				http.Error(w, "Terdapat masalah", http.StatusInternalServerError)
+			}
 			return
 		}
 
-		cookieAccess := &http.Cookie{
+		http.SetCookie(w, &http.Cookie{
 			Name:     "access_token",
 			Value:    accessToken,
 			HttpOnly: true,
 			Secure:   true,
 			SameSite: http.SameSiteLaxMode,
-			Domain:   "",
 			Path:     "/",
 			MaxAge:   getAccessTokenAge(),
-		}
-		http.SetCookie(w, cookieAccess)
+		})
 
-		cookieRefresh := &http.Cookie{
+		http.SetCookie(w, &http.Cookie{
 			Name:     "refresh_token",
 			Value:    refreshToken,
 			HttpOnly: true,
 			Secure:   true,
 			SameSite: http.SameSiteLaxMode,
-			Domain:   "",
 			Path:     "/",
 			MaxAge:   getRefreshTokenAge(),
-		}
-		http.SetCookie(w, cookieRefresh)
+		})
 
 		http.Redirect(w, r, fmt.Sprintf("%s/auth/%s?status=%d", env.ClientURL(), provider, http.StatusAccepted), http.StatusFound)
 	}
@@ -371,11 +265,12 @@ func (h *AuthHandler) ForgotPasswordEmailVerificationHandler(c *fiber.Ctx) error
 		}
 		return response.ResponseError(c, 500, "Gagal memproses permintaan", "", err.Error())
 	}
-	
+
 	return response.ResponseSuccess(c, 200, "Silahkan cek email anda untuk verifikasi pengaturan ulang kata sandi", "data", nil)
 }
 
 func (h *AuthHandler) ForgotPasswordLinkVerificationHandler(c *fiber.Ctx) error {
+	ctx := c.UserContext()
 	code := c.Query("code")
 	email := c.Query("email")
 
@@ -383,19 +278,12 @@ func (h *AuthHandler) ForgotPasswordLinkVerificationHandler(c *fiber.Ctx) error 
 		return response.ResponseError(c, 400, "Parameter tidak lengkap", "", nil)
 	}
 
-	redisClient := cache.GetRedis()
-	redisKey := fmt.Sprintf("forgot_password:%s", email)
-	storedCode, err := redisClient.Get(c.Context(), redisKey).Result()
-	if err != nil {
-		if err == redis.Nil {
-			return response.ResponseError(c, 400, "Link verifikasi tidak ditemukan atau sudah kadaluarsa", "", nil)
+	if err := h.authService.VerifyForgotPasswordCode(ctx, code, email); err != nil {
+		logger.Error("Forgot password code verification failed", zap.Error(err))
+		if appErr, ok := err.(*apperror.AppError); ok {
+			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		logger.Error("Failed to get verification code from Redis", zap.Error(err))
-		return response.ResponseError(c, 500, "Gagal mendapatkan kode verifikasi", "", err.Error())
-	}
-
-	if storedCode != code {
-		return response.ResponseError(c, 400, "Link verifikasi tidak valid", "", nil)
+		return response.ResponseError(c, 500, "Gagal memverifikasi kode", "", err.Error())
 	}
 
 	return response.ResponseSuccess(c, 200, "Link verifikasi berhasil", "data", dto.ForgotPasswordLinkVerificationResponse{
@@ -460,35 +348,12 @@ func (h *AuthHandler) ForgotPasswordResetPasswordHandler(c *fiber.Ctx) error {
 		return response.ResponseError(c, 400, "Validasi gagal", "errors", errors)
 	}
 
-	user, err := h.authService.GetUserByEmail(ctx, req.Email)
-	if err != nil {
-		logger.Error("Failed to get user by email", zap.Error(err))
-		if appErr, ok := err.(*apperror.AppError); ok {
-			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
-		}
-		return response.ResponseError(c, 500, "Gagal mendapatkan pengguna", "", err.Error())
-	}
-	if user == nil {
-		return response.ResponseError(c, 404, "Pengguna tidak ditemukan", "", "Email tidak terdaftar")
-	}
-
-	hashNewPassword, err := tokenutils.HashString(req.Password)
-	if err != nil {
-		logger.Error("Failed to hash new password", zap.Error(err))
-		return response.ResponseError(c, 500, "Gagal mengenkripsi kata sandi baru", "", err.Error())
-	}
-	user.Password = &hashNewPassword
-
-	updatedUser, err := h.authService.UpdateUserByEmail(ctx, req.Email, user)
-	if err != nil {
-		logger.Error("Failed to update user password", zap.Error(err))
+	if err := h.authService.ResetPassword(ctx, req.Email, req.Password); err != nil {
+		logger.Error("Failed to reset password", zap.Error(err))
 		if appErr, ok := err.(*apperror.AppError); ok {
 			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
 		return response.ResponseError(c, 500, "Gagal memperbarui kata sandi", "", err.Error())
-	}
-	if updatedUser == nil {
-		return response.ResponseError(c, 404, "Pengguna tidak ditemukan", "", "Email tidak terdaftar")
 	}
 
 	return response.ResponseSuccess(c, 200, "Kata sandi berhasil diperbarui. Silahkan masuk dengan identitas terbaru anda", "data", nil)
@@ -501,17 +366,11 @@ func (h *AuthHandler) LogoutHandler(c *fiber.Ctx) error {
 		return response.ResponseError(c, 401, "Refresh token tidak ditemukan", "", "Anda harus login terlebih dahulu")
 	}
 
-	refreshTokenClaims, err := tokenutils.ValidateRefreshToken(refreshToken)
-	if err != nil {
-		logger.Error("Failed to validate refresh token", zap.Error(err))
-		return response.ResponseError(c, 401, "Refresh token tidak valid", "", "Token tidak dapat diverifikasi")
-	}
-
-	refreshTokenID := refreshTokenClaims["refresh_token_id"].(string)
-	userID := uint(refreshTokenClaims["user_id"].(float64))
-
-	if err := h.authService.Logout(ctx, userID, refreshTokenID); err != nil {
+	if err := h.authService.Logout(ctx, refreshToken); err != nil {
 		logger.Error("Failed to logout user", zap.Error(err))
+		if appErr, ok := err.(*apperror.AppError); ok {
+			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+		}
 		return response.ResponseError(c, 500, "Gagal logout", "", err.Error())
 	}
 
