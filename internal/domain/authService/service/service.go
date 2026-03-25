@@ -16,6 +16,7 @@ import (
 	"pingspot/pkg/utils/env"
 	tokenutils "pingspot/pkg/utils/tokenutils"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -359,7 +360,16 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
 	return accessToken, newRefreshToken, nil
 }
 
-func (s *AuthService) Logout(ctx context.Context, userID uint, refreshTokenID string) error {
+func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
+	refreshTokenClaims, err := tokenutils.ValidateRefreshToken(refreshToken)
+	if err != nil {
+		logger.Error("Failed to validate refresh token", zap.Error(err))
+		return apperror.New(401, "INVALID_REFRESH_TOKEN", "Refresh token tidak valid", err.Error())
+	}
+
+	refreshTokenID := refreshTokenClaims["refresh_token_id"].(string)
+	userID := uint(refreshTokenClaims["user_id"].(float64))
+
 	refreshKey := fmt.Sprintf("refresh_token:%s", refreshTokenID)
 	if err := s.cacheRepo.Del(context.Background(), refreshKey); err != nil {
 		logger.Warn("Failed to delete refresh token from Redis", zap.Error(err))
@@ -429,7 +439,7 @@ func (s *AuthService) GetUserByEmail(ctx context.Context, email string) (*model.
 	return user, nil
 }
 
-func (s * AuthService) ForgotPasswordEmailVerification(ctx context.Context, req dto.ForgotPasswordEmailVerificationRequest) error {
+func (s *AuthService) ForgotPasswordEmailVerification(ctx context.Context, req dto.ForgotPasswordEmailVerificationRequest) error {
 	user, err := s.userRepo.GetByEmail(ctx, req.Email)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -455,17 +465,185 @@ func (s * AuthService) ForgotPasswordEmailVerification(ctx context.Context, req 
 			logger.Error("Failed to generate verification code", zap.Error(err))
 			return apperror.New(500, "CODE_GENERATION_FAILED", "Gagal membuat kode verifikasi", err.Error())
 		}
-		
+
 		redisKey := fmt.Sprintf("forgot_password:%s", req.Email)
 		err = s.cacheRepo.Set(ctx, redisKey, verificationCode, 300*time.Second)
 		if err != nil {
 			logger.Error("Failed to save verification code to Redis", zap.Error(err))
 			return apperror.New(500, "CODE_GENERATION_FAILED", "Gagal membuat kode verifikasi", err.Error())
 		}
-	
+
 		verificationLink := fmt.Sprintf("%s/auth/forgot-password/verification?code=%s&email=%s", env.ClientURL(), verificationCode, req.Email)
 		go util.SendPasswordResetEmail(req.Email, req.Email, verificationLink)
 		return nil
 	}
 	return apperror.New(404, "USER_NOT_FOUND", "User tidak ditemukan", "")
+}
+
+func (s *AuthService) SendRegistrationVerificationEmail(ctx context.Context, user *model.User) error {
+	randomCode1, err := tokenutils.GenerateRandomCode(150)
+	if err != nil {
+		logger.Error("Failed to generate random code 1", zap.Error(err))
+		return apperror.New(500, "CODE_GENERATION_FAILED", "Gagal membuat kode acak", err.Error())
+	}
+	randomCode2, err := tokenutils.GenerateRandomCode(150)
+	if err != nil {
+		logger.Error("Failed to generate random code 2", zap.Error(err))
+		return apperror.New(500, "CODE_GENERATION_FAILED", "Gagal membuat kode acak", err.Error())
+	}
+
+	verificationLink := fmt.Sprintf("%s/auth/verification?code1=%s&userId=%d&code2=%s", env.ClientURL(), randomCode1, user.ID, randomCode2)
+
+	linkData := map[string]string{
+		"link1": randomCode1,
+		"link2": randomCode2,
+	}
+	linkJSON, err := json.Marshal(linkData)
+	if err != nil {
+		logger.Error("Failed to marshal verification link data", zap.Error(err))
+		return apperror.New(500, "MARSHAL_FAILED", "Gagal menyimpan kode verifikasi", err.Error())
+	}
+
+	redisKey := fmt.Sprintf("link:%d", user.ID)
+	err = s.cacheRepo.Set(ctx, redisKey, linkJSON, 300*time.Second)
+	if err != nil {
+		logger.Error("Failed to save verification link to Redis", zap.Error(err))
+		return apperror.New(500, "REDIS_SAVE_FAILED", "Gagal menyimpan kode verifikasi ke Redis", err.Error())
+	}
+
+	go util.SendVerificationEmail(user.Email, user.Username, verificationLink)
+
+	return nil
+}
+
+func (s *AuthService) VerifyRegistrationCode(ctx context.Context, code1, code2 string, userID uint) (*model.User, error) {
+	redisKey := fmt.Sprintf("link:%d", userID)
+	linkData, err := s.cacheRepo.Get(ctx, redisKey)
+	if err != nil {
+		logger.Error("Failed to get verification link from Redis", zap.Error(err))
+		return nil, apperror.New(500, "REDIS_GET_FAILED", "Gagal mendapatkan kode verifikasi", err.Error())
+	}
+
+	var link map[string]string
+	if err := json.Unmarshal([]byte(linkData), &link); err != nil {
+		logger.Error("Failed to unmarshal verification link data", zap.Error(err))
+		return nil, apperror.New(500, "UNMARSHAL_FAILED", "Gagal memproses link verifikasi", err.Error())
+	}
+
+	if link["link1"] != code1 || link["link2"] != code2 {
+		return nil, apperror.New(400, "INVALID_CODE", "Link verifikasi tidak valid", "")
+	}
+
+	user, err := s.VerifyUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.cacheRepo.Del(ctx, redisKey); err != nil {
+		logger.Warn("Failed to delete verification link from Redis", zap.Error(err))
+	}
+
+	return user, nil
+}
+
+func (s *AuthService) VerifyForgotPasswordCode(ctx context.Context, code, email string) error {
+	redisKey := fmt.Sprintf("forgot_password:%s", email)
+	storedCode, err := s.cacheRepo.Get(ctx, redisKey)
+	if err != nil {
+		logger.Error("Failed to get verification code from Redis", zap.Error(err))
+		return apperror.New(500, "REDIS_GET_FAILED", "Gagal mendapatkan kode verifikasi", err.Error())
+	}
+
+	if storedCode != code {
+		return apperror.New(400, "INVALID_CODE", "Link verifikasi tidak valid", "")
+	}
+
+	return nil
+}
+
+func (s *AuthService) ResetPassword(ctx context.Context, email, newPassword string) error {
+	user, err := s.GetUserByEmail(ctx, email)
+	if err != nil {
+		logger.Error("Failed to get user by email", zap.Error(err))
+		return err
+	}
+	if user == nil {
+		return apperror.New(404, "USER_NOT_FOUND", "Pengguna tidak ditemukan", "")
+	}
+
+	hashedPassword, err := tokenutils.HashString(newPassword)
+	if err != nil {
+		logger.Error("Failed to hash password", zap.Error(err))
+		return apperror.New(500, "PASSWORD_HASH_FAILED", "Gagal mengenkripsi kata sandi baru", err.Error())
+	}
+
+	user.Password = &hashedPassword
+
+	_, err = s.UpdateUserByEmail(ctx, email, user)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *AuthService) HandleOAuthCallback(ctx context.Context, oauthEmail, oauthFullName, oauthGivenName, oauthName, oauthProviderID, provider, userIP, userAgent string) (string, string, error) {
+	requestID := contextutils.GetRequestID(ctx)
+	logger.Info("Processing OAuth callback",
+		zap.String("request_id", requestID),
+		zap.String("provider", provider),
+		zap.String("email", oauthEmail),
+	)
+
+	existingUser, err := s.GetUserByEmail(ctx, oauthEmail)
+	if err != nil {
+		logger.Error("Error retrieving user by email", zap.String("request_id", requestID), zap.Error(err))
+		return "", "", apperror.New(500, "USER_FETCH_FAILED", "Gagal mengambil data pengguna", err.Error())
+	}
+
+	randomCode, err := tokenutils.GenerateRandomCode(5)
+	if err != nil {
+		logger.Error("Error generating random code", zap.String("request_id", requestID), zap.Error(err))
+		return "", "", apperror.New(500, "CODE_GENERATION_FAILED", "Gagal membuat kode acak", err.Error())
+	}
+
+	if existingUser == nil {
+		nickName := oauthGivenName
+		if nickName == "" {
+			nickName = oauthName
+		}
+
+		newUser := dto.RegisterRequest{
+			Username:   fmt.Sprintf("%s_%s", nickName, randomCode),
+			Email:      oauthEmail,
+			FullName:   oauthFullName,
+			Provider:   strings.ToUpper(provider),
+			ProviderID: &oauthProviderID,
+		}
+		createdUser, err := s.Register(ctx, newUser, true)
+		if err != nil {
+			logger.Error("Error registering new user from OAuth", zap.String("request_id", requestID), zap.String("provider", provider), zap.Error(err))
+			return "", "", apperror.New(500, "USER_REGISTRATION_FAILED", "Gagal mendaftarkan pengguna baru", err.Error())
+		}
+		logger.Info("New user registered via OAuth", zap.String("request_id", requestID), zap.String("provider", provider), zap.Uint("user_id", createdUser.ID))
+		existingUser = createdUser
+	}
+
+	loginReq := dto.LoginRequest{
+		Email:     existingUser.Email,
+		Password:  "",
+		IPAddress: userIP,
+		UserAgent: userAgent,
+		Provider:  strings.ToUpper(provider),
+	}
+
+	_, accessToken, refreshToken, err := s.Login(ctx, loginReq)
+	if err != nil {
+		logger.Error("Login failed for OAuth user", zap.String("request_id", requestID), zap.String("provider", provider), zap.Error(err))
+		return "", "", apperror.New(500, "LOGIN_FAILED", "Gagal masuk dengan akun OAuth", err.Error())
+	}
+
+	logger.Info("OAuth user logged in successfully", zap.String("request_id", requestID), zap.String("provider", provider), zap.Uint("user_id", existingUser.ID))
+
+	return accessToken, refreshToken, nil
 }
