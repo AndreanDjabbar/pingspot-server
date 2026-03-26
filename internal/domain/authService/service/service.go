@@ -231,8 +231,6 @@ func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (*model.U
 		return nil, "", "", apperror.New(500, "USER_SESSION_COMMIT_FAILED", "Gagal menyimpan sesi user", err.Error())
 	}
 
-	accessToken := tokenutils.GenerateAccessToken(user.ID, userSession.ID, user.Email, user.Username, user.FullName)
-
 	refreshKey := fmt.Sprintf("refresh_token:%s", refreshTokenID)
 	err = s.cacheRepo.Set(context.Background(), refreshKey, hashedRefreshToken, getRefreshTokenDuration())
 	if err != nil {
@@ -260,6 +258,8 @@ func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (*model.U
 			zap.Error(err),
 		)
 	}
+
+	accessToken := tokenutils.GenerateAccessToken(user.ID, userSession.ID, user.Email, user.Username, user.FullName)
 
 	logger.Info("User logged in successfully",
 		zap.String("request_id", requestID),
