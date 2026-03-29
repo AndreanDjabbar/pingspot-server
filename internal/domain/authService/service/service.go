@@ -282,10 +282,9 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
 
 	refreshKey := fmt.Sprintf("refresh_token:%s", refreshTokenID)
 
-	storedHashedRefreshToken, err := s.cacheRepo.Get(context.Background(), refreshKey)
-
 	var userSession *model.UserSession
 
+	storedHashedRefreshToken, err := s.cacheRepo.Get(ctx, refreshKey)
 	if err != nil {
 		logger.Warn("Refresh token not found in Redis, checking PostgreSQL",
 			zap.String("refresh_token_id", refreshTokenID),
@@ -304,23 +303,11 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
 		if userSession.HashedRefreshToken != hashedRefreshToken {
 			return "", "", apperror.New(401, "REFRESH_TOKEN_INVALID", "Refresh token tidak cocok", "")
 		}
-
-		remainingDuration := time.Until(time.Unix(userSession.ExpiresAt, 0))
-		if remainingDuration > 0 {
-			err = s.cacheRepo.Set(context.Background(), refreshKey, hashedRefreshToken, remainingDuration)
-			if err != nil {
-				logger.Warn("Failed to restore refresh token to Redis", zap.Error(err))
-			}
-		}
-
 		storedHashedRefreshToken = userSession.HashedRefreshToken
-	} else if storedHashedRefreshToken != hashedRefreshToken {
-		return "", "", apperror.New(401, "REFRESH_TOKEN_INVALID", "Refresh token tidak cocok", "")
-	}
-
-	user, err := s.userRepo.GetByID(ctx, userID)
-	if err != nil {
-		return "", "", apperror.New(500, "USER_FETCH_FAILED", "Gagal mengambil data user", err.Error())
+	} else {
+		if storedHashedRefreshToken != hashedRefreshToken {
+			return "", "", apperror.New(401, "REFRESH_TOKEN_INVALID", "Refresh token tidak cocok", "")
+		}
 	}
 
 	if userSession == nil {
@@ -337,13 +324,9 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
 	newRefreshTokenID := uuid.New().String()
 	newRefreshToken := tokenutils.GenerateRefreshToken(userID, newRefreshTokenID)
 	newHashedRefreshToken := tokenutils.HashSHA256String(newRefreshToken)
-
-	if err := s.cacheRepo.Del(context.Background(), refreshKey); err != nil {
-		logger.Warn("Failed to delete old refresh token", zap.Error(err))
-	}
-
 	newRefreshKey := fmt.Sprintf("refresh_token:%s", newRefreshTokenID)
-	if err := s.cacheRepo.Set(context.Background(), newRefreshKey, newHashedRefreshToken, getRefreshTokenDuration()); err != nil {
+	
+	if err := s.cacheRepo.Set(ctx, newRefreshKey, newHashedRefreshToken, getRefreshTokenDuration()); err != nil {
 		return "", "", apperror.New(500, "REFRESH_TOKEN_SAVE_FAILED", "Gagal menyimpan refresh token baru", err.Error())
 	}
 
@@ -355,7 +338,19 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
 		return "", "", apperror.New(500, "SESSION_UPDATE_FAILED", "Gagal memperbarui sesi", err.Error())
 	}
 
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", "", apperror.New(404, "USER_NOT_FOUND", "User tidak ditemukan", err.Error())
+		}
+		return "", "", apperror.New(500, "USER_FETCH_FAILED", "Gagal mengambil data user", err.Error())
+	}
+
 	accessToken := tokenutils.GenerateAccessToken(userID, userSession.ID, user.Email, user.Username, user.FullName)
+
+	if err := s.cacheRepo.Del(ctx, refreshKey); err != nil {
+		logger.Warn("Failed to delete old refresh token", zap.Error(err))
+	}
 
 	return accessToken, newRefreshToken, nil
 }
