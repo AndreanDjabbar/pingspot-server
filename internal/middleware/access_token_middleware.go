@@ -13,14 +13,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func CheckTokenBlacklist(token string) bool {
-	redisClient := cache.GetRedis()
-	blacklistKey := fmt.Sprintf("blacklist:%s", token)
-
-	_, err := redisClient.Get(context.Background(), blacklistKey).Result()
-	return err == nil
-}
-
 func ValidateAccessToken() fiber.Handler {
     return func(c *fiber.Ctx) error {
         var token string
@@ -70,13 +62,12 @@ func ValidateAccessToken() fiber.Handler {
         sessionID := uint(sessionIDFloat)
 
         redisClient := cache.GetRedis()
-        userSessionKey := fmt.Sprintf("user_session:%v", claims["user_id"])
-
-        exists, err := redisClient.SIsMember(context.Background(), userSessionKey, sessionID).Result()
-        if err != nil || !exists {
-            return response.ResponseError(c, 401, "Token tidak lagi valid", "", "Sesi Anda telah berakhir, silakan login lagi")
+        userSessionKey := fmt.Sprintf("session:%v", sessionID)
+        storedUserID, err := redisClient.Get(context.Background(), userSessionKey).Result()
+        if err != nil || storedUserID == "" || storedUserID != fmt.Sprintf("%v", claims["user_id"]) {
+            return response.ResponseError(c, 401, "Sesi tidak valid", "", "Sesi pengguna tidak ditemukan atau sudah tidak berlaku")
         }
-
+        
         c.Locals("token", parsedToken)
         c.Locals("claims", claims)
 
