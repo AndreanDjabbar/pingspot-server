@@ -251,12 +251,14 @@ func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (*model.U
 		return nil, "", "", apperror.New(500, "USER_SESSION_SAVE_FAILED", "Gagal menyimpan sesi user", err.Error())
 	}
 
-	_, err = s.cacheRepo.Expire(context.Background(), userSessionKey, getRefreshTokenDuration())
+	sessionKey := fmt.Sprintf("session:%d", userSession.ID)
+	err = s.cacheRepo.Set(context.Background(), sessionKey, user.ID, getRefreshTokenDuration())
 	if err != nil {
-		logger.Warn("Failed to set TTL on user session set",
+		logger.Error("Failed to save session data to Redis",
 			zap.String("request_id", requestID),
 			zap.Error(err),
 		)
+		return nil, "", "", apperror.New(500, "SESSION_SAVE_FAILED", "Gagal menyimpan data sesi", err.Error())
 	}
 
 	accessToken := tokenutils.GenerateAccessToken(user.ID, userSession.ID, user.Email, user.Username, user.FullName)
@@ -303,7 +305,6 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
 		if userSession.HashedRefreshToken != hashedRefreshToken {
 			return "", "", apperror.New(401, "REFRESH_TOKEN_INVALID", "Refresh token tidak cocok", "")
 		}
-		storedHashedRefreshToken = userSession.HashedRefreshToken
 	} else {
 		if storedHashedRefreshToken != hashedRefreshToken {
 			return "", "", apperror.New(401, "REFRESH_TOKEN_INVALID", "Refresh token tidak cocok", "")
@@ -321,23 +322,6 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
 		return "", "", apperror.New(401, "SESSION_INVALID", "Sesi sudah tidak aktif atau kedaluwarsa", "")
 	}
 
-	newRefreshTokenID := uuid.New().String()
-	newRefreshToken := tokenutils.GenerateRefreshToken(userID, newRefreshTokenID)
-	newHashedRefreshToken := tokenutils.HashSHA256String(newRefreshToken)
-	newRefreshKey := fmt.Sprintf("refresh_token:%s", newRefreshTokenID)
-	
-	if err := s.cacheRepo.Set(ctx, newRefreshKey, newHashedRefreshToken, getRefreshTokenDuration()); err != nil {
-		return "", "", apperror.New(500, "REFRESH_TOKEN_SAVE_FAILED", "Gagal menyimpan refresh token baru", err.Error())
-	}
-
-	userSession.RefreshTokenID = newRefreshTokenID
-	userSession.HashedRefreshToken = newHashedRefreshToken
-	userSession.ExpiresAt = time.Now().Add(getRefreshTokenDuration()).Unix()
-
-	if err := s.userSessionRepo.Update(ctx, userSession); err != nil {
-		return "", "", apperror.New(500, "SESSION_UPDATE_FAILED", "Gagal memperbarui sesi", err.Error())
-	}
-
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -346,9 +330,68 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
 		return "", "", apperror.New(500, "USER_FETCH_FAILED", "Gagal mengambil data user", err.Error())
 	}
 
-	accessToken := tokenutils.GenerateAccessToken(userID, userSession.ID, user.Email, user.Username, user.FullName)
+	refreshDuration := getRefreshTokenDuration()
+	newExpiresAt := time.Now().Add(refreshDuration).Unix()
 
-	if err := s.cacheRepo.Del(ctx, refreshKey); err != nil {
+	newRefreshTokenID := uuid.New().String()
+	newRefreshToken := tokenutils.GenerateRefreshToken(userID, newRefreshTokenID)
+	newHashedRefreshToken := tokenutils.HashSHA256String(newRefreshToken)
+
+	newRefreshKey := fmt.Sprintf("refresh_token:%s", newRefreshTokenID)
+	sessionKey := fmt.Sprintf("session:%d", userSession.ID)
+
+	oldRefreshKey := refreshKey
+	oldRefreshTokenID := userSession.RefreshTokenID
+	oldHashedRefreshToken := userSession.HashedRefreshToken
+	oldExpiresAt := userSession.ExpiresAt
+
+	userSession.RefreshTokenID = newRefreshTokenID
+	userSession.HashedRefreshToken = newHashedRefreshToken
+	userSession.ExpiresAt = newExpiresAt
+
+	if err := s.userSessionRepo.Update(ctx, userSession); err != nil {
+		return "", "", apperror.New(500, "SESSION_UPDATE_FAILED", "Gagal memperbarui sesi", err.Error())
+	}
+
+	if err := s.cacheRepo.Set(ctx, newRefreshKey, newHashedRefreshToken, refreshDuration); err != nil {
+		userSession.RefreshTokenID = oldRefreshTokenID
+		userSession.HashedRefreshToken = oldHashedRefreshToken
+		userSession.ExpiresAt = oldExpiresAt
+		if rollbackErr := s.userSessionRepo.Update(ctx, userSession); rollbackErr != nil {
+			logger.Error("Failed to rollback session after Redis refresh token save failure",
+				zap.Error(rollbackErr),
+			)
+		}
+
+		return "", "", apperror.New(500, "REFRESH_TOKEN_SAVE_FAILED", "Gagal menyimpan refresh token baru", err.Error())
+	}
+
+	if err := s.cacheRepo.Set(ctx, sessionKey, userID, refreshDuration); err != nil {
+		if delErr := s.cacheRepo.Del(ctx, newRefreshKey); delErr != nil {
+			logger.Warn("Failed to delete new refresh token during rollback", zap.Error(delErr))
+		}
+
+		userSession.RefreshTokenID = oldRefreshTokenID
+		userSession.HashedRefreshToken = oldHashedRefreshToken
+		userSession.ExpiresAt = oldExpiresAt
+		if rollbackErr := s.userSessionRepo.Update(ctx, userSession); rollbackErr != nil {
+			logger.Error("Failed to rollback session after Redis session save failure",
+				zap.Error(rollbackErr),
+			)
+		}
+
+		return "", "", apperror.New(500, "SESSION_SAVE_FAILED", "Gagal menyimpan data sesi baru", err.Error())
+	}
+
+	accessToken := tokenutils.GenerateAccessToken(
+		userID,
+		userSession.ID,
+		user.Email,
+		user.Username,
+		user.FullName,
+	)
+
+	if err := s.cacheRepo.Del(ctx, oldRefreshKey); err != nil {
 		logger.Warn("Failed to delete old refresh token", zap.Error(err))
 	}
 
@@ -377,6 +420,13 @@ func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
 	if err := s.userSessionRepo.Update(ctx, userSession); err != nil {
 		return apperror.New(500, "USER_SESSION_UPDATE_FAILED", "Gagal memperbarui sesi user", err.Error())
 	}
+
+	sessionKey := fmt.Sprintf("session:%d", userSession.ID)
+	if err := s.cacheRepo.Del(context.Background(), sessionKey); err != nil {
+		logger.Warn("Failed to delete session data from Redis", zap.Error(err))
+		return apperror.New(500, "SESSION_DELETE_FAILED", "Gagal menghapus data sesi", err.Error())
+	}
+
 	userSessionKey := fmt.Sprintf("user_session:%d", userID)
 	if err := s.cacheRepo.SRem(context.Background(), userSessionKey, userSession.ID); err != nil {
 		logger.Warn("Failed to remove user session ID from Redis set", zap.Error(err))
