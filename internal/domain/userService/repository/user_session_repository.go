@@ -9,6 +9,7 @@ import (
 
 type UserSessionRepository interface {
 	CreateTX(ctx context.Context, tx *gorm.DB, user *model.UserSession) (*model.UserSession, error)
+	GetByID(ctx context.Context, id uint) (*model.UserSession, error)
 	GetByRefreshTokenID(ctx context.Context, refreshTokenID string) (*model.UserSession, error)
 	Update(ctx context.Context, userSession *model.UserSession) error
 	UpdateTX(ctx context.Context, tx *gorm.DB, userSession *model.UserSession) error
@@ -27,6 +28,14 @@ func (r *userSessionRepository) CreateTX(ctx context.Context, tx *gorm.DB, userS
 		return nil, err
 	}
 	return userSession, nil
+}
+
+func (r *userSessionRepository) GetByID(ctx context.Context, id uint) (*model.UserSession, error) {
+	var userSession model.UserSession
+	if err := r.db.WithContext(ctx).First(&userSession, id).Error; err != nil {
+		return nil, err
+	}
+	return &userSession, nil
 }
 
 func (r *userSessionRepository) Update(ctx context.Context, userSession *model.UserSession) error {
