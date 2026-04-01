@@ -72,6 +72,30 @@ func GenerateJWT(userID uint, JWTSecret []byte, email, username, fullName string
 	return token.SignedString(JWTSecret)
 }
 
+func ClearAuthCookies(c *fiber.Ctx) {
+	c.Cookie(&fiber.Cookie{
+		Name:     "access_token",
+		Value:    "",
+		Expires:  time.Unix(0, 0),
+		HTTPOnly: true,
+        Secure: true,
+		Path:     "/",
+        Domain:   "",
+		SameSite: fiber.CookieSameSiteLaxMode,
+	})
+
+	c.Cookie(&fiber.Cookie{
+		Name:     "refresh_token",
+		Value:    "",
+		Expires:  time.Unix(0, 0),
+		HTTPOnly: true,
+        Secure: true,
+		Path:     "/",
+        Domain:   "",
+		SameSite: fiber.CookieSameSiteLaxMode,
+	})
+}
+
 func ValidateRefreshToken(refreshToken string) (jwt.MapClaims, error) {
 	if refreshToken == "" {
 		return nil, fmt.Errorf("refresh token is empty")
