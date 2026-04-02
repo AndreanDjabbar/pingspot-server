@@ -12,8 +12,8 @@ import (
 	"pingspot/pkg/utils/env"
 	mainutils "pingspot/pkg/utils/mainUtils"
 	"pingspot/pkg/utils/response"
+	"pingspot/pkg/utils/tokenutils"
 	"strconv"
-
 	"github.com/gofiber/fiber/v2"
 	"github.com/markbates/goth/gothic"
 	"go.uber.org/zap"
@@ -302,6 +302,9 @@ func (h *AuthHandler) RefreshTokenHandler(c *fiber.Ctx) error {
 	if err != nil {
 		logger.Error("Failed to refresh tokens", zap.Error(err))
 		if appErr, ok := err.(*apperror.AppError); ok {
+			if appErr.StatusCode == 401 {
+				tokenutils.ClearAuthCookies(c)
+			}
 			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
 		return response.ResponseError(c, 500, "Gagal memperbarui token", "", err.Error())

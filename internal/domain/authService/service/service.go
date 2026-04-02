@@ -278,48 +278,51 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
 		return "", "", apperror.New(401, "INVALID_REFRESH_TOKEN", "Refresh token tidak valid", err.Error())
 	}
 
-	userID := uint(claims["user_id"].(float64))
-	refreshTokenID := claims["refresh_token_id"].(string)
+	userIDFloat, ok := claims["user_id"].(float64)
+	if !ok {
+		return "", "", apperror.New(401, "INVALID_REFRESH_TOKEN_CLAIMS", "Claim user_id tidak valid", "")
+	}
+
+	refreshTokenID, ok := claims["refresh_token_id"].(string)
+	if !ok || refreshTokenID == "" {
+		return "", "", apperror.New(401, "INVALID_REFRESH_TOKEN_CLAIMS", "Claim refresh_token_id tidak valid", "")
+	}
+
+	userID := uint(userIDFloat)
 	hashedRefreshToken := tokenutils.HashSHA256String(refreshToken)
-
 	refreshKey := fmt.Sprintf("refresh_token:%s", refreshTokenID)
-
-	var userSession *model.UserSession
 
 	storedHashedRefreshToken, err := s.cacheRepo.Get(ctx, refreshKey)
 	if err != nil {
-		logger.Warn("Refresh token not found in Redis, checking PostgreSQL",
+		logger.Warn("Failed to get refresh token from Redis, fallback to PostgreSQL",
 			zap.String("refresh_token_id", refreshTokenID),
 			zap.Error(err),
 		)
-
-		userSession, err = s.userSessionRepo.GetByRefreshTokenID(ctx, refreshTokenID)
-		if err != nil {
-			return "", "", apperror.New(401, "USER_SESSION_NOT_FOUND", "Sesi user tidak ditemukan", err.Error())
-		}
-
-		if !userSession.IsActive || time.Now().Unix() > userSession.ExpiresAt {
-			return "", "", apperror.New(401, "SESSION_INVALID", "Sesi sudah tidak aktif atau kedaluwarsa", "")
-		}
-
-		if userSession.HashedRefreshToken != hashedRefreshToken {
-			return "", "", apperror.New(401, "REFRESH_TOKEN_INVALID", "Refresh token tidak cocok", "")
-		}
 	} else {
 		if storedHashedRefreshToken != hashedRefreshToken {
 			return "", "", apperror.New(401, "REFRESH_TOKEN_INVALID", "Refresh token tidak cocok", "")
 		}
 	}
 
-	if userSession == nil {
-		userSession, err = s.userSessionRepo.GetByRefreshTokenID(ctx, refreshTokenID)
-		if err != nil {
-			return "", "", apperror.New(401, "USER_SESSION_NOT_FOUND", "Sesi user tidak ditemukan", err.Error())
-		}
+	userSession, err := s.userSessionRepo.GetByRefreshTokenID(ctx, refreshTokenID)
+	if err != nil {
+		return "", "", apperror.New(401, "USER_SESSION_NOT_FOUND", "Sesi user tidak ditemukan", err.Error())
 	}
 
-	if !userSession.IsActive || time.Now().Unix() > userSession.ExpiresAt {
-		return "", "", apperror.New(401, "SESSION_INVALID", "Sesi sudah tidak aktif atau kedaluwarsa", "")
+	if !userSession.IsActive {
+		return "", "", apperror.New(401, "SESSION_INACTIVE", "Sesi sudah tidak aktif", "")
+	}
+
+	if time.Now().Unix() > userSession.ExpiresAt {
+		return "", "", apperror.New(401, "SESSION_EXPIRED", "Sesi sudah kedaluwarsa", "")
+	}
+
+	if userSession.HashedRefreshToken != hashedRefreshToken {
+		return "", "", apperror.New(401, "REFRESH_TOKEN_INVALID", "Refresh token tidak cocok", "")
+	}
+
+	if userSession.UserID != userID {
+		return "", "", apperror.New(401, "SESSION_USER_MISMATCH", "Sesi tidak sesuai dengan user", "")
 	}
 
 	user, err := s.userRepo.GetByID(ctx, userID)
@@ -337,50 +340,48 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
 	newRefreshToken := tokenutils.GenerateRefreshToken(userID, newRefreshTokenID)
 	newHashedRefreshToken := tokenutils.HashSHA256String(newRefreshToken)
 
+	oldRefreshKey := refreshKey
 	newRefreshKey := fmt.Sprintf("refresh_token:%s", newRefreshTokenID)
 	sessionKey := fmt.Sprintf("session:%d", userSession.ID)
-
-	oldRefreshKey := refreshKey
-	oldRefreshTokenID := userSession.RefreshTokenID
-	oldHashedRefreshToken := userSession.HashedRefreshToken
-	oldExpiresAt := userSession.ExpiresAt
 
 	userSession.RefreshTokenID = newRefreshTokenID
 	userSession.HashedRefreshToken = newHashedRefreshToken
 	userSession.ExpiresAt = newExpiresAt
 
-	if err := s.userSessionRepo.Update(ctx, userSession); err != nil {
+	tx := s.db.Begin()
+	if tx.Error != nil {
+		return "", "", apperror.New(500, "TRANSACTION_START_FAILED", "Gagal memulai transaksi", tx.Error.Error())
+	}
+
+	if err := s.userSessionRepo.UpdateTX(ctx, tx, userSession); err != nil {
+		tx.Rollback()
 		return "", "", apperror.New(500, "SESSION_UPDATE_FAILED", "Gagal memperbarui sesi", err.Error())
 	}
 
-	if err := s.cacheRepo.Set(ctx, newRefreshKey, newHashedRefreshToken, refreshDuration); err != nil {
-		userSession.RefreshTokenID = oldRefreshTokenID
-		userSession.HashedRefreshToken = oldHashedRefreshToken
-		userSession.ExpiresAt = oldExpiresAt
-		if rollbackErr := s.userSessionRepo.Update(ctx, userSession); rollbackErr != nil {
-			logger.Error("Failed to rollback session after Redis refresh token save failure",
-				zap.Error(rollbackErr),
-			)
-		}
+	if err := tx.Commit().Error; err != nil {
+		tx.Rollback()
+		return "", "", apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Gagal commit transaksi", err.Error())
+	}
 
-		return "", "", apperror.New(500, "REFRESH_TOKEN_SAVE_FAILED", "Gagal menyimpan refresh token baru", err.Error())
+	if err := s.cacheRepo.Set(ctx, newRefreshKey, newHashedRefreshToken, refreshDuration); err != nil {
+		logger.Warn("Failed to save new refresh token to Redis",
+			zap.String("refresh_token_id", newRefreshTokenID),
+			zap.Error(err),
+		)
 	}
 
 	if err := s.cacheRepo.Set(ctx, sessionKey, userID, refreshDuration); err != nil {
-		if delErr := s.cacheRepo.Del(ctx, newRefreshKey); delErr != nil {
-			logger.Warn("Failed to delete new refresh token during rollback", zap.Error(delErr))
-		}
+		logger.Warn("Failed to save session to Redis",
+			zap.Uint("session_id", userSession.ID),
+			zap.Error(err),
+		)
+	}
 
-		userSession.RefreshTokenID = oldRefreshTokenID
-		userSession.HashedRefreshToken = oldHashedRefreshToken
-		userSession.ExpiresAt = oldExpiresAt
-		if rollbackErr := s.userSessionRepo.Update(ctx, userSession); rollbackErr != nil {
-			logger.Error("Failed to rollback session after Redis session save failure",
-				zap.Error(rollbackErr),
-			)
-		}
-
-		return "", "", apperror.New(500, "SESSION_SAVE_FAILED", "Gagal menyimpan data sesi baru", err.Error())
+	if err := s.cacheRepo.Del(ctx, oldRefreshKey); err != nil {
+		logger.Warn("Failed to delete old refresh token from Redis",
+			zap.String("refresh_token_id", refreshTokenID),
+			zap.Error(err),
+		)
 	}
 
 	accessToken := tokenutils.GenerateAccessToken(
@@ -390,10 +391,6 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
 		user.Username,
 		user.FullName,
 	)
-
-	if err := s.cacheRepo.Del(ctx, oldRefreshKey); err != nil {
-		logger.Warn("Failed to delete old refresh token", zap.Error(err))
-	}
 
 	return accessToken, newRefreshToken, nil
 }
@@ -405,32 +402,79 @@ func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
 		return apperror.New(401, "INVALID_REFRESH_TOKEN", "Refresh token tidak valid", err.Error())
 	}
 
-	refreshTokenID := refreshTokenClaims["refresh_token_id"].(string)
-	userID := uint(refreshTokenClaims["user_id"].(float64))
-
-	refreshKey := fmt.Sprintf("refresh_token:%s", refreshTokenID)
-	if err := s.cacheRepo.Del(context.Background(), refreshKey); err != nil {
-		logger.Warn("Failed to delete refresh token from Redis", zap.Error(err))
+	refreshTokenID, ok := refreshTokenClaims["refresh_token_id"].(string)
+	if !ok || refreshTokenID == "" {
+		return apperror.New(401, "INVALID_REFRESH_TOKEN_CLAIMS", "Claim refresh_token_id tidak valid", "")
 	}
+
+	userIDFloat, ok := refreshTokenClaims["user_id"].(float64)
+	if !ok {
+		return apperror.New(401, "INVALID_REFRESH_TOKEN_CLAIMS", "Claim user_id tidak valid", "")
+	}
+	userID := uint(userIDFloat)
+
 	userSession, err := s.userSessionRepo.GetByRefreshTokenID(ctx, refreshTokenID)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return apperror.New(401, "USER_SESSION_NOT_FOUND", "Sesi user tidak ditemukan", err.Error())
+		}
 		return apperror.New(500, "USER_SESSION_FETCH_FAILED", "Gagal mengambil sesi user", err.Error())
 	}
+
+	if userSession.UserID != userID {
+		return apperror.New(401, "SESSION_USER_MISMATCH", "Sesi tidak sesuai dengan user", "")
+	}
+
+	if !userSession.IsActive {
+		refreshKey := fmt.Sprintf("refresh_token:%s", refreshTokenID)
+		sessionKey := fmt.Sprintf("session:%d", userSession.ID)
+		userSessionKey := fmt.Sprintf("user_session:%d", userID)
+
+		if err := s.cacheRepo.Del(ctx, refreshKey); err != nil {
+			logger.Warn("Failed to delete refresh token from Redis", zap.Error(err))
+		}
+		if err := s.cacheRepo.Del(ctx, sessionKey); err != nil {
+			logger.Warn("Failed to delete session data from Redis", zap.Error(err))
+		}
+		if err := s.cacheRepo.SRem(ctx, userSessionKey, userSession.ID); err != nil {
+			logger.Warn("Failed to remove user session ID from Redis set", zap.Error(err))
+		}
+
+		return nil
+	}
+
+	tx := s.db.Begin()
+	if tx.Error != nil {
+		return apperror.New(500, "TRANSACTION_START_FAILED", "Gagal memulai transaksi", tx.Error.Error())
+	}
+
 	userSession.IsActive = false
-	if err := s.userSessionRepo.Update(ctx, userSession); err != nil {
+	if err := s.userSessionRepo.UpdateTX(ctx, tx, userSession); err != nil {
+		tx.Rollback()
 		return apperror.New(500, "USER_SESSION_UPDATE_FAILED", "Gagal memperbarui sesi user", err.Error())
 	}
 
-	sessionKey := fmt.Sprintf("session:%d", userSession.ID)
-	if err := s.cacheRepo.Del(context.Background(), sessionKey); err != nil {
-		logger.Warn("Failed to delete session data from Redis", zap.Error(err))
-		return apperror.New(500, "SESSION_DELETE_FAILED", "Gagal menghapus data sesi", err.Error())
+	if err := tx.Commit().Error; err != nil {
+		tx.Rollback()
+		return apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Gagal commit transaksi", err.Error())
 	}
 
+	refreshKey := fmt.Sprintf("refresh_token:%s", refreshTokenID)
+	sessionKey := fmt.Sprintf("session:%d", userSession.ID)
 	userSessionKey := fmt.Sprintf("user_session:%d", userID)
-	if err := s.cacheRepo.SRem(context.Background(), userSessionKey, userSession.ID); err != nil {
+
+	if err := s.cacheRepo.Del(ctx, refreshKey); err != nil {
+		logger.Warn("Failed to delete refresh token from Redis", zap.Error(err))
+	}
+
+	if err := s.cacheRepo.Del(ctx, sessionKey); err != nil {
+		logger.Warn("Failed to delete session data from Redis", zap.Error(err))
+	}
+
+	if err := s.cacheRepo.SRem(ctx, userSessionKey, userSession.ID); err != nil {
 		logger.Warn("Failed to remove user session ID from Redis set", zap.Error(err))
 	}
+
 	return nil
 }
 
