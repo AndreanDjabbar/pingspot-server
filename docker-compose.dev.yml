@@ -1,4 +1,4 @@
-name: PingSpot
+name: PingSpot-dev
 
 services:
   pingspot-redis:
@@ -26,6 +26,7 @@ services:
       - .env
     volumes:
       - pingspot_postgre_data:/var/lib/postgresql/data
+      - ./postgres.init.sql:/docker-entrypoint-initdb.d/postgres.init.sql
     networks:
       - pingspot_network
 
