@@ -14,7 +14,7 @@ func Migrate(db *gorm.DB) error {
 		{
 			ID: "11142025_initial_migration",
 			Migrate: func(tx *gorm.DB) error {
-				return tx.AutoMigrate(
+				if err := tx.AutoMigrate(
 					&model.User{},
 					&model.UserProfile{},
 					&model.UserSession{},
@@ -24,8 +24,48 @@ func Migrate(db *gorm.DB) error {
 					&model.ReportReaction{},
 					&model.ReportProgress{},
 					&model.ReportVote{},
-				)
+				); err != nil {
+					return err
+				}
+
+				if err := tx.Exec(`
+					ALTER TABLE reports
+					ADD COLUMN IF NOT EXISTS search_vector tsvector GENERATED ALWAYS AS (
+						setweight(to_tsvector('indonesian', coalesce(report_title, '')), 'A') ||
+						setweight(to_tsvector('indonesian', coalesce(report_description, '')), 'B')
+					) STORED;
+				`).Error; err != nil {
+					return err
+				}
+
+				if err := tx.Exec(`
+					ALTER TABLE users
+					ADD COLUMN IF NOT EXISTS search_vector tsvector GENERATED ALWAYS AS (
+						setweight(to_tsvector('indonesian', coalesce(username, '')), 'A') ||
+						setweight(to_tsvector('indonesian', coalesce(email, '')), 'B') ||
+						setweight(to_tsvector('indonesian', coalesce(full_name, '')), 'C')
+					) STORED;
+				`).Error; err != nil {
+					return err
+				}
+
+				if err := tx.Exec(`
+					CREATE INDEX IF NOT EXISTS idx_reports_search_vector
+					ON reports USING GIN (search_vector);
+				`).Error; err != nil {
+					return err
+				}
+
+				if err := tx.Exec(`
+					CREATE INDEX IF NOT EXISTS idx_users_search_vector
+					ON users USING GIN (search_vector);
+				`).Error; err != nil {
+					return err
+				}
+
+				return nil
 			},
+
 			Rollback: func(tx *gorm.DB) error {
 				return tx.Migrator().DropTable(
 					&model.User{},

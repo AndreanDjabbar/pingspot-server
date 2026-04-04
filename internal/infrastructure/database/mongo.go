@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"pingspot/internal/config"
 	"pingspot/pkg/logger"
-	"pingspot/pkg/utils/env"
+	env "pingspot/pkg/utils/env_util"
 	"sync"
 
 	"go.mongodb.org/mongo-driver/v2/mongo"

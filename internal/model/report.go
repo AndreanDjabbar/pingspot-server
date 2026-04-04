@@ -48,7 +48,7 @@ type Report struct {
 	AdminOverride   *bool             `gorm:"default:false"`
 	IsDeleted         *bool             `gorm:"default:false"`
 	DeletedAt 		*int64            `gorm:"default:null"`
-	SearchVector 		string `gorm:"column:search_vector;->"`
+	SearchVector string `gorm:"column:search_vector;->;-:migration"`
 	ReportLocation    *ReportLocation   `gorm:"foreignKey:ReportID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 	ReportImages      *ReportImage      `gorm:"foreignKey:ReportID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 	ReportReactions   *[]ReportReaction `gorm:"foreignKey:ReportID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`

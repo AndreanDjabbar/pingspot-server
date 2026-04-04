@@ -2,7 +2,7 @@ package report
 
 import (
 	"context"
-	"pingspot/internal/domain/reportService/dto"
+	"pingspot/internal/domain/report_service/dto"
 	"pingspot/internal/model"
 
 	"github.com/stretchr/testify/mock"
