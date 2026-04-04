@@ -8,10 +8,10 @@ import (
 	"pingspot/internal/infrastructure/database"
 	"pingspot/internal/migration"
 	"pingspot/internal/server"
-	"pingspot/internal/worker/asynqWorker"
-	"pingspot/internal/worker/cronWorker"
+	"pingspot/internal/worker/asynq_worker"
+	cronWorker "pingspot/internal/worker/cron_worker"
 	"pingspot/pkg/logger"
-	"pingspot/pkg/utils/env"
+	env "pingspot/pkg/utils/env_util"
 	"strconv"
 
 	"go.uber.org/zap"
