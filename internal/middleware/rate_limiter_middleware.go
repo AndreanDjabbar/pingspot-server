@@ -8,9 +8,9 @@ import (
 
 	"pingspot/internal/infrastructure/cache"
 	"pingspot/pkg/logger"
-	"pingspot/pkg/utils/env"
-	mainutils "pingspot/pkg/utils/mainUtils"
-	"pingspot/pkg/utils/response"
+	env "pingspot/pkg/utils/env_util"
+	mainutils "pingspot/pkg/utils/main_util"
+	response "pingspot/pkg/utils/response_util"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"

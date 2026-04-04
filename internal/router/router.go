@@ -1,10 +1,10 @@
 package router
 
 import (
-	authRouter "pingspot/internal/domain/authService/router"
-	mainRouter "pingspot/internal/domain/reportService/router"
-	searchRouter "pingspot/internal/domain/searchService/router"
-	userRouter "pingspot/internal/domain/userService/router"
+	authRouter "pingspot/internal/domain/auth_service/router"
+	mainRouter "pingspot/internal/domain/report_service/router"
+	searchRouter "pingspot/internal/domain/search_service/router"
+	userRouter "pingspot/internal/domain/user_service/router"
 
 	"github.com/gofiber/fiber/v2"
 )

@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	contextutils "pingspot/pkg/utils/contextUtils"
+	contextutils "pingspot/pkg/utils/context_util"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"

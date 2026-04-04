@@ -2,13 +2,13 @@ package middleware
 
 import (
 	"fmt"
-	"pingspot/internal/domain/userService/repository"
+	"pingspot/internal/domain/user_service/repository"
 	"pingspot/internal/infrastructure/cache"
 	"pingspot/internal/infrastructure/database"
 	"pingspot/pkg/logger"
-	mainutils "pingspot/pkg/utils/mainUtils"
-	"pingspot/pkg/utils/response"
-	"pingspot/pkg/utils/tokenutils"
+	mainutils "pingspot/pkg/utils/main_util"
+	response "pingspot/pkg/utils/response_util"
+	tokenutils "pingspot/pkg/utils/token_util"
 	"strings"
 	"time"
 

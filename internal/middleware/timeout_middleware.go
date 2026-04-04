@@ -2,7 +2,7 @@ package middleware
 
 import (
 	"errors"
-	"pingspot/pkg/utils/response"
+	response "pingspot/pkg/utils/response_util"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
