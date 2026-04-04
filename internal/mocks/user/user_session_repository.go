@@ -37,6 +37,11 @@ func (m *MockUserSessionRepository) DeleteTX(ctx context.Context, tx *gorm.DB, s
 	return args.Error(0)
 }
 
+func (m *MockUserSessionRepository) UpdateTX(ctx context.Context, tx *gorm.DB, session *model.UserSession) error {
+	args := m.Called(ctx, tx, session)
+	return args.Error(0)
+}
+
 func (m *MockUserSessionRepository) GetByID(ctx context.Context, sessionID uint) (*model.UserSession, error) {
 	args := m.Called(ctx, sessionID)
 	if args.Get(0) == nil {
