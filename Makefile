@@ -6,15 +6,15 @@ build:
 	
 	@go build -o main.exe cmd/main.go
 
-up-dev:
+docker-up-dev:
 	@echo "🔼 Docker Compose set up with dev environment..."
 	docker compose -f docker-compose.dev.yml --env-file .env.dev up -d
 
-down-dev:
+docker-down-dev:
 	@echo "🔽 Docker Compose down for dev environment..."
 	docker compose -f docker-compose.dev.yml --env-file .env.dev down
 
-up-prod:
+docker-up-prod:
 	@echo "🔼 Docker Compose set up with production environment..."
 	docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 
@@ -68,4 +68,4 @@ generate-key:
 	@go run scripts/keys.go
 	@echo "✓ Keys generated in /keys directory."
 
-.PHONY: all build run test clean watch
+.PHONY: all build run test clean watch docker-up-dev docker-down-dev docker-up-prod
