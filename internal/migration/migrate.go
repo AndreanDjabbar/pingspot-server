@@ -80,6 +80,15 @@ func Migrate(db *gorm.DB) error {
 				)
 			},
 		},
+		{
+			ID: "04052026_add_is_default_username_to_users",
+			Migrate: func(tx *gorm.DB) error {
+				return tx.AutoMigrate(&model.User{})
+			},
+			Rollback: func(tx *gorm.DB) error {
+				return tx.Migrator().DropColumn(&model.User{}, "is_default_username")
+			},
+		},
 	})
 
 	err := m.Migrate()
