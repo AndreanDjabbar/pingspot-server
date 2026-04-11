@@ -6,6 +6,10 @@ build:
 	
 	@go build -o main.exe cmd/main.go
 
+docker-up:
+	@echo "🔼 Docker Compose set up..."
+	docker compose --env-file .env up -d
+
 docker-up-dev:
 	@echo "🔼 Docker Compose set up with dev environment..."
 	docker compose -f docker-compose.dev.yml --env-file .env.dev up -d
