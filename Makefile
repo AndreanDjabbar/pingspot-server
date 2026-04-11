@@ -10,6 +10,14 @@ docker-up:
 	@echo "🔼 Docker Compose set up..."
 	docker compose --env-file .env up -d
 
+docker-build-server:
+	@echo "🔨 Building PingSpot Server Docker image..."
+	docker build -t pingspot-server:latest .
+
+docker-down:
+	@echo "🔽 Docker Compose down..."
+	docker compose --env-file .env down -v
+
 docker-up-dev:
 	@echo "🔼 Docker Compose set up with dev environment..."
 	docker compose -f docker-compose.dev.yml --env-file .env.dev up -d
