@@ -71,7 +71,7 @@ func TestNewReportService(t *testing.T) {
 	})
 }
 
-func setupMocks() (
+func setupMocks(t *testing.T) (
 	*report.MockReportRepository,
 	*report.MockReportLocationRepository,
 	*report.MockReportReactionRepository,
@@ -84,6 +84,7 @@ func setupMocks() (
 	*report.MockReportCommentRepository,
 	*ReportService,
 ) {
+	postgreDB := setupTestDB(t)
 	mockReportRepo := new(report.MockReportRepository)
 	mockReportLocationRepo := new(report.MockReportLocationRepository)
 	mockReportReactionRepo := new(report.MockReportReactionRepository)
@@ -96,7 +97,7 @@ func setupMocks() (
 	mockReportCommentRepo := new(report.MockReportCommentRepository)
 
 	service := NewreportService(
-		nil,
+		postgreDB,
 		nil,
 		mockReportRepo,
 		mockReportLocationRepo,
@@ -119,7 +120,7 @@ func TestReportService_CreateReport(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("should create report successfully", func(t *testing.T) {
-		mockReportRepo, mockReportLocationRepo, _, mockReportImageRepo, _, _, _, _, _, _, service := setupMocks()
+		mockReportRepo, mockReportLocationRepo, _, mockReportImageRepo, _, _, _, _, _, _, service := setupMocks(t)
 
 		req := dto.CreateReportRequest{
 			ReportTitle:       "Test Report",
@@ -154,7 +155,7 @@ func TestReportService_CreateReport(t *testing.T) {
 	})
 
 	t.Run("should return error when report creation fails", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks(t)
 
 		req := dto.CreateReportRequest{
 			ReportTitle:       "Test Report",
@@ -178,7 +179,7 @@ func TestReportService_EditReport(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("should edit report successfully", func(t *testing.T) {
-		mockReportRepo, mockReportLocationRepo, _, mockReportImageRepo, _, _, _, _, _, _, service := setupMocks()
+		mockReportRepo, mockReportLocationRepo, _, mockReportImageRepo, _, _, _, _, _, _, service := setupMocks(t)
 
 		existingReport := &model.Report{
 			ID:                1,
@@ -228,7 +229,7 @@ func TestReportService_EditReport(t *testing.T) {
 	})
 
 	t.Run("should return error when report not found", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks(t)
 
 		req := dto.EditReportRequest{
 			ReportTitle: "New Title",
@@ -244,7 +245,7 @@ func TestReportService_EditReport(t *testing.T) {
 	})
 
 	t.Run("should return error when user is not owner", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks(t)
 
 		existingReport := &model.Report{
 			ID:           1,
@@ -271,7 +272,7 @@ func TestReportService_DeleteReport(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("should soft delete report successfully", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks(t)
 
 		existingReport := &model.Report{
 			ID:           1,
@@ -291,7 +292,7 @@ func TestReportService_DeleteReport(t *testing.T) {
 	})
 
 	t.Run("should permanently delete report successfully", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks(t)
 
 		existingReport := &model.Report{
 			ID:           1,
@@ -312,7 +313,7 @@ func TestReportService_DeleteReport(t *testing.T) {
 	})
 
 	t.Run("should return error when report not found", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks(t)
 
 		mockReportRepo.On("GetByIDTX", ctx, mock.AnythingOfType("*gorm.DB"), uint(1)).Return(nil, gorm.ErrRecordNotFound)
 
@@ -326,7 +327,7 @@ func TestReportService_DeleteReport(t *testing.T) {
 func TestReportService_GetAllReport(t *testing.T) {
 	ctx := context.Background()
 	t.Run("should get all reports successfully", func(t *testing.T) {
-		mockReportRepo, _, mockReportReactionRepo, _, _, _, _, mockReportVoteRepo, _, _, service := setupMocks()
+		mockReportRepo, _, mockReportReactionRepo, _, _, _, _, mockReportVoteRepo, _, _, service := setupMocks(t)
 
 		userProfile1 := &model.UserProfile{
 			UserID: 1,
@@ -429,7 +430,7 @@ func TestReportService_GetAllReport(t *testing.T) {
 	})
 
 	t.Run("should return error when fetch reports fails", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks(t)
 
 		distance := dto.Distance{}
 
@@ -448,7 +449,7 @@ func TestReportService_GetReportByID(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("should get report by ID successfully", func(t *testing.T) {
-		mockReportRepo, _, mockReportReactionRepo, _, _, _, _, mockReportVoteRepo, _, _, service := setupMocks()
+		mockReportRepo, _, mockReportReactionRepo, _, _, _, _, mockReportVoteRepo, _, _, service := setupMocks(t)
 
 		userProfile := &model.UserProfile{
 			UserID: 1,
@@ -495,7 +496,7 @@ func TestReportService_GetReportByID(t *testing.T) {
 	})
 
 	t.Run("should return error when report not found", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks(t)
 
 		mockReportRepo.On("GetByIDIsDeleted", ctx, uint(1), false).Return(nil, gorm.ErrRecordNotFound)
 
@@ -511,7 +512,7 @@ func TestReportService_ReactToReport(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("should create new like reaction successfully", func(t *testing.T) {
-		_, _, mockReportReactionRepo, _, _, _, _, _, _, _, service := setupMocks()
+		_, _, mockReportReactionRepo, _, _, _, _, _, _, _, service := setupMocks(t)
 
 		var existingReportReaction *model.ReportReaction = nil
 
@@ -540,7 +541,7 @@ func TestReportService_ReactToReport(t *testing.T) {
 	})
 
 	t.Run("should delete reaction when reaction same", func(t *testing.T) {
-		_, _, mockReportReactionRepo, _, _, _, _, _, _, _, service := setupMocks()
+		_, _, mockReportReactionRepo, _, _, _, _, _, _, _, service := setupMocks(t)
 
 		existingReportReaction := &model.ReportReaction{
 			ID:       1,
@@ -561,7 +562,7 @@ func TestReportService_ReactToReport(t *testing.T) {
 	})
 
 	t.Run("should update reaction when reaction different", func(t *testing.T) {
-		_, _, mockReportReactionRepo, _, _, _, _, _, _, _, service := setupMocks()
+		_, _, mockReportReactionRepo, _, _, _, _, _, _, _, service := setupMocks(t)
 
 		existingReportReaction := &model.ReportReaction{
 			ID:       1,
@@ -589,7 +590,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("should create new vote successfully", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, mockReportVoteRepo, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, mockReportVoteRepo, _, _, service := setupMocks(t)
 
 		existingReport := &model.Report{
 			ID:           1,
@@ -627,7 +628,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 	})
 
 	t.Run("should return error when voting on own report", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks(t)
 
 		existingReport := &model.Report{
 			ID:     1,
@@ -645,7 +646,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 	})
 
 	t.Run("should return error when report not found", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks(t)
 
 		mockReportRepo.On("GetByID", ctx, uint(999)).Return(nil, gorm.ErrRecordNotFound)
 
@@ -658,7 +659,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 	})
 
 	t.Run("should return error when voting on resolved report", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks(t)
 
 		existingReport := &model.Report{
 			ID:           1,
@@ -677,7 +678,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 	})
 
 	t.Run("should return error when voting on expired report", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks(t)
 
 		existingReport := &model.Report{
 			ID:           1,
@@ -696,7 +697,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 	})
 
 	t.Run("should return error when report has no progress", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks(t)
 
 		existingReport := &model.Report{
 			ID:          1,
@@ -715,7 +716,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 	})
 
 	t.Run("should delete vote when voting same type again", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, mockReportVoteRepo, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, mockReportVoteRepo, _, _, service := setupMocks(t)
 
 		existingReport := &model.Report{
 			ID:           1,
@@ -745,7 +746,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 	})
 
 	t.Run("should update vote when changing vote type", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, mockReportVoteRepo, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, mockReportVoteRepo, _, _, service := setupMocks(t)
 
 		existingReport := &model.Report{
 			ID:           1,
@@ -791,7 +792,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 	})
 
 	t.Run("should change status to NOT_RESOLVED when margin >= 20% and top vote is NOT_RESOLVED", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, mockReportVoteRepo, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, mockReportVoteRepo, _, _, service := setupMocks(t)
 
 		existingReport := &model.Report{
 			ID:           1,
@@ -835,7 +836,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 	})
 
 	t.Run("should change status to ON_PROGRESS when margin >= 20% and top vote is ON_PROGRESS", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, mockReportVoteRepo, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, mockReportVoteRepo, _, _, service := setupMocks(t)
 
 		existingReport := &model.Report{
 			ID:           1,
@@ -874,7 +875,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 	})
 
 	t.Run("should return error when GetReportVoteCountsTX fails", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, mockReportVoteRepo, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, mockReportVoteRepo, _, _, service := setupMocks(t)
 
 		existingReport := &model.Report{
 			ID:           1,
@@ -905,7 +906,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 	})
 
 	t.Run("should return error when GetTotalVoteCountTX fails", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, mockReportVoteRepo, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, mockReportVoteRepo, _, _, service := setupMocks(t)
 
 		existingReport := &model.Report{
 			ID:           1,
@@ -946,7 +947,7 @@ func TestReportService_UploadProgressReport(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("should upload progress successfully", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, mockReportProgressRepo, _, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, mockReportProgressRepo, _, _, _, service := setupMocks(t)
 
 		existingReport := &model.Report{
 			ID:           1,
@@ -977,7 +978,7 @@ func TestReportService_UploadProgressReport(t *testing.T) {
 	})
 
 	t.Run("should return error when report has no progress enabled", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks(t)
 
 		existingReport := &model.Report{
 			ID:          1,
@@ -999,7 +1000,7 @@ func TestReportService_UploadProgressReport(t *testing.T) {
 	})
 
 	t.Run("should return error when user is not the report owner", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks(t)
 
 		existingReport := &model.Report{
 			ID:          1,
@@ -1023,7 +1024,7 @@ func TestReportService_UploadProgressReport(t *testing.T) {
 	})
 
 	t.Run("should return error when report is resolved", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks(t)
 
 		existingReport := &model.Report{
 			ID:           1,
@@ -1045,7 +1046,7 @@ func TestReportService_UploadProgressReport(t *testing.T) {
 	})
 
 	t.Run("should return error when creating progress fails", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, mockReportProgressRepo, _, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, mockReportProgressRepo, _, _, _, service := setupMocks(t)
 
 		existingReport := &model.Report{
 			ID:           1,
@@ -1075,7 +1076,7 @@ func TestReportService_GetProgressReports(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("should get progress reports successfully", func(t *testing.T) {
-		_, _, _, _, _, _, mockReportProgressRepo, _, _, _, service := setupMocks()
+		_, _, _, _, _, _, mockReportProgressRepo, _, _, _, service := setupMocks(t)
 
 		progresses := []model.ReportProgress{
 			{
@@ -1098,7 +1099,7 @@ func TestReportService_GetProgressReports(t *testing.T) {
 	})
 
 	t.Run("should return not found error when no progress reports found", func(t *testing.T) {
-		_, _, _, _, _, _, mockReportProgressRepo, _, _, _, service := setupMocks()
+		_, _, _, _, _, _, mockReportProgressRepo, _, _, _, service := setupMocks(t)
 
 		mockReportProgressRepo.On("GetByReportID", ctx, uint(1)).Return(nil, gorm.ErrRecordNotFound)
 		result, err := service.GetProgressReports(ctx, 1)
@@ -1110,7 +1111,7 @@ func TestReportService_GetProgressReports(t *testing.T) {
 	})
 
 	t.Run("should return error when fetch fails", func(t *testing.T) {
-		_, _, _, _, _, _, mockReportProgressRepo, _, _, _, service := setupMocks()
+		_, _, _, _, _, _, mockReportProgressRepo, _, _, _, service := setupMocks(t)
 
 		mockReportProgressRepo.On("GetByReportID", ctx, uint(1)).Return(nil, errors.New("database error"))
 
@@ -1126,7 +1127,7 @@ func TestReportService_GetReportStatistics(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("should get report statistics successfully", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks(t)
 
 		totalReportCount := &dto.TotalReportCount{
 			TotalReports:               100,
@@ -1175,7 +1176,7 @@ func TestReportService_GetReportStatistics(t *testing.T) {
 	})
 
 	t.Run("should return error when fetch reports count fails", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks(t)
 
 		mockReportRepo.On("GetByReportTypeCount", ctx).Return(nil, errors.New("database error"))
 
@@ -1191,7 +1192,7 @@ func TestReportService_CreateReportComment(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("should create root comment successfully", func(t *testing.T) {
-		mockReportRepo, _, _, _, mockUserRepo, mockUserProfileRepo, _, _, _, mockReportCommentRepo, service := setupMocks()
+		mockReportRepo, _, _, _, mockUserRepo, mockUserProfileRepo, _, _, _, mockReportCommentRepo, service := setupMocks(t)
 
 		existingReport := &model.Report{
 			ID:     1,
@@ -1228,7 +1229,7 @@ func TestReportService_CreateReportComment(t *testing.T) {
 	})
 
 	t.Run("should create reply comment successfully", func(t *testing.T) {
-		mockReportRepo, _, _, _, mockUserRepo, mockUserProfileRepo, _, _, _, mockReportCommentRepo, service := setupMocks()
+		mockReportRepo, _, _, _, mockUserRepo, mockUserProfileRepo, _, _, _, mockReportCommentRepo, service := setupMocks(t)
 
 		existingReport := &model.Report{
 			ID:     1,
@@ -1264,7 +1265,7 @@ func TestReportService_CreateReportComment(t *testing.T) {
 	})
 
 	t.Run("should return error when report not found", func(t *testing.T) {
-		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks()
+		mockReportRepo, _, _, _, _, _, _, _, _, _, service := setupMocks(t)
 
 		req := dto.CreateReportCommentRequest{
 			Content: mainutils.StrPtrOrNil("Test comment"),
@@ -1284,7 +1285,7 @@ func TestReportService_GetReportComments(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("should get root comments successfully", func(t *testing.T) {
-		_, _, _, _, mockUserRepo, _, _, _, _, mockReportCommentRepo, service := setupMocks()
+		_, _, _, _, mockUserRepo, _, _, _, _, mockReportCommentRepo, service := setupMocks(t)
 
 		comments := []*model.ReportComment{
 			{
@@ -1321,7 +1322,7 @@ func TestReportService_GetReportComments(t *testing.T) {
 	})
 
 	t.Run("should return error when fetching comments fails", func(t *testing.T) {
-		_, _, _, _, _, _, _, _, _, mockReportCommentRepo, service := setupMocks()
+		_, _, _, _, _, _, _, _, _, mockReportCommentRepo, service := setupMocks(t)
 
 		mockReportCommentRepo.On("GetPaginatedRootByReportID", ctx, uint(1), (*primitive.ObjectID)(nil), 51).
 			Return(nil, errors.New("database error"))
@@ -1338,7 +1339,7 @@ func TestReportService_GetReportCommentReplies(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("should get comment replies successfully", func(t *testing.T) {
-		_, _, _, _, mockUserRepo, _, _, _, _, mockReportCommentRepo, service := setupMocks()
+		_, _, _, _, mockUserRepo, _, _, _, _, mockReportCommentRepo, service := setupMocks(t)
 
 		rootID := primitive.NewObjectID()
 		replies := []*model.ReportComment{
@@ -1378,7 +1379,7 @@ func TestReportService_GetReportCommentReplies(t *testing.T) {
 	})
 
 	t.Run("should return error when fetching replies fails", func(t *testing.T) {
-		_, _, _, _, _, _, _, _, _, mockReportCommentRepo, service := setupMocks()
+		_, _, _, _, _, _, _, _, _, mockReportCommentRepo, service := setupMocks(t)
 		rootID := primitive.NewObjectID()
 
 		mockReportCommentRepo.On("GetPaginatedRepliesByRootID", ctx, rootID, (*primitive.ObjectID)(nil), 61).
@@ -1391,7 +1392,7 @@ func TestReportService_GetReportCommentReplies(t *testing.T) {
 	})
 
 	t.Run("should return error when root ID is invalid", func(t *testing.T) {
-		_, _, _, _, _, _, _, _, _, _, service := setupMocks()
+		_, _, _, _, _, _, _, _, _, _, service := setupMocks(t)
 
 		result, err := service.GetReportCommentReplies(ctx, "invalid-id", nil)
 

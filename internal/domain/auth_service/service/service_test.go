@@ -389,6 +389,7 @@ func TestAuthService_Login(t *testing.T) {
 		req := dto.LoginRequest{
 			Email:    "notfound@example.com",
 			Password: "password123",
+			Provider: string(model.ProviderEmail),
 		}
 
 		mockUserRepo.On("GetByEmail", ctx, req.Email).Return(nil, gorm.ErrRecordNotFound)
@@ -415,6 +416,7 @@ func TestAuthService_Login(t *testing.T) {
 		req := dto.LoginRequest{
 			Email:    "user@example.com",
 			Password: "wrongpassword",
+			Provider: string(model.ProviderEmail),
 		}
 
 		hashedPassword := "$2a$10$abcdefghijklmnopqrstuv"
@@ -490,6 +492,7 @@ func TestAuthService_Login(t *testing.T) {
 		req := dto.LoginRequest{
 			Email:     "user@example.com",
 			Password:  password,
+			Provider:  string(model.ProviderEmail),
 			IPAddress: "127.0.0.1",
 			UserAgent: "Test User Agent",
 		}
@@ -517,10 +520,9 @@ func TestAuthService_Login(t *testing.T) {
 		mockCacheRepo.On("Set", mock.Anything, mock.MatchedBy(func(key string) bool {
 			return strings.HasPrefix(key, "refresh_token:")
 		}), mock.AnythingOfType("string"), mock.AnythingOfType("time.Duration")).Return(nil)
+		mockCacheRepo.On("Set", mock.Anything, "session:1", mock.Anything, mock.AnythingOfType("time.Duration")).Return(nil)
 
 		mockCacheRepo.On("SAdd", mock.Anything, "user_session:1", mock.AnythingOfType("[]interface {}")).Return(nil)
-
-		mockCacheRepo.On("Expire", mock.Anything, "user_session:1", mock.AnythingOfType("time.Duration")).Return(true, nil)
 
 		user, accessToken, refreshToken, err := service.Login(ctx, req)
 
@@ -562,11 +564,12 @@ func TestAuthService_Logout(t *testing.T) {
 		}
 
 		mockCacheRepo.On("Del", mock.Anything, "refresh_token:valid-token-id").Return(nil)
+		mockCacheRepo.On("Del", mock.Anything, "session:1").Return(nil)
 		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(userSession, nil)
-		mockSessionRepo.On("Update", ctx, mock.MatchedBy(func(session *model.UserSession) bool {
+		mockSessionRepo.On("UpdateTX", ctx, mock.AnythingOfType("*gorm.DB"), mock.MatchedBy(func(session *model.UserSession) bool {
 			return session.IsActive == false && session.ID == userSession.ID
 		})).Return(nil)
-		mockCacheRepo.On("SRem", mock.Anything, "user_session:1", mock.AnythingOfType("uint")).Return(nil)
+		mockCacheRepo.On("SRem", mock.Anything, "user_session:1", mock.AnythingOfType("[]interface {}")).Return(nil)
 
 		err := service.Logout(ctx, refreshToken)
 
@@ -605,15 +608,13 @@ func TestAuthService_Logout(t *testing.T) {
 		refreshTokenID := "invalid-token-id"
 		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
 
-		mockCacheRepo.On("Del", mock.Anything, "refresh_token:invalid-token-id").Return(nil)
 		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(nil, gorm.ErrRecordNotFound)
 
 		err := service.Logout(ctx, refreshToken)
 
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "Gagal mengambil sesi user")
+		assert.Contains(t, err.Error(), "Sesi user tidak ditemukan")
 		mockSessionRepo.AssertExpectations(t)
-		mockCacheRepo.AssertExpectations(t)
 	})
 
 	t.Run("should return error when update fails", func(t *testing.T) {
@@ -636,9 +637,8 @@ func TestAuthService_Logout(t *testing.T) {
 			IsActive:       true,
 		}
 
-		mockCacheRepo.On("Del", mock.Anything, "refresh_token:valid-token-id").Return(nil)
 		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(userSession, nil)
-		mockSessionRepo.On("Update", ctx, mock.MatchedBy(func(session *model.UserSession) bool {
+		mockSessionRepo.On("UpdateTX", ctx, mock.AnythingOfType("*gorm.DB"), mock.MatchedBy(func(session *model.UserSession) bool {
 			return session.IsActive == false
 		})).Return(errors.New("database error"))
 
@@ -647,7 +647,6 @@ func TestAuthService_Logout(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "Gagal memperbarui sesi user")
 		mockSessionRepo.AssertExpectations(t)
-		mockCacheRepo.AssertExpectations(t)
 	})
 
 	t.Run("should succeed even when Redis Del fails", func(t *testing.T) {
@@ -671,11 +670,12 @@ func TestAuthService_Logout(t *testing.T) {
 		}
 
 		mockCacheRepo.On("Del", mock.Anything, "refresh_token:valid-token-id").Return(errors.New("redis error"))
+		mockCacheRepo.On("Del", mock.Anything, "session:1").Return(nil)
 		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(userSession, nil)
-		mockSessionRepo.On("Update", ctx, mock.MatchedBy(func(session *model.UserSession) bool {
+		mockSessionRepo.On("UpdateTX", ctx, mock.AnythingOfType("*gorm.DB"), mock.MatchedBy(func(session *model.UserSession) bool {
 			return session.IsActive == false
 		})).Return(nil)
-		mockCacheRepo.On("SRem", mock.Anything, "user_session:1", mock.AnythingOfType("uint")).Return(nil)
+		mockCacheRepo.On("SRem", mock.Anything, "user_session:1", mock.AnythingOfType("[]interface {}")).Return(nil)
 
 		err := service.Logout(ctx, refreshToken)
 
@@ -705,12 +705,13 @@ func TestAuthService_Logout(t *testing.T) {
 		}
 
 		mockCacheRepo.On("Del", mock.Anything, "refresh_token:valid-token-id").Return(nil)
+		mockCacheRepo.On("Del", mock.Anything, "session:1").Return(nil)
 		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(userSession, nil)
-		mockSessionRepo.On("Update", ctx, mock.MatchedBy(func(session *model.UserSession) bool {
+		mockSessionRepo.On("UpdateTX", ctx, mock.AnythingOfType("*gorm.DB"), mock.MatchedBy(func(session *model.UserSession) bool {
 			return session.IsActive == false
 		})).Return(nil)
 
-		mockCacheRepo.On("SRem", mock.Anything, "user_session:1", mock.AnythingOfType("uint")).Return(errors.New("redis error"))
+		mockCacheRepo.On("SRem", mock.Anything, "user_session:1", mock.AnythingOfType("[]interface {}")).Return(errors.New("redis error"))
 
 		err := service.Logout(ctx, refreshToken)
 
@@ -925,8 +926,9 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		mockCacheRepo.On("Set", mock.Anything, mock.MatchedBy(func(key string) bool {
 			return strings.HasPrefix(key, "refresh_token:") && key != "refresh_token:"+refreshTokenID
 		}), mock.AnythingOfType("string"), mock.AnythingOfType("time.Duration")).Return(nil)
+		mockCacheRepo.On("Set", mock.Anything, "session:1", mock.Anything, mock.AnythingOfType("time.Duration")).Return(nil)
 
-		mockSessionRepo.On("Update", ctx, mock.AnythingOfType("*model.UserSession")).Return(nil)
+		mockSessionRepo.On("UpdateTX", ctx, mock.AnythingOfType("*gorm.DB"), mock.AnythingOfType("*model.UserSession")).Return(nil)
 
 		accessToken, newRefreshToken, err := service.RefreshToken(ctx, refreshToken)
 
@@ -974,8 +976,6 @@ func TestAuthService_RefreshToken(t *testing.T) {
 
 		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(userSession, nil)
 
-		mockCacheRepo.On("Set", mock.Anything, "refresh_token:"+refreshTokenID, hashedRefreshToken, mock.AnythingOfType("time.Duration")).Return(nil)
-
 		mockUserRepo.On("GetByID", ctx, userID).Return(existingUser, nil)
 
 		mockCacheRepo.On("Del", mock.Anything, "refresh_token:"+refreshTokenID).Return(nil)
@@ -983,8 +983,9 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		mockCacheRepo.On("Set", mock.Anything, mock.MatchedBy(func(key string) bool {
 			return strings.HasPrefix(key, "refresh_token:") && key != "refresh_token:"+refreshTokenID
 		}), mock.AnythingOfType("string"), mock.AnythingOfType("time.Duration")).Return(nil)
+		mockCacheRepo.On("Set", mock.Anything, "session:1", mock.AnythingOfType("uint"), mock.AnythingOfType("time.Duration")).Return(nil)
 
-		mockSessionRepo.On("Update", ctx, mock.AnythingOfType("*model.UserSession")).Return(nil)
+		mockSessionRepo.On("UpdateTX", ctx, mock.AnythingOfType("*gorm.DB"), mock.AnythingOfType("*model.UserSession")).Return(nil)
 
 		accessToken, newRefreshToken, err := service.RefreshToken(ctx, refreshToken)
 
@@ -1075,7 +1076,7 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		assert.Error(t, err)
 		assert.Empty(t, accessToken)
 		assert.Empty(t, newRefreshToken)
-		assert.Contains(t, err.Error(), "Sesi sudah tidak aktif atau kedaluwarsa")
+		assert.Contains(t, err.Error(), "Sesi sudah tidak aktif")
 		mockCacheRepo.AssertExpectations(t)
 		mockSessionRepo.AssertExpectations(t)
 	})
@@ -1112,7 +1113,7 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		assert.Error(t, err)
 		assert.Empty(t, accessToken)
 		assert.Empty(t, newRefreshToken)
-		assert.Contains(t, err.Error(), "Sesi sudah tidak aktif atau kedaluwarsa")
+		assert.Contains(t, err.Error(), "Sesi sudah kedaluwarsa")
 		mockCacheRepo.AssertExpectations(t)
 		mockSessionRepo.AssertExpectations(t)
 	})
@@ -1194,8 +1195,17 @@ func TestAuthService_RefreshToken(t *testing.T) {
 
 		refreshToken := tokenutils.GenerateRefreshToken(userID, refreshTokenID)
 		hashedRefreshToken := tokenutils.HashSHA256String(refreshToken)
+		userSession := &model.UserSession{
+			ID:                 1,
+			UserID:             userID,
+			RefreshTokenID:     refreshTokenID,
+			HashedRefreshToken: hashedRefreshToken,
+			IsActive:           true,
+			ExpiresAt:          time.Now().Add(24 * time.Hour).Unix(),
+		}
 
 		mockCacheRepo.On("Get", mock.Anything, "refresh_token:"+refreshTokenID).Return(hashedRefreshToken, nil)
+		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(userSession, nil)
 		mockUserRepo.On("GetByID", ctx, userID).Return(nil, gorm.ErrRecordNotFound)
 
 		accessToken, newRefreshToken, err := service.RefreshToken(ctx, refreshToken)
@@ -1203,7 +1213,7 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		assert.Error(t, err)
 		assert.Empty(t, accessToken)
 		assert.Empty(t, newRefreshToken)
-		assert.Contains(t, err.Error(), "Gagal mengambil data user")
+		assert.Contains(t, err.Error(), "User tidak ditemukan")
 		mockCacheRepo.AssertExpectations(t)
 		mockUserRepo.AssertExpectations(t)
 	})
@@ -1242,7 +1252,9 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		mockCacheRepo.On("Get", mock.Anything, "refresh_token:"+refreshTokenID).Return(hashedRefreshToken, nil)
 		mockUserRepo.On("GetByID", ctx, userID).Return(existingUser, nil)
 		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(userSession, nil)
+		mockSessionRepo.On("UpdateTX", ctx, mock.AnythingOfType("*gorm.DB"), mock.AnythingOfType("*model.UserSession")).Return(nil)
 		mockCacheRepo.On("Del", mock.Anything, "refresh_token:"+refreshTokenID).Return(nil)
+		mockCacheRepo.On("Set", mock.Anything, "session:1", mock.Anything, mock.AnythingOfType("time.Duration")).Return(nil)
 
 		mockCacheRepo.On("Set", mock.Anything, mock.MatchedBy(func(key string) bool {
 			return strings.HasPrefix(key, "refresh_token:") && key != "refresh_token:"+refreshTokenID
@@ -1250,10 +1262,9 @@ func TestAuthService_RefreshToken(t *testing.T) {
 
 		accessToken, newRefreshToken, err := service.RefreshToken(ctx, refreshToken)
 
-		assert.Error(t, err)
-		assert.Empty(t, accessToken)
-		assert.Empty(t, newRefreshToken)
-		assert.Contains(t, err.Error(), "Gagal menyimpan refresh token baru")
+		assert.NoError(t, err)
+		assert.NotEmpty(t, accessToken)
+		assert.NotEmpty(t, newRefreshToken)
 		mockCacheRepo.AssertExpectations(t)
 		mockUserRepo.AssertExpectations(t)
 		mockSessionRepo.AssertExpectations(t)
@@ -1293,13 +1304,8 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		mockCacheRepo.On("Get", mock.Anything, "refresh_token:"+refreshTokenID).Return(hashedRefreshToken, nil)
 		mockUserRepo.On("GetByID", ctx, userID).Return(existingUser, nil)
 		mockSessionRepo.On("GetByRefreshTokenID", ctx, refreshTokenID).Return(userSession, nil)
-		mockCacheRepo.On("Del", mock.Anything, "refresh_token:"+refreshTokenID).Return(nil)
-		mockCacheRepo.On("Set", mock.Anything, mock.MatchedBy(func(key string) bool {
-			return strings.HasPrefix(key, "refresh_token:") && key != "refresh_token:"+refreshTokenID
-		}), mock.AnythingOfType("string"), mock.AnythingOfType("time.Duration")).Return(nil)
-
 		// Session update fails
-		mockSessionRepo.On("Update", ctx, mock.AnythingOfType("*model.UserSession")).Return(errors.New("database error"))
+		mockSessionRepo.On("UpdateTX", ctx, mock.AnythingOfType("*gorm.DB"), mock.AnythingOfType("*model.UserSession")).Return(errors.New("database error"))
 
 		accessToken, newRefreshToken, err := service.RefreshToken(ctx, refreshToken)
 
