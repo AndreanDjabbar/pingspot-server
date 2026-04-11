@@ -1,6 +1,24 @@
 name: PingSpot
 
 services:
+  pingspot-server:
+    build: .
+    container_name: pingspot_server
+    restart: always
+    ports:
+      - "${PORT}:8080"
+    depends_on:
+      pingspot-postgres:
+          condition: service_healthy
+      pingspot-redis:
+          condition: service_healthy
+      pingspot-mongodb:
+          condition: service_healthy
+    env_file:
+      - .env
+    networks:
+      - pingspot_network
+
   pingspot-redis:
     image: redis:latest
     container_name: pingspot_redis
@@ -11,6 +29,11 @@ services:
       - pingspot_redis_data:/data
     networks:
       - pingspot_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   pingspot-postgres:
     image: postgis/postgis:15-3.4
@@ -29,10 +52,15 @@ services:
       - ./postgres.init.sql:/docker-entrypoint-initdb.d/postgres.init.sql
     networks:
       - pingspot_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRE_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   pingspot-mongodb:
     image: mongo:latest
-    container_name: pinspot_mongodb
+    container_name: pingspot_mongodb
     restart: always
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
@@ -43,6 +71,11 @@ services:
       - pingspot_mongodb_data:/data/db
     networks:
       - pingspot_network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 networks:
   pingspot_network:
