@@ -11,6 +11,7 @@ func GithubRepoURL() string   { return os.Getenv("GITHUB_REPO_URL") }
 func PostgreHost() string     { return os.Getenv("POSTGRE_HOST") }
 func PostgrePort() string     { return os.Getenv("POSTGRE_PORT") }
 func PostgreUser() string     { return os.Getenv("POSTGRE_USER") }
+func PostgreSSLMode() string   { return os.Getenv("SSL_MODE") }
 func PostgrePassword() string { return os.Getenv("POSTGRE_PASSWORD") }
 func PostgreDB() string       { return os.Getenv("POSTGRE_DB") }
 func RedisHost() string       { return os.Getenv("REDIS_HOST") }
@@ -38,4 +39,5 @@ func GlobalRateLimiterWindowSeconds() string {
 }
 func RedisUsername() string { return os.Getenv("REDIS_USERNAME") }
 func RedisPassword() string { return os.Getenv("REDIS_PASSWORD") }
+func RedisTLS() bool { return os.Getenv("REDIS_TLS") == "true" }
 func AllowedOrigins() string { return os.Getenv("ALLOWED_ORIGINS") }

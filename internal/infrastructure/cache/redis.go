@@ -8,7 +8,6 @@ import (
 
 	"pingspot/internal/config"
 	"pingspot/pkg/logger"
-	env "pingspot/pkg/utils/env_util"
 
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -19,25 +18,21 @@ var redisInstance redis.UniversalClient
 func InitRedis(cfg config.RedisConfig) error {
 	addr := fmt.Sprintf("%s:%s", cfg.Host, cfg.Port)
 
-	var rdb redis.UniversalClient
-
-	if env.RedisHost() != "localhost" {
-		rdb = redis.NewClient(&redis.Options{
-			Addr:     addr,
-			Username: cfg.Username,
-			Password: cfg.Password,
-			DB:       cfg.DB,
-			TLSConfig: &tls.Config{
-				MinVersion:         tls.VersionTLS12,
-				InsecureSkipVerify: true,
-			},
-		})
-	} else {
-		rdb = redis.NewClient(&redis.Options{
-			Addr: addr,
-			DB:   cfg.DB,
-		})
+	options := &redis.Options{
+		Addr:     addr,
+		Username: cfg.Username,
+		Password: cfg.Password,
+		DB:       cfg.DB,
 	}
+
+	if cfg.UseTLS {
+		options.TLSConfig = &tls.Config{
+			MinVersion:         tls.VersionTLS12,
+			InsecureSkipVerify: true,
+		}
+	}
+
+	rdb := redis.NewClient(options)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -47,7 +42,7 @@ func InitRedis(cfg config.RedisConfig) error {
 		return fmt.Errorf("failed to connect to Redis: %w", err)
 	}
 
-	logger.Info("Connected to Redis successfully")
+	logger.Info("Connected to Redis successfully", zap.String("host", cfg.Host), zap.String("port", cfg.Port), zap.String("useTLS", fmt.Sprintf("%v", cfg.UseTLS)))
 	redisInstance = rdb
 	return nil
 }

@@ -1,12 +1,10 @@
 package asynqWorker
 
 import (
-	"crypto/tls"
 	"fmt"
 	"pingspot/internal/config"
 	"pingspot/internal/worker/asynq_worker/handler"
 	"pingspot/pkg/logger"
-	env "pingspot/pkg/utils/env_util"
 
 	"github.com/hibiken/asynq"
 	"go.uber.org/zap"
@@ -20,23 +18,11 @@ type WorkerServer struct {
 
 func NewWorkerServer(cfg config.RedisConfig) *WorkerServer {
 	addr := fmt.Sprintf("%s:%s", cfg.Host, cfg.Port)
-	var opt asynq.RedisConnOpt
 
-	if env.RedisHost() != "localhost" {
-		opt = asynq.RedisClusterClientOpt{
-			Addrs:    []string{addr},
-            Username: cfg.Username,
-            Password: cfg.Password,
-            TLSConfig: &tls.Config{
-                MinVersion:         tls.VersionTLS12,
-                InsecureSkipVerify: true, 
-            },
-		}
-	} else {
-		opt = asynq.RedisClientOpt{
-			Addr: addr,
-			DB:   cfg.DB,
-		}
+	opt := asynq.RedisClientOpt{
+		Addr:     addr,
+		Password: cfg.Password,
+		DB:       cfg.DB,
 	}
 
 	return &WorkerServer{
@@ -44,10 +30,6 @@ func NewWorkerServer(cfg config.RedisConfig) *WorkerServer {
 			opt,
 			asynq.Config{
 				Concurrency: 10,
-				// Queues: map[string]int{
-				// 	"default": 6,
-				// 	"critical": 4,
-				// },
 			},
 		),
 		client:    asynq.NewClient(opt),

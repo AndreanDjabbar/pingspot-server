@@ -29,6 +29,7 @@ func InitPostgres(cfg config.PostgresConfig) error {
 			zap.String("port", cfg.Port),
 			zap.String("user", cfg.User),
 			zap.String("dbname", cfg.DBName),
+			zap.String("sslmode", cfg.SSLMode),
 		)
 
 		var err error
