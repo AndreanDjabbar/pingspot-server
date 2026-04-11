@@ -19,6 +19,7 @@ docker-up-prod:
 	docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 
 run:
+	@echo Running PingSpot Server...
 	@go run cmd/main.go
 
 run-dev:
