@@ -14,11 +14,16 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o pingspot ./cmd/main.go
 FROM alpine:3.20
 WORKDIR /app
 
-COPY --from=builder /app/pingspot .
+RUN mkdir -p /app/uploads/main /app/uploads/user
 
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+COPY --from=builder /app/pingspot .
 COPY --from=builder /app/keys ./keys
 
-RUN mkdir -p /app/uploads/main /app/uploads/user
+RUN chown -R appuser:appgroup /app
+
+USER appuser
 
 EXPOSE 8080
 

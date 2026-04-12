@@ -49,15 +49,13 @@ services:
       - .env
     volumes:
       - pingspot_postgre_data:/var/lib/postgresql/data
-      - ./postgres.init.sql:/docker-entrypoint-initdb.d/postgres.init.sql
     networks:
       - pingspot_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRE_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 5
-
   pingspot-mongodb:
     image: mongo:latest
     container_name: pingspot_mongodb

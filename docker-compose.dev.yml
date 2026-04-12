@@ -1,9 +1,9 @@
 name: PingSpot-dev
 
 services:
-  pingspot-redis:
+  pingspot-redis-dev:
     image: redis:latest
-    container_name: pingspot_redis
+    container_name: pingspot_redis_dev
     restart: always
     ports:
       - "${REDIS_HOST_PORT}:${REDIS_PORT}"
@@ -12,9 +12,9 @@ services:
     networks:
       - pingspot_network
 
-  pingspot-postgres:
+  pingspot-postgres-dev:
     image: postgis/postgis:15-3.4
-    container_name: pingspot_postgres
+    container_name: pingspot_postgres_dev
     restart: always
     environment:
       POSTGRES_DB: ${POSTGRE_DB}
@@ -30,9 +30,9 @@ services:
     networks:
       - pingspot_network
 
-  pingspot-mongodb:
+  pingspot-mongodb-dev:
     image: mongo:latest
-    container_name: pingspot_mongodb
+    container_name: pingspot_mongodb_dev
     restart: always
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
