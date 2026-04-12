@@ -11,8 +11,7 @@ import (
 func LoadEnvConfig() error {
 	env := strings.ToLower(strings.TrimSpace(os.Getenv("APP_ENV")))
 	envFile := getEnvFile(env)
-
-	if err := godotenv.Load(envFile); err != nil {
+	if err := godotenv.Overload(envFile); err != nil {
 		fmt.Printf("Warning: could not load env file %s: %v\n", envFile, err)
 		return nil
 	}

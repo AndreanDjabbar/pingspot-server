@@ -15,7 +15,6 @@ import (
 	"strconv"
 
 	"go.uber.org/zap"
-	_ "github.com/joho/godotenv/autoload"
 )
 
 func main() {
