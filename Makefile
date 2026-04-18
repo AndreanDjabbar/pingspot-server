@@ -52,7 +52,7 @@ test:
 
 test-unit:
 	@echo "Running unit tests..."
-	@go test ./pkg/... ./internal/domain/userService/service/... ./internal/domain/authService/service/... -v
+	@go test ./pkg/... ./internal/domain/user_service/service/... ./internal/domain/auth_service/service/... -v
 
 test-coverage:
 	@echo "Running tests with coverage..."
