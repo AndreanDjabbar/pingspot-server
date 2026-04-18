@@ -27,6 +27,6 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH }}
           script: |
-            cd ~/apps/pingspot
+            cd /home/ubuntu/apps/pingspot
             git pull origin main
             make docker-up
