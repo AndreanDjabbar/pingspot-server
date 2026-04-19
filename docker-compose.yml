@@ -2,7 +2,7 @@ name: PingSpot
 
 services:
   pingspot-server:
-    build: .
+    image: andreandjabbar/pingspot-server:latest
     container_name: pingspot_server
     restart: always
     ports:
