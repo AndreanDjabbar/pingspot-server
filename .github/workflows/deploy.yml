@@ -37,4 +37,4 @@ jobs:
           script: |
             cd /home/ubuntu/apps/pingspot
             docker compose pull
-            make docker-up
+            docker compose up -d
