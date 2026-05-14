@@ -12,6 +12,11 @@ type MockUserRepository struct {
 	mock.Mock
 }
 
+
+func (m *MockUserRepository) GetByEmailOrUsername(ctx context.Context, emailOrUsername string) (*model.User, error) {
+	panic("unimplemented")
+}
+
 func (m *MockUserRepository) UpdateByEmail(ctx context.Context, email string, updatedUser *model.User) (*model.User, error) {
 	args := m.Called(ctx, email, updatedUser)
 	if args.Get(0) == nil {
@@ -36,8 +41,24 @@ func (m *MockUserRepository) GetByIDs(ctx context.Context, userIDs []uint) ([]mo
 	return args.Get(0).([]model.User), args.Error(1)
 }
 
+func (m *MockUserRepository) UpdateTX(ctx context.Context, tx *gorm.DB, user *model.User) (*model.User, error) {
+	args := m.Called(ctx, tx, user)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.User), args.Error(1)
+}
+
 func (m *MockUserRepository) GetByEmail(ctx context.Context, email string) (*model.User, error) {
 	args := m.Called(ctx, email)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.User), args.Error(1)
+}
+
+func (m *MockUserRepository) GetByUsernameOrEmail(ctx context.Context, emailOrUsername string) (*model.User, error) {
+	args := m.Called(ctx, emailOrUsername)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

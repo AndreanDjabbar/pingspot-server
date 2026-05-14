@@ -387,12 +387,12 @@ func TestAuthService_Login(t *testing.T) {
 
 		ctx := context.Background()
 		req := dto.LoginRequest{
-			Email:    "notfound@example.com",
+			EmailOrUsername:    "notfound@example.com",
 			Password: "password123",
 			Provider: string(model.ProviderEmail),
 		}
 
-		mockUserRepo.On("GetByEmail", ctx, req.Email).Return(nil, gorm.ErrRecordNotFound)
+		mockUserRepo.On("GetByEmailOrUsername", ctx, req.EmailOrUsername).Return(nil, gorm.ErrRecordNotFound)
 
 		user, accessToken, refreshToken, err := service.Login(ctx, req)
 
@@ -414,7 +414,7 @@ func TestAuthService_Login(t *testing.T) {
 
 		ctx := context.Background()
 		req := dto.LoginRequest{
-			Email:    "user@example.com",
+			EmailOrUsername:    "user@example.com",
 			Password: "wrongpassword",
 			Provider: string(model.ProviderEmail),
 		}
@@ -422,13 +422,13 @@ func TestAuthService_Login(t *testing.T) {
 		hashedPassword := "$2a$10$abcdefghijklmnopqrstuv"
 		existingUser := &model.User{
 			ID:         1,
-			Email:      req.Email,
+			Email:      req.EmailOrUsername,
 			Password:   &hashedPassword,
 			Provider:   model.ProviderEmail,
 			IsVerified: true,
 		}
 
-		mockUserRepo.On("GetByEmail", ctx, req.Email).Return(existingUser, nil)
+		mockUserRepo.On("GetByEmailOrUsername", ctx, req.EmailOrUsername).Return(existingUser, nil)
 
 		user, accessToken, refreshToken, err := service.Login(ctx, req)
 
@@ -452,19 +452,19 @@ func TestAuthService_Login(t *testing.T) {
 
 		ctx := context.Background()
 		req := dto.LoginRequest{
-			Email:    "unverified@example.com",
+			EmailOrUsername:    "unverified@example.com",
 			Password: "password123",
 		}
 
 		existingUser := &model.User{
 			ID:         1,
-			Email:      req.Email,
+			Email:      req.EmailOrUsername,
 			Username:   "unverifieduser",
 			Provider:   model.ProviderGoogle,
 			IsVerified: false,
 		}
 
-		mockUserRepo.On("GetByEmail", ctx, req.Email).Return(existingUser, nil)
+		mockUserRepo.On("GetByEmailOrUsername", ctx, req.EmailOrUsername).Return(existingUser, nil)
 
 		user, accessToken, refreshToken, err := service.Login(ctx, req)
 
@@ -490,7 +490,7 @@ func TestAuthService_Login(t *testing.T) {
 		hashedPassword, _ := tokenutils.HashString(password)
 
 		req := dto.LoginRequest{
-			Email:     "user@example.com",
+			EmailOrUsername:    "user@example.com",
 			Password:  password,
 			Provider:  string(model.ProviderEmail),
 			IPAddress: "127.0.0.1",
@@ -499,7 +499,7 @@ func TestAuthService_Login(t *testing.T) {
 
 		existingUser := &model.User{
 			ID:         1,
-			Email:      req.Email,
+			Email:      req.EmailOrUsername,
 			Username:   "testuser",
 			FullName:   "Test User",
 			Password:   &hashedPassword,
@@ -507,7 +507,7 @@ func TestAuthService_Login(t *testing.T) {
 			IsVerified: true,
 		}
 
-		mockUserRepo.On("GetByEmail", ctx, req.Email).Return(existingUser, nil)
+		mockUserRepo.On("GetByEmailOrUsername", ctx, req.EmailOrUsername).Return(existingUser, nil)
 
 		createdSession := &model.UserSession{
 			ID:             1,

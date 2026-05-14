@@ -61,12 +61,12 @@ func FormatLoginValidationErrors(err error) map[string]string {
 	}
 	for _, e := range err.(validator.ValidationErrors) {
 		switch e.Field() {
-		case "Email":
+		case "EmailOrUsername":
 			if e.Tag() == "required" {
-				errors["email"] = "Email wajib diisi"
+				errors["emailOrUsername"] = "Email atau username wajib diisi"
 			}
-			if e.Tag() == "email" {
-				errors["email"] = "Email tidak valid"
+			if e.Tag() == "min" {
+				errors["emailOrUsername"] = "Email atau username minimal 3 karakter"
 			}
 		case "Password":
 			if e.Tag() == "required" {

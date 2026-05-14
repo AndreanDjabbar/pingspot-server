@@ -141,10 +141,10 @@ func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (*model.U
 	requestID := contextutils.GetRequestID(ctx)
 	logger.Info("User login attempt",
 		zap.String("request_id", requestID),
-		zap.String("email", req.Email),
+		zap.String("email or username", req.EmailOrUsername),
 	)
 
-	user, err := s.userRepo.GetByEmail(ctx, req.Email)
+	user, err := s.userRepo.GetByEmailOrUsername(ctx, req.EmailOrUsername)
 	if err != nil {
 		return nil, "", "", apperror.New(401, "INVALID_CREDENTIALS", "Email atau password salah", err.Error())
 	}
@@ -719,11 +719,11 @@ func (s *AuthService) HandleOAuthCallback(ctx context.Context, oauthEmail, oauth
 	}
 
 	loginReq := dto.LoginRequest{
-		Email:     existingUser.Email,
-		Password:  "",
-		IPAddress: userIP,
-		UserAgent: userAgent,
-		Provider:  strings.ToUpper(provider),
+		EmailOrUsername: existingUser.Email,
+		Password:          "",
+		IPAddress:         userIP,
+		UserAgent:         userAgent,
+		Provider:            strings.ToUpper(provider),
 	}
 
 	_, accessToken, refreshToken, err := s.Login(ctx, loginReq)

@@ -13,12 +13,14 @@ import (
 type UserRepository interface {
 	UpdateByEmail(ctx context.Context, email string, updatedUser *model.User) (*model.User, error)
 	GetByID(ctx context.Context, userID uint) (*model.User, error)
+	GetByEmailOrUsername(ctx context.Context, emailOrUsername string) (*model.User, error)
 	GetByIDs(ctx context.Context, userIDs []uint) ([]model.User, error)
 	GetByEmail(ctx context.Context, email string) (*model.User, error)
 	GetByUsername(ctx context.Context, username string) (*model.User, error)
 	Save(ctx context.Context, user *model.User) error
 	Create(ctx context.Context, user *model.User) error
 	CreateTX(ctx context.Context, tx *gorm.DB, user *model.User) (*model.User, error)
+	UpdateTX(ctx context.Context, tx *gorm.DB, user *model.User) (*model.User, error)
 	FullTextSearchUsers(ctx context.Context, query string, limit int) (*[]model.User, error)
 	FullTextSearchUsersPaginated(ctx context.Context, searchQuery string, limit int, cursorID uint) (*[]model.User, error)
 	UpdateFullNameTX(ctx context.Context, tx *gorm.DB, userID uint, fullName string) error
@@ -53,6 +55,13 @@ func (r *userRepository) GetUsersCount(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	return count, nil
+}
+
+func (r *userRepository) UpdateTX(ctx context.Context, tx *gorm.DB, user *model.User) (*model.User, error) {
+	if err := tx.WithContext(ctx).Save(user).Error; err != nil {
+		return nil, err
+	}
+	return user, nil
 }
 
 func (r *userRepository) GetByUserGenderCount(ctx context.Context) (map[string]int64, error) {
@@ -168,6 +177,14 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*model.U
 	return &user, nil
 }
 
+func (r *userRepository) GetByEmailOrUsername(ctx context.Context, emailOrUsername string) (*model.User, error) {
+	var user model.User
+	if err := r.db.WithContext(ctx).Where("email = ? OR username = ?", emailOrUsername, emailOrUsername).First(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 func (r *userRepository) GetByUsername(ctx context.Context, username string) (*model.User, error) {
 	var user model.User
 	if err := r.db.WithContext(ctx).Preload("Profile").Where("username = ?", username).First(&user).Error; err != nil {
@@ -178,7 +195,7 @@ func (r *userRepository) GetByUsername(ctx context.Context, username string) (*m
 
 func (r *userRepository) UpdateByEmail(ctx context.Context, email string, updatedUser *model.User) (*model.User, error) {
 	var user model.User
-	if err := r.db.WithContext(ctx).Model(&user).Updates(updatedUser).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(&user).Where("email = ?", email).Updates(updatedUser).Error; err != nil {
 		return nil, err
 	}
 	return &user, nil
