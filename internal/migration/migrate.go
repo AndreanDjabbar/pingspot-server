@@ -98,6 +98,15 @@ func Migrate(db *gorm.DB) error {
 				return tx.Migrator().DropColumn(&model.User{}, "last_reminder_at")
 			},
 		},
+		{
+			ID: "05162026_remove_last_reminder_at_from_users",
+			Migrate: func(tx *gorm.DB) error {
+				return tx.Migrator().DropColumn(&model.User{}, "last_reminder_at")
+			},
+			Rollback: func(tx *gorm.DB) error {
+				return tx.AutoMigrate(&model.User{})
+			},
+		},
 	})
 
 	err := m.Migrate()
