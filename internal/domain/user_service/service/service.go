@@ -53,6 +53,21 @@ func (s *UserService) SaveProfile(ctx context.Context, userID uint, req dto.Save
 		}
 		return nil, apperror.New(500, "USER_FETCH_FAILED", "gagal mengambil data pengguna", err.Error())
 	}
+
+	if req.Username != nil && *req.Username != currentUser.Username {
+		_, err := s.userRepo.GetByUsername(ctx, *req.Username)
+		if err != nil {
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				tx.Rollback()
+				return nil, apperror.New(500, "USERNAME_CHECK_FAILED", "gagal memeriksa keberadaan username", err.Error())
+			}
+		} else {
+			tx.Rollback()
+			return nil, apperror.New(409, "USERNAME_EXISTS", "username sudah digunakan. Silakan pilih username lain.", "")
+		}
+		currentUser.IsDefaultUsername = false
+	}
+
 	currentUser.FullName = req.FullName
 	currentUser.Username = *req.Username
 
