@@ -201,6 +201,29 @@ func (s *UserService) GetProfile(ctx context.Context, userID uint) (*dto.GetProf
 		return nil, apperror.New(500, "USER_FETCH_FAILED", "gagal mendapatkan profil user", err.Error())
 	}
 
+	missingFields := []string{}
+
+	if user.FullName == "" {
+		missingFields = append(missingFields, "fullName")
+	}
+	if user.Username == "" {
+		missingFields = append(missingFields, "username")
+	}
+	if user.Profile.Bio == nil {
+		missingFields = append(missingFields, "bio")
+	}
+	if user.Profile.ProfilePicture == nil {
+		missingFields = append(missingFields, "profilePicture")
+	}
+	if user.Profile.Birthday == nil {
+		missingFields = append(missingFields, "birthday")
+	}
+	if user.Profile.Gender == nil {
+		missingFields = append(missingFields, "gender")
+	}
+
+	isCompleteProfile := len(missingFields) == 0
+
 	return &dto.GetProfileResponse{
 		UserID:         user.ID,
 		FullName:       user.FullName,
@@ -210,6 +233,9 @@ func (s *UserService) GetProfile(ctx context.Context, userID uint) (*dto.GetProf
 		Birthday:       user.Profile.Birthday,
 		Gender:         user.Profile.Gender,
 		Email:          user.Email,
+		IsCompleteProfile: isCompleteProfile,
+		MissingFields:     missingFields,
+		IsDefaultUsername: user.IsDefaultUsername,
 	}, nil
 }
 
