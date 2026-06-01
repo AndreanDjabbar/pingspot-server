@@ -18,7 +18,6 @@ type ReportVoteRepository interface {
 	GetHighestVoteTypeTX(ctx context.Context, tx *gorm.DB, reportID uint) (model.ReportStatus, error)
 	GetResolvedVoteCount(ctx context.Context, reportID uint) (int64, error)
 	GetOnProgressVoteCount(ctx context.Context, reportID uint) (int64, error)
-	GetNotResolvedVoteCount(ctx context.Context, reportID uint) (int64, error)
 	GetTotalVoteCountTX(ctx context.Context, tx *gorm.DB, reportID uint) (int64, error)
 }
 
@@ -62,7 +61,6 @@ func (r *reportVoteRepository) GetReportVoteCountsTX(ctx context.Context, tx *go
 	counts := map[model.ReportStatus]int64{
 		model.RESOLVED:     0,
 		model.ON_PROGRESS:  0,
-		model.NOT_RESOLVED: 0,
 	}
 	for rows.Next() {
 		var voteType model.ReportStatus
@@ -145,16 +143,6 @@ func (r *reportVoteRepository) GetOnProgressVoteCount(ctx context.Context, repor
 	var count int64
 	if err := r.db.WithContext(ctx).Model(&model.ReportVote{}).
 		Where("report_id = ? AND vote_type = ?", reportID, model.ON_PROGRESS).
-		Count(&count).Error; err != nil {
-		return 0, err
-	}
-	return count, nil
-}
-
-func (r *reportVoteRepository) GetNotResolvedVoteCount(ctx context.Context, reportID uint) (int64, error) {
-	var count int64
-	if err := r.db.WithContext(ctx).Model(&model.ReportVote{}).
-		Where("report_id = ? AND vote_type = ?", reportID, model.NOT_RESOLVED).
 		Count(&count).Error; err != nil {
 		return 0, err
 	}
