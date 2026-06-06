@@ -792,28 +792,45 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 		marginVote := float64(topVote.Count-secondVote.Count) / float64(totalVote) * 100
 
 		limitTopVote := 2
-		if marginVote >= 20.0 && topVote.Count >= limitTopVote {
-			if topVote.Type == model.RESOLVED && report.ReportStatus != model.WAITING_CONFIRMATION {
-				report.ReportStatus = model.WAITING_CONFIRMATION
-				report.LastUpdatedBy = model.System
-				report.LastUpdatedProgressAt = mainutils.Int64PtrOrNil(time.Now().Unix())
-				report.PotentiallyResolvedAt = mainutils.Int64PtrOrNil(time.Now().Unix())
-				reportLink := fmt.Sprintf("%s/main/reports/%d", env.ClientURL(), report.ID)
-				go util.SendPotentiallyResolvedReportEmail(
-					report.User.Email,
-					report.User.Username,
-					report.ReportTitle,
-					reportLink,
-					7,
-				)
-				if err := s.tasksService.AutoResolveReportTask(reportID); err != nil {
-					tx.Rollback()
-					return nil, apperror.New(500, "AUTO_RESOLVE_TASK_FAILED", "Gagal membuat tugas penyelesaian otomatis", err.Error())
+		if marginVote >= 20.0 && topVote.Count >= limitTopVote && report.ReportStatus != model.WAITING_CONFIRMATION {
+			report.ReportStatus = model.WAITING_CONFIRMATION
+			report.LastUpdatedBy = model.System
+			report.LastUpdatedProgressAt = mainutils.Int64PtrOrNil(time.Now().Unix())
+			report.PotentiallyResolvedAt = mainutils.Int64PtrOrNil(time.Now().Unix())
+			reportLink := fmt.Sprintf("%s/main/reports/%d", env.ClientURL(), report.ID)
+			go util.SendPotentiallyResolvedReportEmail(
+				report.User.Email,
+				report.User.Username,
+				report.ReportTitle,
+				reportLink,
+				7,
+			)
+			if err := s.tasksService.AutoResolveReportTask(reportID); err != nil {
+				tx.Rollback()
+				return nil, apperror.New(500, "AUTO_RESOLVE_TASK_FAILED", "Gagal membuat tugas penyelesaian otomatis", err.Error())
+			}
+
+			reportStatusMessage := map[any]string{
+				model.RESOLVED:        "TERSELESAIKAN",
+				model.ON_PROGRESS:     "SEDANG_DIPROSES",
+				model.WAITING_CONFIRMATION: "MENUNGGU_KONFIRMASI",
+			}
+			progressNotes := fmt.Sprintf("Laporan menunggu konfirmasi karena mendapatkan suara tertinggi dengan status laporan: '%s' dan Total suara: %d.", reportStatusMessage[topVote.Type], totalVote)
+
+			var newProgress *model.ReportProgress
+			if report.ReportStatus == model.WAITING_CONFIRMATION {
+				newProgress = &model.ReportProgress{
+					ReportID:    reportID,
+					UserID:      userID,
+					Status:      model.WAITING_CONFIRMATION,
+					Notes:       progressNotes,
+					CreatedAt:   time.Now().Unix(),
 				}
-			} else if topVote.Type == model.ON_PROGRESS && report.ReportStatus != model.ON_PROGRESS {
-				report.ReportStatus = model.ON_PROGRESS
-				report.LastUpdatedBy = model.System
-				report.LastUpdatedProgressAt = mainutils.Int64PtrOrNil(time.Now().Unix())
+			}
+
+			if _, err := s.reportProgressRepo.CreateTX(ctx, tx, newProgress); err != nil {
+				tx.Rollback()
+				return nil, apperror.New(500, "PROGRESS_CREATE_FAILED", "Gagal mengunggah progres laporan", err.Error())
 			}
 		}
 
