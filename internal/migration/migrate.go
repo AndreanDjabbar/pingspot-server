@@ -107,6 +107,15 @@ func Migrate(db *gorm.DB) error {
 				return tx.AutoMigrate(&model.User{})
 			},
 		},
+		{
+			ID: "06072026_add_unique_constraint_to_report_votes",
+			Migrate: func(tx *gorm.DB) error {
+				return tx.Migrator().CreateIndex(&model.ReportVote{}, "idx_user_report_vote")
+			},
+			Rollback: func(tx *gorm.DB) error {
+				return tx.Migrator().DropIndex(&model.ReportVote{}, "idx_user_report_vote")
+			},
+		},
 	})
 
 	err := m.Migrate()
