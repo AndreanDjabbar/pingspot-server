@@ -711,6 +711,16 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 		return nil, apperror.New(500, "REPORT_FETCH_FAILED", "Gagal mengambil laporan", err.Error())
 	}
 
+	existingVote, err := s.reportVoteRepo.GetByUserReportIDTX(ctx, tx, userID, reportID)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		tx.Rollback()
+		return nil, apperror.New(500, "VOTE_FETCH_FAILED", "Gagal mendapatkan suara laporan", err.Error())
+	}
+
+	if existingVote != nil {
+		return nil, apperror.New(400, "ALREADY_VOTED", "Anda sudah memberikan suara pada laporan ini", "")
+	}
+
 	if report.UserID == userID {
 		tx.Rollback()
 		return nil, apperror.New(400, "CANNOT_VOTE_OWN_REPORT", "Anda tidak dapat memberikan suara pada laporan anda sendiri", "")
@@ -734,11 +744,6 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 	modelVoteType := model.ReportStatus(voteType)
 	var resultVote *model.ReportVote
 
-	existingVote, err := s.reportVoteRepo.GetByUserReportIDTX(ctx, tx, userID, reportID)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		tx.Rollback()
-		return nil, apperror.New(500, "VOTE_FETCH_FAILED", "Gagal mendapatkan suara laporan", err.Error())
-	}
 	switch {
 	case existingVote == nil:
 		newVote := model.ReportVote{
