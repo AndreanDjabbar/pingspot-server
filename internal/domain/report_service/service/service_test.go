@@ -611,9 +611,9 @@ func TestReportService_VoteToReport(t *testing.T) {
 			}, nil)
 		mockReportVoteRepo.On("GetReportVoteCountsTX", ctx, mock.AnythingOfType("*gorm.DB"), uint(1)).
 			Return(map[model.ReportStatus]int64{
-				model.RESOLVED:     1,
-				model.ON_PROGRESS:  0,
-				model.NOT_RESOLVED: 0,
+				model.RESOLVED:             1,
+				model.ON_PROGRESS:          0,
+				model.WAITING_CONFIRMATION: 0,
 			}, nil)
 		mockReportVoteRepo.On("GetTotalVoteCountTX", ctx, mock.AnythingOfType("*gorm.DB"), uint(1)).Return(int64(1), nil)
 		mockReportRepo.On("UpdateTX", ctx, mock.AnythingOfType("*gorm.DB"), mock.AnythingOfType("*model.Report")).
@@ -774,9 +774,9 @@ func TestReportService_VoteToReport(t *testing.T) {
 			}, nil)
 		mockReportVoteRepo.On("GetReportVoteCountsTX", ctx, mock.AnythingOfType("*gorm.DB"), uint(1)).
 			Return(map[model.ReportStatus]int64{
-				model.RESOLVED:     1,
-				model.ON_PROGRESS:  0,
-				model.NOT_RESOLVED: 0,
+				model.RESOLVED:             1,
+				model.ON_PROGRESS:          0,
+				model.WAITING_CONFIRMATION: 0,
 			}, nil)
 		mockReportVoteRepo.On("GetTotalVoteCountTX", ctx, mock.AnythingOfType("*gorm.DB"), uint(1)).Return(int64(1), nil)
 		mockReportRepo.On("UpdateTX", ctx, mock.AnythingOfType("*gorm.DB"), mock.AnythingOfType("*model.Report")).
@@ -791,7 +791,7 @@ func TestReportService_VoteToReport(t *testing.T) {
 		mockReportVoteRepo.AssertExpectations(t)
 	})
 
-	t.Run("should change status to NOT_RESOLVED when margin >= 20% and top vote is NOT_RESOLVED", func(t *testing.T) {
+	t.Run("should keep status waiting when top vote is not resolved", func(t *testing.T) {
 		mockReportRepo, _, _, _, _, _, _, mockReportVoteRepo, _, _, service := setupMocks(t)
 
 		existingReport := &model.Report{
@@ -809,28 +809,30 @@ func TestReportService_VoteToReport(t *testing.T) {
 				ID:        1,
 				UserID:    1,
 				ReportID:  1,
-				VoteType:  model.NOT_RESOLVED,
+				VoteType:  model.ReportStatus("NOT_RESOLVED"),
 				CreatedAt: time.Now().Unix(),
 				UpdatedAt: time.Now().Unix(),
 			}, nil)
 		mockReportVoteRepo.On("GetReportVoteCountsTX", ctx, mock.AnythingOfType("*gorm.DB"), uint(1)).
 			Return(map[model.ReportStatus]int64{
-				model.NOT_RESOLVED: 4,
-				model.ON_PROGRESS:  1,
-				model.RESOLVED:     0,
+				model.ReportStatus("NOT_RESOLVED"): 4,
+				model.ON_PROGRESS:                  1,
+				model.RESOLVED:                     0,
 			}, nil)
 		mockReportVoteRepo.On("GetTotalVoteCountTX", ctx, mock.AnythingOfType("*gorm.DB"), uint(1)).Return(int64(5), nil)
-		mockReportRepo.On("UpdateTX", ctx, mock.AnythingOfType("*gorm.DB"), mock.AnythingOfType("*model.Report")).
-			Return(&model.Report{
-				ID:           1,
-				ReportStatus: model.NOT_RESOLVED,
-			}, nil)
+		mockReportRepo.On("UpdateTX", ctx, mock.AnythingOfType("*gorm.DB"), mock.MatchedBy(func(r *model.Report) bool {
+			return r.ID == 1 && r.ReportStatus == model.WAITING
+		})).Return(&model.Report{
+			ID:           1,
+			ReportStatus: model.WAITING,
+		}, nil)
 
 		result, err := service.VoteToReport(ctx, 1, 1, "NOT_RESOLVED")
 
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
-		assert.Equal(t, model.NOT_RESOLVED, result.ReportStatus)
+		assert.Equal(t, model.WAITING, result.ReportStatus)
+		assert.Equal(t, model.ReportStatus("NOT_RESOLVED"), result.VoteType)
 		mockReportRepo.AssertExpectations(t)
 		mockReportVoteRepo.AssertExpectations(t)
 	})
@@ -857,9 +859,9 @@ func TestReportService_VoteToReport(t *testing.T) {
 			}, nil)
 		mockReportVoteRepo.On("GetReportVoteCountsTX", ctx, mock.AnythingOfType("*gorm.DB"), uint(1)).
 			Return(map[model.ReportStatus]int64{
-				model.ON_PROGRESS:  4,
-				model.RESOLVED:     1,
-				model.NOT_RESOLVED: 0,
+				model.ON_PROGRESS:          4,
+				model.RESOLVED:             1,
+				model.WAITING_CONFIRMATION: 0,
 			}, nil)
 		mockReportVoteRepo.On("GetTotalVoteCountTX", ctx, mock.AnythingOfType("*gorm.DB"), uint(1)).Return(int64(5), nil)
 		mockReportRepo.On("UpdateTX", ctx, mock.AnythingOfType("*gorm.DB"), mock.MatchedBy(func(r *model.Report) bool {
@@ -927,9 +929,9 @@ func TestReportService_VoteToReport(t *testing.T) {
 			}, nil)
 		mockReportVoteRepo.On("GetReportVoteCountsTX", ctx, mock.AnythingOfType("*gorm.DB"), uint(1)).
 			Return(map[model.ReportStatus]int64{
-				model.RESOLVED:     1,
-				model.ON_PROGRESS:  0,
-				model.NOT_RESOLVED: 0,
+				model.RESOLVED:             1,
+				model.ON_PROGRESS:          0,
+				model.WAITING_CONFIRMATION: 0,
 			}, nil)
 		mockReportVoteRepo.On("GetTotalVoteCountTX", ctx, mock.AnythingOfType("*gorm.DB"), uint(1)).
 			Return(int64(0), errors.New("database error"))
@@ -1155,7 +1157,7 @@ func TestReportService_GetReportStatistics(t *testing.T) {
 		statusCount := map[string]int64{
 			"WAITING":              30,
 			"ON_PROGRESS":          20,
-			"NOT_RESOLVED":         15,
+			"WAITING_CONFIRMATION": 15,
 			"POTENTIALLY_RESOLVED": 10,
 			"RESOLVED":             20,
 			"EXPIRED":              5,
@@ -1163,7 +1165,7 @@ func TestReportService_GetReportStatistics(t *testing.T) {
 
 		mockReportRepo.On("GetByReportTypeCount", ctx).Return(totalReportCount, nil)
 
-		mockReportRepo.On("GetByReportStatusCount", ctx, []string{"WAITING", "ON_PROGRESS", "NOT_RESOLVED", "POTENTIALLY_RESOLVED", "RESOLVED", "EXPIRED"}).Return(statusCount, nil)
+		mockReportRepo.On("GetByReportStatusCount", ctx, []string{"WAITING", "ON_PROGRESS", "WAITING_CONFIRMATION", "RESOLVED", "EXPIRED"}).Return(statusCount, nil)
 
 		mockReportRepo.On("GetMonthlyReportCount", ctx).Return(monthlyCount, nil)
 

@@ -10,7 +10,7 @@ type RegisterRequest struct {
 }
 
 type LoginRequest struct {
-	Email      string  `json:"email" validate:"required,email"`
+	EmailOrUsername string  `json:"emailOrUsername" validate:"required,min=3"`
 	Password   string  `json:"password" validate:"required,min=6"`
 	Provider   string  `json:"provider" validate:"required,oneof=EMAIL GOOGLE GITHUB"`
 	IPAddress  string  `json:"-"`

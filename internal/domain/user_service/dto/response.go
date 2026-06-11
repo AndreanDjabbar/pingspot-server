@@ -19,6 +19,9 @@ type GetProfileResponse struct {
 	Birthday   		*string `json:"birthday"`
 	Gender 	   		*string `json:"gender"`
 	Email			string  `json:"email"`	
+	IsDefaultUsername bool    `json:"isDefaultUsername"`
+	IsCompleteProfile bool    `json:"isCompleteProfile"`
+	MissingFields 	[]string `json:"missingFields,omitempty"`
 }
 
 type GetUserStatisticsResponse struct {

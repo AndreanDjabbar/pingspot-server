@@ -229,7 +229,7 @@ func (s *ReportService) EditReport(ctx context.Context, userID, reportID uint, r
 		existingReportImages.Image4URL = req.Image4URL
 		existingReportImages.Image5URL = req.Image5URL
 
-	case model.ON_PROGRESS, model.NOT_RESOLVED, model.POTENTIALLY_RESOLVED, model.EXPIRED:
+	case model.ON_PROGRESS, model.WAITING_CONFIRMATION, model.EXPIRED:
 		existingReport.ReportDescription = req.ReportDescription
 
 		existingReportLocation.MapZoom = req.MapZoom
@@ -358,11 +358,6 @@ func (s *ReportService) GetAllReport(ctx context.Context, userID, cursorID uint,
 			return nil, apperror.New(500, "VOTE_COUNT_FAILED", "Gagal mendapatkan suara 'ON_PROGRESS'", err.Error())
 		}
 
-		notResolvedVoteCount, err := s.reportVoteRepo.GetNotResolvedVoteCount(ctx, report.ID)
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(500, "VOTE_COUNT_FAILED", "Gagal mendapatkan suara 'NOT_RESOLVED'", err.Error())
-		}
-
 		fullReports = append(fullReports, dto.Report{
 			ID:                report.ID,
 			ReportTitle:       report.ReportTitle,
@@ -444,8 +439,7 @@ func (s *ReportService) GetAllReport(ctx context.Context, userID, cursorID uint,
 			IsDislikedByCurrentUser: isDislikedByCurrentUser,
 			TotalResolvedVotes:      &resolvedVoteCount,
 			TotalOnProgressVotes:    &onProgressVoteCount,
-			TotalNotResolvedVotes:   &notResolvedVoteCount,
-			TotalVotes:              resolvedVoteCount + notResolvedVoteCount + onProgressVoteCount,
+			TotalVotes:              resolvedVoteCount + onProgressVoteCount,
 			ReportVotes: func() []dto.GetVoteReportResponse {
 				var votes []dto.GetVoteReportResponse
 				for _, vote := range *report.ReportVotes {
@@ -461,9 +455,6 @@ func (s *ReportService) GetAllReport(ctx context.Context, userID, cursorID uint,
 						if vote.VoteType == model.RESOLVED {
 							isResolvedByCurrentUser = true
 						}
-						if vote.VoteType == model.NOT_RESOLVED {
-							isNotResolvedByCurrentUser = true
-						}
 						if vote.VoteType == model.ON_PROGRESS {
 							isOnProgressByCurrentUser = true
 						}
@@ -474,7 +465,7 @@ func (s *ReportService) GetAllReport(ctx context.Context, userID, cursorID uint,
 			IsResolvedByCurrentUser:    isResolvedByCurrentUser,
 			IsNotResolvedByCurrentUser: isNotResolvedByCurrentUser,
 			IsOnProgressByCurrentUser:  isOnProgressByCurrentUser,
-			MajorityVote:               util.GetMajorityVote(resolvedVoteCount, onProgressVoteCount, notResolvedVoteCount),
+			MajorityVote:               util.GetMajorityVote(resolvedVoteCount, onProgressVoteCount),
 			LastUpdatedBy:              (*string)(&report.LastUpdatedBy),
 			LastUpdatedProgressAt:      report.LastUpdatedProgressAt,
 			ReportUpdatedAt:            report.UpdatedAt,
@@ -496,7 +487,7 @@ func (s *ReportService) GetReportByID(ctx context.Context, userID, reportID uint
 		}
 		return nil, apperror.New(500, "REPORT_FETCH_FAILED", "Gagal mengambil laporan", err.Error())
 	}
-	var isLikedByCurrentUser, isDislikedByCurrentUser, isResolvedByCurrentUser, isOnProgressByCurrentUser, isNotResolvedByCurrentUser bool
+	var isLikedByCurrentUser, isDislikedByCurrentUser, isResolvedByCurrentUser, isOnProgressByCurrentUser bool
 	likeReactionCount, err := s.reportReactionRepo.GetLikeReactionCount(ctx, report.ID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, apperror.New(500, "REACTION_COUNT_FAILED", "Gagal mendapatkan reaksi suka", err.Error())
@@ -508,10 +499,6 @@ func (s *ReportService) GetReportByID(ctx context.Context, userID, reportID uint
 	resolvedVoteCount, err := s.reportVoteRepo.GetResolvedVoteCount(ctx, report.ID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, apperror.New(500, "VOTE_COUNT_FAILED", "Gagal mendapatkan suara 'RESOLVED'", err.Error())
-	}
-	notResolvedVoteCount, err := s.reportVoteRepo.GetNotResolvedVoteCount(ctx, report.ID)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, apperror.New(500, "VOTE_COUNT_FAILED", "Gagal mendapatkan suara 'NOT_RESOLVED'", err.Error())
 	}
 	onProgressVoteCount, err := s.reportVoteRepo.GetOnProgressVoteCount(ctx, report.ID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -595,8 +582,7 @@ func (s *ReportService) GetReportByID(ctx context.Context, userID, reportID uint
 		}(),
 		TotalResolvedVotes:    &resolvedVoteCount,
 		TotalOnProgressVotes:  &onProgressVoteCount,
-		TotalNotResolvedVotes: &notResolvedVoteCount,
-		TotalVotes:            resolvedVoteCount + notResolvedVoteCount + onProgressVoteCount,
+		TotalVotes:            resolvedVoteCount + onProgressVoteCount,
 		ReportVotes: func() []dto.GetVoteReportResponse {
 			var votes []dto.GetVoteReportResponse
 			for _, vote := range *report.ReportVotes {
@@ -612,9 +598,6 @@ func (s *ReportService) GetReportByID(ctx context.Context, userID, reportID uint
 					if vote.VoteType == model.RESOLVED {
 						isResolvedByCurrentUser = true
 					}
-					if vote.VoteType == model.NOT_RESOLVED {
-						isNotResolvedByCurrentUser = true
-					}
 					if vote.VoteType == model.ON_PROGRESS {
 						isOnProgressByCurrentUser = true
 					}
@@ -625,9 +608,8 @@ func (s *ReportService) GetReportByID(ctx context.Context, userID, reportID uint
 		IsLikedByCurrentUser:       isLikedByCurrentUser,
 		IsDislikedByCurrentUser:    isDislikedByCurrentUser,
 		IsResolvedByCurrentUser:    isResolvedByCurrentUser,
-		IsNotResolvedByCurrentUser: isNotResolvedByCurrentUser,
 		IsOnProgressByCurrentUser:  isOnProgressByCurrentUser,
-		MajorityVote:               util.GetMajorityVote(resolvedVoteCount, onProgressVoteCount, notResolvedVoteCount),
+		MajorityVote:               util.GetMajorityVote(resolvedVoteCount, onProgressVoteCount),
 		LastUpdatedBy:              (*string)(&report.LastUpdatedBy),
 		LastUpdatedProgressAt:      report.LastUpdatedProgressAt,
 		ReportUpdatedAt:            report.UpdatedAt,
@@ -729,6 +711,16 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 		return nil, apperror.New(500, "REPORT_FETCH_FAILED", "Gagal mengambil laporan", err.Error())
 	}
 
+	existingVote, err := s.reportVoteRepo.GetByUserReportIDTX(ctx, tx, userID, reportID)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		tx.Rollback()
+		return nil, apperror.New(500, "VOTE_FETCH_FAILED", "Gagal mendapatkan suara laporan", err.Error())
+	}
+
+	if existingVote != nil {
+		return nil, apperror.New(400, "ALREADY_VOTED", "Anda sudah memberikan suara pada laporan ini", "")
+	}
+
 	if report.UserID == userID {
 		tx.Rollback()
 		return nil, apperror.New(400, "CANNOT_VOTE_OWN_REPORT", "Anda tidak dapat memberikan suara pada laporan anda sendiri", "")
@@ -752,11 +744,6 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 	modelVoteType := model.ReportStatus(voteType)
 	var resultVote *model.ReportVote
 
-	existingVote, err := s.reportVoteRepo.GetByUserReportIDTX(ctx, tx, userID, reportID)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		tx.Rollback()
-		return nil, apperror.New(500, "VOTE_FETCH_FAILED", "Gagal mendapatkan suara laporan", err.Error())
-	}
 	switch {
 	case existingVote == nil:
 		newVote := model.ReportVote{
@@ -810,32 +797,45 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 		marginVote := float64(topVote.Count-secondVote.Count) / float64(totalVote) * 100
 
 		limitTopVote := 2
-		if marginVote >= 20.0 && topVote.Count >= limitTopVote {
-			if topVote.Type == model.RESOLVED && report.ReportStatus != model.POTENTIALLY_RESOLVED {
-				report.ReportStatus = model.POTENTIALLY_RESOLVED
-				report.LastUpdatedBy = model.System
-				report.LastUpdatedProgressAt = mainutils.Int64PtrOrNil(time.Now().Unix())
-				report.PotentiallyResolvedAt = mainutils.Int64PtrOrNil(time.Now().Unix())
-				reportLink := fmt.Sprintf("%s/main/reports/%d", env.ClientURL(), report.ID)
-				go util.SendPotentiallyResolvedReportEmail(
-					report.User.Email,
-					report.User.Username,
-					report.ReportTitle,
-					reportLink,
-					7,
-				)
-				if err := s.tasksService.AutoResolveReportTask(reportID); err != nil {
-					tx.Rollback()
-					return nil, apperror.New(500, "AUTO_RESOLVE_TASK_FAILED", "Gagal membuat tugas penyelesaian otomatis", err.Error())
+		if marginVote >= 20.0 && topVote.Count >= limitTopVote && report.ReportStatus != model.WAITING_CONFIRMATION {
+			report.ReportStatus = model.WAITING_CONFIRMATION
+			report.LastUpdatedBy = model.System
+			report.LastUpdatedProgressAt = mainutils.Int64PtrOrNil(time.Now().Unix())
+			report.PotentiallyResolvedAt = mainutils.Int64PtrOrNil(time.Now().Unix())
+			reportLink := fmt.Sprintf("%s/main/reports/%d", env.ClientURL(), report.ID)
+			go util.SendPotentiallyResolvedReportEmail(
+				report.User.Email,
+				report.User.Username,
+				report.ReportTitle,
+				reportLink,
+				7,
+			)
+			if err := s.tasksService.AutoResolveReportTask(reportID); err != nil {
+				tx.Rollback()
+				return nil, apperror.New(500, "AUTO_RESOLVE_TASK_FAILED", "Gagal membuat tugas penyelesaian otomatis", err.Error())
+			}
+
+			reportStatusMessage := map[any]string{
+				model.RESOLVED:        "TERSELESAIKAN",
+				model.ON_PROGRESS:     "SEDANG_DIPROSES",
+				model.WAITING_CONFIRMATION: "MENUNGGU_KONFIRMASI",
+			}
+			progressNotes := fmt.Sprintf("Laporan menunggu konfirmasi karena mendapatkan suara tertinggi dengan status laporan: '%s' dan Total suara: %d.", reportStatusMessage[topVote.Type], totalVote)
+
+			var newProgress *model.ReportProgress
+			if report.ReportStatus == model.WAITING_CONFIRMATION {
+				newProgress = &model.ReportProgress{
+					ReportID:    reportID,
+					UserID:      userID,
+					Status:      model.WAITING_CONFIRMATION,
+					Notes:       progressNotes,
+					CreatedAt:   time.Now().Unix(),
 				}
-			} else if topVote.Type == model.ON_PROGRESS && report.ReportStatus != model.ON_PROGRESS {
-				report.ReportStatus = model.ON_PROGRESS
-				report.LastUpdatedBy = model.System
-				report.LastUpdatedProgressAt = mainutils.Int64PtrOrNil(time.Now().Unix())
-			} else if topVote.Type == model.NOT_RESOLVED && report.ReportStatus != model.NOT_RESOLVED {
-				report.ReportStatus = model.NOT_RESOLVED
-				report.LastUpdatedBy = model.System
-				report.LastUpdatedProgressAt = mainutils.Int64PtrOrNil(time.Now().Unix())
+			}
+
+			if _, err := s.reportProgressRepo.CreateTX(ctx, tx, newProgress); err != nil {
+				tx.Rollback()
+				return nil, apperror.New(500, "PROGRESS_CREATE_FAILED", "Gagal mengunggah progres laporan", err.Error())
 			}
 		}
 
@@ -1133,7 +1133,7 @@ func (s *ReportService) GetReportStatistics(ctx context.Context) (*dto.GetReport
 		return nil, apperror.New(500, "TOTAL_REPORTS_FETCH_FAILED", "Gagal mengambil total laporan", err.Error())
 	}
 
-	reportsByStatus, err := s.reportRepo.GetByReportStatusCount(ctx, string(model.WAITING), string(model.ON_PROGRESS), string(model.NOT_RESOLVED), string(model.POTENTIALLY_RESOLVED), string(model.RESOLVED), string(model.EXPIRED))
+	reportsByStatus, err := s.reportRepo.GetByReportStatusCount(ctx, string(model.WAITING), string(model.ON_PROGRESS), string(model.WAITING_CONFIRMATION), string(model.RESOLVED), string(model.EXPIRED))
 	if err != nil {
 		return nil, apperror.New(500, "RESOLVED_REPORTS_FETCH_FAILED", "Gagal mengambil laporan yang diselesaikan", err.Error())
 	}

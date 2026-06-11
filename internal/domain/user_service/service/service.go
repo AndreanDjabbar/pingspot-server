@@ -45,9 +45,36 @@ func (s *UserService) SaveProfile(ctx context.Context, userID uint, req dto.Save
 		return nil, apperror.New(500, "TRANSACTION_START_FAILED", "gagal memulai transaksi", tx.Error.Error())
 	}
 
-	if err := s.userRepo.UpdateFullNameTX(ctx, tx, userID, req.FullName); err != nil {
+	currentUser, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "FULLNAME_UPDATE_FAILED", "gagal memperbarui nama lengkap", err.Error())
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperror.New(404, "USER_NOT_FOUND", "pengguna tidak ditemukan", "")
+		}
+		return nil, apperror.New(500, "USER_FETCH_FAILED", "gagal mengambil data pengguna", err.Error())
+	}
+
+	if req.Username != nil && *req.Username != currentUser.Username {
+		_, err := s.userRepo.GetByUsername(ctx, *req.Username)
+		if err != nil {
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				tx.Rollback()
+				return nil, apperror.New(500, "USERNAME_CHECK_FAILED", "gagal memeriksa keberadaan username", err.Error())
+			}
+		} else {
+			tx.Rollback()
+			return nil, apperror.New(409, "USERNAME_EXISTS", "username sudah digunakan. Silakan pilih username lain.", "")
+		}
+		currentUser.IsDefaultUsername = false
+	}
+
+	currentUser.FullName = req.FullName
+	currentUser.Username = *req.Username
+
+	updatedUser, err := s.userRepo.UpdateTX(ctx, tx, currentUser)
+	if err != nil {
+		tx.Rollback()
+		return nil, apperror.New(500, "USER_UPDATE_FAILED", "gagal memperbarui data pengguna", err.Error())
 	}
 
 	profile, err := s.userProfileRepo.GetByIDTX(ctx, tx, userID)
@@ -70,10 +97,11 @@ func (s *UserService) SaveProfile(ctx context.Context, userID uint, req dto.Save
 			newProfileResponse := dto.SaveUserProfileResponse{
 				UserID:         userID,
 				Bio:            req.Bio,
+				Username:       updatedUser.Username,
 				ProfilePicture: req.ProfilePicture,
 				Birthday:       req.Birthday,
 				Gender:         req.Gender,
-				FullName:       req.FullName,
+				FullName:       updatedUser.FullName,
 			}
 			logger.Info("User profile created successfully",
 				zap.String("request_id", requestID),
@@ -106,8 +134,8 @@ func (s *UserService) SaveProfile(ctx context.Context, userID uint, req dto.Save
 		ProfilePicture: profile.ProfilePicture,
 		Birthday:       profile.Birthday,
 		Gender:         profile.Gender,
-		FullName:       req.FullName,
-		Username:       *req.Username,
+		FullName:       updatedUser.FullName,
+		Username:       updatedUser.Username,
 	}
 	logger.Info("User profile updated successfully",
 		zap.String("request_id", requestID),
@@ -173,6 +201,29 @@ func (s *UserService) GetProfile(ctx context.Context, userID uint) (*dto.GetProf
 		return nil, apperror.New(500, "USER_FETCH_FAILED", "gagal mendapatkan profil user", err.Error())
 	}
 
+	missingFields := []string{}
+
+	if user.FullName == "" {
+		missingFields = append(missingFields, "fullName")
+	}
+	if user.Username == "" {
+		missingFields = append(missingFields, "username")
+	}
+	if user.Profile.Bio == nil {
+		missingFields = append(missingFields, "bio")
+	}
+	if user.Profile.ProfilePicture == nil {
+		missingFields = append(missingFields, "profilePicture")
+	}
+	if user.Profile.Birthday == nil {
+		missingFields = append(missingFields, "birthday")
+	}
+	if user.Profile.Gender == nil {
+		missingFields = append(missingFields, "gender")
+	}
+
+	isCompleteProfile := len(missingFields) == 0
+
 	return &dto.GetProfileResponse{
 		UserID:         user.ID,
 		FullName:       user.FullName,
@@ -182,6 +233,9 @@ func (s *UserService) GetProfile(ctx context.Context, userID uint) (*dto.GetProf
 		Birthday:       user.Profile.Birthday,
 		Gender:         user.Profile.Gender,
 		Email:          user.Email,
+		IsCompleteProfile: isCompleteProfile,
+		MissingFields:     missingFields,
+		IsDefaultUsername: user.IsDefaultUsername,
 	}, nil
 }
 

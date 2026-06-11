@@ -23,7 +23,6 @@ type User struct {
 	ProviderID *string   `gorm:"size:100"`
 	Profile	UserProfile `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 	IsDefaultUsername bool      `gorm:"default:true;not null"`
-	LastReminderAt *time.Time `gorm:"type:timestamp with time zone"`
 	CreatedAt  time.Time `gorm:"autoCreateTime"`
 	UpdatedAt  time.Time `gorm:"autoUpdateTime"`
 	SearchVector string    `gorm:"column:search_vector;->;-:migration"`
