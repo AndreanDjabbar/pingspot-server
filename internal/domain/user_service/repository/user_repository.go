@@ -132,7 +132,17 @@ func (r *userRepository) FullTextSearchUsers(ctx context.Context, searchQuery st
 func (r *userRepository) FullTextSearchUsersPaginated(ctx context.Context, searchQuery string, limit int, cursorID uint) (*[]model.User, error) {
 	var users []model.User
 
-	if strings.TrimSpace(searchQuery) == "" {
+	searchQuery = strings.TrimSpace(searchQuery)
+
+	if searchQuery == "" {
+		if err := r.db.WithContext(ctx).
+			Preload("Profile").
+			Where("id > ?", cursorID).
+			Order("id ASC").
+			Limit(limit).
+			Find(&users).Error; err != nil {
+			return nil, err
+		}
 		return &users, nil
 	}
 
@@ -147,7 +157,13 @@ func (r *userRepository) FullTextSearchUsersPaginated(ctx context.Context, searc
 		Where("search_vector @@ to_tsquery('simple', ?)", searchQuery)
 
 	if cursorID != 0 {
-		tx = tx.Where("id > ?", cursorID)
+		tx = tx.Where(`
+		(
+			ts_rank(search_vector, to_tsquery('simple', ?)) < ts_rank(search_vector, to_tsquery('simple', (SELECT search_vector FROM users WHERE id = ?)))
+		) OR (
+			ts_rank(search_vector, to_tsquery('simple', ?)) = ts_rank(search_vector, to_tsquery('simple', (SELECT search_vector FROM users WHERE id = ?))) 
+			AND id > ?
+		)`, searchQuery, cursorID, searchQuery, cursorID, cursorID)
 	}
 
 	err := tx.
