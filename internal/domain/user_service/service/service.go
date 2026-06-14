@@ -197,7 +197,6 @@ func (s *UserService) SearchUsers(ctx context.Context, searchQuery string, users
 		userDTO := dto.SearchUsers{
 			UserID:         user.ID,
 			FullName:       user.FullName,
-			Email: 			user.Email,
 			Bio:            user.Profile.Bio,
 			ProfilePicture: user.Profile.ProfilePicture,
 			Username:	   user.Username,

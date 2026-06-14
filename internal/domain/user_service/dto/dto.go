@@ -13,7 +13,6 @@ type UserProfile struct {
 type SearchUsers struct {
 	UserID		  uint    `json:"userID"`
 	FullName      string  `json:"fullName"`
-	Email		  string  `json:"email"`
 	Bio           *string `json:"bio"`
 	ProfilePicture *string `json:"profilePicture"`
 	Username	  string  `json:"username"`
