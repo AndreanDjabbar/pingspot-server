@@ -10,6 +10,7 @@ import (
 	"pingspot/pkg/logger"
 	contextutils "pingspot/pkg/utils/context_util"
 	tokenutils "pingspot/pkg/utils/token_util"
+	"strings"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -171,6 +172,50 @@ func (s *UserService) GetUserStatistics(ctx context.Context) (*dto.GetUserStatis
 		MonthlyUserCounts: monthlyUserCounts,
 	}, nil
 }
+
+func (s *UserService) SearchUsers(ctx context.Context, searchQuery string, usersDataNextCursor uint, limit int) (*dto.SearchResponse, error) {
+	requestID := contextutils.GetRequestID(ctx)
+	logger.Info("Performing search",
+		zap.String("request_id", requestID),
+		zap.String("search_query", searchQuery),
+		zap.Int("limit", limit),
+	)
+
+	usersData, err := s.userRepo.FullTextSearchUsersPaginated(ctx, strings.ToLower(searchQuery), limit, usersDataNextCursor)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		logger.Error("Failed to search users",
+			zap.String("request_id", requestID),
+			zap.String("search_query", searchQuery),
+			zap.Error(err),
+		)
+		return nil, apperror.New(500, "USER_SEARCH_FAILED", "Gagal mencari data pengguna", err.Error())
+	}
+
+	resultUsers := make([]dto.SearchUsers, 0, len(*usersData))
+
+	for _, user := range *usersData {
+		userDTO := dto.SearchUsers{
+			UserID:         user.ID,
+			FullName:       user.FullName,
+			Email: 			user.Email,
+			Bio:            user.Profile.Bio,
+			ProfilePicture: user.Profile.ProfilePicture,
+			Username:	   user.Username,
+			Birthday:   	   user.Profile.Birthday,
+		}
+		resultUsers = append(resultUsers, userDTO)
+	}
+
+	logger.Info("Search completed successfully",
+		zap.String("request_id", requestID),
+		zap.Int("users_found", len(*usersData)),
+	)
+
+	return &dto.SearchResponse{
+		UsersData: resultUsers,
+	}, nil
+}
+
 
 func (s *UserService) GetProfileByUsername(ctx context.Context, username string) (*dto.GetProfileResponse, error) {
 	user, err := s.userRepo.GetByUsername(ctx, username)

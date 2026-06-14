@@ -30,6 +30,16 @@ func RegisterUserRoutes(app *fiber.App) {
 	userHandler.GetUserStatistics,
 	)
 
+	userRoute.Get("/search", 
+	middleware.TimeoutMiddleware(10*time.Second),
+	middleware.UserRateLimiterMiddleware(middleware.NewRateLimiter(middleware.RateLimiterConfig{
+		Window:      1 * time.Minute,
+		MaxRequests: 100,
+		KeyPrefix: "user_search",
+	})),  
+	userHandler.GetUserSearch,
+	)
+
 	profileRoute := app.Group("/pingspot/api/user/profile", middleware.ValidateAccessToken())
 
 	profileRoute.Get("/", 

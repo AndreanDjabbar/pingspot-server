@@ -10,6 +10,7 @@ import (
 	"pingspot/pkg/logger"
 	mainutils "pingspot/pkg/utils/main_util"
 	response "pingspot/pkg/utils/response_util"
+	contextutils "pingspot/pkg/utils/context_util"
 	tokenutils "pingspot/pkg/utils/token_util"
 	"time"
 
@@ -160,6 +161,44 @@ func (h *UserHandler) GetUserStatistics(c *fiber.Ctx) error {
 		return response.ResponseError(c, 500, "Gagal mendapatkan statistik pengguna", "", err.Error())
 	}
 	return response.ResponseSuccess(c, 200, "Berhasil mendapatkan statistik pengguna", "data", userStatistics)
+}
+
+func (h *UserHandler) GetUserSearch(c *fiber.Ctx) error {
+	ctx := c.UserContext()
+	const defaultLimit = 10
+	requestID := contextutils.GetRequestID(ctx)
+
+	usersDataCursorID := c.Query("usersDataCursorID", "")
+	usersDatacursorIDUint, err := mainutils.StringToUint(usersDataCursorID)
+	if err != nil && usersDataCursorID != "" {
+		logger.Error("Invalid afterID format", zap.String("afterID", usersDataCursorID), zap.Error(err))
+		return response.ResponseError(c, 400, "Format afterID tidak valid", "", "afterID harus berupa angka")
+	}
+
+	searchQuery := c.Query("searchQuery", "")
+
+	searchData, err := h.userService.SearchUsers(ctx, searchQuery, usersDatacursorIDUint, defaultLimit)
+	if err != nil {
+		logger.Error("Search failed",
+			zap.String("request_id", requestID),
+			zap.String("search_query", searchQuery),
+			zap.Error(err),
+		)
+		return response.ResponseError(c, 500, "Gagal melakukan pencarian", err.Error(), nil)
+	}
+
+	var nextCursorUsersData *uint = nil
+	if len(searchData.UsersData) > 0 {
+		lastUser := searchData.UsersData[len(searchData.UsersData)-1]
+		nextCursorUsersData = &lastUser.UserID
+	}
+
+	finalResult := fiber.Map{
+		"usersData": searchData,
+		"nextCursorUsersData": nextCursorUsersData,
+	}
+
+	return response.ResponseSuccess(c, 200, "Berhasil mendapatkan hasil pencarian pengguna", "data", finalResult)
 }
 
 func (h *UserHandler) GetProfileByUsernameHandler(c *fiber.Ctx) error {
