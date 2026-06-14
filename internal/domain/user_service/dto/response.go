@@ -29,3 +29,7 @@ type GetUserStatisticsResponse struct {
 	UsersByGender      map[string]int64 `json:"usersByGender"`
 	MonthlyUserCounts  map[string]int64 `json:"monthlyUserCounts"`
 }
+
+type SearchResponse struct {
+	UsersData []SearchUsers `json:"usersData"`
+}
