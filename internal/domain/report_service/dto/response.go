@@ -69,6 +69,7 @@ type GetProgressReportResponse struct {
 type CreateReportCommentResponse struct {
 	CommentID       string               `json:"commentID"`
 	ReportID        uint                 `json:"reportID"`
+	Mentions        []model.Mention      `json:"mentions,omitempty"`
 	UserID          uint                 `json:"userID"`
 	Content         *string              `json:"content,omitempty"`
 	CreatedAt       int64                `json:"createdAt"`

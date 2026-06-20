@@ -1,6 +1,9 @@
 package dto
 
-import userDTO "pingspot/internal/domain/user_service/dto"
+import (
+	userDTO "pingspot/internal/domain/user_service/dto"
+	"pingspot/internal/model"
+)
 
 type TotalReportCount struct {
 	TotalReports               int64 `json:"totalReports"`
@@ -101,7 +104,7 @@ type Comment struct {
 	UserInformation userDTO.UserProfile   `json:"userInformation"`
 	Content         *string               `json:"content,omitempty"`
 	Media           *CommentMedia         `json:"media,omitempty"`
-	Mentions        []userDTO.UserProfile `json:"mentions,omitempty"`
+	Mentions        []model.Mention             `json:"mentions,omitempty"`
 	ReplyTo         *userDTO.UserProfile  `json:"replyTo,omitempty"`
 	ThreadRootID    *string               `json:"threadRootID,omitempty"`
 	ParentCommentID *string               `json:"parentCommentID,omitempty"`
@@ -116,7 +119,7 @@ type CommentReply struct {
 	UserInformation userDTO.UserProfile   `json:"userInformation"`
 	Content         *string               `json:"content,omitempty"`
 	Media           *CommentMedia         `json:"media,omitempty"`
-	Mentions        []userDTO.UserProfile `json:"mentions,omitempty"`
+	Mentions        []model.Mention             `json:"mentions,omitempty"`
 	ReplyTo         *userDTO.UserProfile  `json:"replyTo,omitempty"`
 	ThreadRootID    *string               `json:"threadRootID"`
 	ParentCommentID *string               `json:"parentCommentID"`
