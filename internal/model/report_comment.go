@@ -17,6 +17,11 @@ type CommentMedia struct {
 	Height 	*uint    `bson:"height,omitempty"`
 }
 
+type Mention struct {
+	UserID   uint   `bson:"user_id"`
+	Username string `bson:"username"`
+}
+
 type ReportComment struct {
 	ID primitive.ObjectID `bson:"_id,omitempty"`
 	ReportID  uint 		`bson:"report_id"`
@@ -24,7 +29,7 @@ type ReportComment struct {
 
 	Content  *string    `bson:"content,omitempty"`
 	Media *CommentMedia `bson:"media,omitempty"`
-	Mentions []UserProfile    `bson:"mentions,omitempty"`
+	Mentions []Mention    `bson:"mentions,omitempty"`
 
 	ParentCommentID *primitive.ObjectID `bson:"parent_comment_id,omitempty"`
 	ThreadRootID    *primitive.ObjectID `bson:"thread_root_id,omitempty"`
