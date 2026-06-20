@@ -15,6 +15,8 @@ import (
 	contextutils "pingspot/pkg/utils/context_util"
 	env "pingspot/pkg/utils/env_util"
 	mainutils "pingspot/pkg/utils/main_util"
+	"regexp"
+	"strconv"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -1095,6 +1097,25 @@ func (s *ReportService) GetReportComments(ctx context.Context, reportID uint, cu
 		}
 	}
 
+	regexMentionPattern := regexp.MustCompile(`\[mention:(\d+)\]`)
+
+	for _, c := range commentsFromDB {
+		matchedMentions := regexMentionPattern.FindAllStringSubmatch(*c.Content, -1)
+		for _, match := range matchedMentions {
+			if len(match) < 2 {
+				continue
+			}
+			mentionedID, err := strconv.ParseUint(match[1], 10, 64)
+			if err != nil {
+				continue
+			}
+			id := uint(mentionedID)
+			if _, exists := userIDMap[id]; !exists {
+				userIDs = append(userIDs, id)
+				userIDMap[id] = struct{}{}
+			}
+		}
+	}
 	users, err := s.userRepo.GetByIDs(ctx, userIDs)
 	if err != nil {
 		return nil, apperror.New(500, "USER_FETCH_FAILED", "Gagal mengambil data pengguna", err.Error())
@@ -1106,15 +1127,42 @@ func (s *ReportService) GetReportComments(ctx context.Context, reportID uint, cu
 	}
 
 	replyCounts := make(map[string]int64)
+	mentionsMap := make(map[string][]model.Mention)
+
 	for _, comment := range commentsFromDB {
-		commentID := comment.ID
-		count, err := s.reportCommentRepo.GetCountsByRootID(ctx, commentID)
+		count, err := s.reportCommentRepo.GetCountsByRootID(ctx, comment.ID)
 		if err == nil {
-			replyCounts[commentID.Hex()] = count
+			replyCounts[comment.ID.Hex()] = count
+		}
+
+		matchedMentions := regexMentionPattern.FindAllStringSubmatch(*comment.Content, -1)
+		seen := make(map[uint]struct{})
+
+		for _, match := range matchedMentions {
+			if len(match) < 2 {
+				continue
+			}
+
+			mentionedID, err := strconv.ParseUint(match[1], 10, 64)
+			if err != nil {
+				continue
+			}
+
+			id := uint(mentionedID)
+			if _, dup := seen[id]; dup {
+				continue
+			}
+			seen[id] = struct{}{}
+
+			if u, ok := userMap[id]; ok {
+				mentionsMap[comment.ID.Hex()] = append(mentionsMap[comment.ID.Hex()], model.Mention{
+					UserID:   u.ID,
+					Username: u.Username,
+				})
+			}
 		}
 	}
-
-	comments := util.ConvertRootCommentsToDTO(commentsFromDB, userMap, replyCounts)
+	comments := util.ConvertRootCommentsToDTO(commentsFromDB, userMap, replyCounts, mentionsMap)
 
 	resp := dto.GetReportCommentsResponse{
 		Comments: comments,

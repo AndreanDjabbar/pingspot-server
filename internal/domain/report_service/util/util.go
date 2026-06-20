@@ -141,6 +141,7 @@ func convertToDTO(c *model.ReportComment, u *model.User) *reportDTO.Comment {
 			Bio:            u.Profile.Bio,
 			Birthday:       u.Profile.Birthday,
 		},
+		Mentions: c.Mentions,
 		Content: c.Content,
 		ParentCommentID: func() *string {
 			if c.ParentCommentID != nil {
@@ -227,7 +228,7 @@ func convertToReplyDTO(c *model.ReportComment, u *model.User) *reportDTO.Comment
 	return reply
 }
 
-func ConvertRootCommentsToDTO(comments []*model.ReportComment, users map[uint]*model.User, replyCounts map[string]int64) []*reportDTO.Comment {
+func ConvertRootCommentsToDTO(comments []*model.ReportComment, users map[uint]*model.User, replyCounts map[string]int64, mentionsMap map[string][]model.Mention) []*reportDTO.Comment {
 	rootComments := make([]*reportDTO.Comment, 0)
 
 	for _, comment := range comments {
@@ -235,6 +236,7 @@ func ConvertRootCommentsToDTO(comments []*model.ReportComment, users map[uint]*m
 		if user == nil {
 			continue
 		}
+		comment.Mentions = mentionsMap[comment.ID.Hex()]
 		commentDTO := convertToDTO(comment, user)
 
 		commentID := comment.ID.Hex()
