@@ -18,8 +18,8 @@ type CommentMedia struct {
 }
 
 type Mention struct {
-	UserID   uint   `bson:"user_id"`
-	Username string `bson:"username"`
+	UserID   uint   `bson:"user_id" json:"userID"`
+	Username string `bson:"username" json:"username"`
 }
 
 type ReportComment struct {
