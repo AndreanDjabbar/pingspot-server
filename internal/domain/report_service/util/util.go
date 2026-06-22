@@ -169,9 +169,9 @@ func convertToDTO(c *model.ReportComment, u *model.User) *reportDTO.Comment {
 	}
 
 	if c.Media != nil {
-		comment.Media = &reportDTO.CommentMedia{
+		comment.Media = &model.CommentMedia{
 			URL:    c.Media.URL,
-			Type:   string(c.Media.Type),
+			Type:   model.CommentMediaType(c.Media.Type),
 			Width:  c.Media.Width,
 			Height: c.Media.Height,
 		}
@@ -218,9 +218,9 @@ func convertToReplyDTO(c *model.ReportComment, u *model.User) *reportDTO.Comment
 	}
 
 	if c.Media != nil {
-		reply.Media = &reportDTO.CommentMedia{
+		reply.Media = &model.CommentMedia{
 			URL:    c.Media.URL,
-			Type:   string(c.Media.Type),
+			Type:   model.CommentMediaType(c.Media.Type),
 			Width:  c.Media.Width,
 			Height: c.Media.Height,
 		}

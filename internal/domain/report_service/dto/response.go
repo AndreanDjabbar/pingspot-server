@@ -74,7 +74,7 @@ type CreateReportCommentResponse struct {
 	Content         *string              `json:"content,omitempty"`
 	CreatedAt       int64                `json:"createdAt"`
 	ReplyTo         *userDTO.UserProfile `json:"replyTo,omitempty"`
-	Media           *CommentMedia        `json:"media,omitempty"`
+	Media           *model.CommentMedia        `json:"media,omitempty"`
 	ThreadRootID    *string              `json:"threadRootID,omitempty"`
 	ParentCommentID *string              `json:"parentCommentID,omitempty"`
 }

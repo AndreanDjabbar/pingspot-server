@@ -11,10 +11,10 @@ const (
 )
 
 type CommentMedia struct {
-	URL 	string `bson:"url"`
-	Type	CommentMediaType `bson:"type"`
-	Width 	*uint    `bson:"width,omitempty"`
-	Height 	*uint    `bson:"height,omitempty"`
+	URL 	string `bson:"url" json:"url"`
+	Type	CommentMediaType `bson:"type" json:"type"`
+	Width 	*uint    `bson:"width,omitempty" json:"width,omitempty"`
+	Height 	*uint    `bson:"height,omitempty" json:"height,omitempty"`
 }
 
 type Mention struct {

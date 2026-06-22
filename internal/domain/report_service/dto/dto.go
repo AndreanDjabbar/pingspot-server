@@ -91,19 +91,12 @@ type ReportImage struct {
 	Image5URL *string `json:"image5URL"`
 }
 
-type CommentMedia struct {
-	URL    string `json:"url"`
-	Type   string `json:"type"`
-	Width  *uint  `json:"width,omitempty"`
-	Height *uint  `json:"height,omitempty"`
-}
-
 type Comment struct {
 	CommentID       string                `json:"commentID"`
 	ReportID        uint                  `json:"reportID"`
 	UserInformation userDTO.UserProfile   `json:"userInformation"`
 	Content         *string               `json:"content,omitempty"`
-	Media           *CommentMedia         `json:"media,omitempty"`
+	Media           *model.CommentMedia       `json:"media,omitempty"`
 	Mentions        []model.Mention             `json:"mentions,omitempty"`
 	ReplyTo         *userDTO.UserProfile  `json:"replyTo,omitempty"`
 	ThreadRootID    *string               `json:"threadRootID,omitempty"`
@@ -118,7 +111,7 @@ type CommentReply struct {
 	ReportID        uint                  `json:"reportID"`
 	UserInformation userDTO.UserProfile   `json:"userInformation"`
 	Content         *string               `json:"content,omitempty"`
-	Media           *CommentMedia         `json:"media,omitempty"`
+	Media           *model.CommentMedia       `json:"media,omitempty"`
 	Mentions        []model.Mention             `json:"mentions,omitempty"`
 	ReplyTo         *userDTO.UserProfile  `json:"replyTo,omitempty"`
 	ThreadRootID    *string               `json:"threadRootID"`
