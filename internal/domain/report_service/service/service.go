@@ -1224,11 +1224,27 @@ func (s *ReportService) GetReportCommentReplies(ctx context.Context, rootID stri
 
 	userIDSet := make(map[uint]struct{})
 	parentIDSet := make(map[primitive.ObjectID]struct{})
+	mentionsMap := make(map[string][]uint)
 
 	userIDSet[rootComment.UserID] = struct{}{}
 
+	regexMentionPattern := regexp.MustCompile(`\[mention:(\d+)\]`)
+
 	for _, reply := range repliesFromDB {
+		matchedMentions := regexMentionPattern.FindAllStringSubmatch(*reply.Content, -1)
+		for _, match := range matchedMentions {
+			if len(match) < 2 {
+				continue
+			}
+			userID, err := strconv.ParseUint(match[1], 10, 32)
+			if err != nil {
+				continue
+			}
+			userIDSet[uint(userID)] = struct{}{}
+			mentionsMap[reply.ID.Hex()] = append(mentionsMap[reply.ID.Hex()], uint(userID))
+		}
 		userIDSet[reply.UserID] = struct{}{}
+
 		if reply.ParentCommentID != nil {
 			parentIDSet[*reply.ParentCommentID] = struct{}{}
 		}
@@ -1252,8 +1268,6 @@ func (s *ReportService) GetReportCommentReplies(ctx context.Context, rootID stri
 		}
 	}
 
-	parentsData[rootComment.ID.Hex()] = rootComment
-
 	userIDs := make([]uint, 0, len(userIDSet))
 	for id := range userIDSet {
 		userIDs = append(userIDs, id)
@@ -1274,7 +1288,7 @@ func (s *ReportService) GetReportCommentReplies(ctx context.Context, rootID stri
 		repliesFromDB = repliesFromDB[:limit]
 	}
 
-	replies := util.ConvertRepliesToDTO(repliesFromDB, userMap, parentsData)
+	replies := util.ConvertRepliesToDTO(repliesFromDB, userMap, parentsData, mentionsMap)
 
 	total, err := s.reportCommentRepo.GetCountsByRootID(ctx, *primitiveRootID)
 	if err != nil {

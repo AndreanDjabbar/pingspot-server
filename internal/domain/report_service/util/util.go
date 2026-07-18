@@ -179,7 +179,7 @@ func convertToDTO(c *model.ReportComment, u *model.User) *reportDTO.Comment {
 	return comment
 }
 
-func convertToReplyDTO(c *model.ReportComment, u *model.User) *reportDTO.CommentReply {
+func convertToReplyDTO(c *model.ReportComment, u *model.User, mentions []model.Mention) *reportDTO.CommentReply {
 	reply := &reportDTO.CommentReply{
 		CommentID: c.ID.Hex(),
 		ReportID:  c.ReportID,
@@ -192,6 +192,7 @@ func convertToReplyDTO(c *model.ReportComment, u *model.User) *reportDTO.Comment
 			Bio:            u.Profile.Bio,
 			Birthday:       u.Profile.Birthday,
 		},
+		Mentions: mentions,
 		Content: c.Content,
 		ParentCommentID: func() *string {
 			if c.ParentCommentID != nil {
@@ -266,7 +267,7 @@ func convertUserToProfile(u *model.User) *dto.UserProfile {
 	}
 }
 
-func ConvertRepliesToDTO(comments []*model.ReportComment, users map[uint]*model.User, parentsComment map[string]*model.ReportComment) []*reportDTO.CommentReply {
+func ConvertRepliesToDTO(comments []*model.ReportComment, users map[uint]*model.User, parentsComment map[string]*model.ReportComment, commentMentionsMap map[string][]uint) []*reportDTO.CommentReply {
 	replies := make([]*reportDTO.CommentReply, 0, len(comments))
 
 	for _, comment := range comments {
@@ -275,8 +276,17 @@ func ConvertRepliesToDTO(comments []*model.ReportComment, users map[uint]*model.
 			continue
 		}
 
-		replyDTO := convertToReplyDTO(comment, user)
+		mentions := make([]model.Mention, 0)
+		for _, mentionID := range commentMentionsMap[comment.ID.Hex()] {
+			if user, exists := users[mentionID]; exists {
+				mentions = append(mentions, model.Mention{
+					UserID:   user.ID,
+					Username: user.Username,
+				})
+			}
+		}
 
+		replyDTO := convertToReplyDTO(comment, user, mentions)
 		if comment.ParentCommentID != nil {
 			parentID := comment.ParentCommentID.Hex()
 			if parentComment, exists := parentsComment[parentID]; exists {
