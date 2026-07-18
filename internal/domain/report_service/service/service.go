@@ -532,6 +532,7 @@ func (s *ReportService) GetReportByID(ctx context.Context, userID, reportID uint
 			Village:        report.ReportLocation.Village,
 			Suburb:         report.ReportLocation.Suburb,
 			Geometry:       &report.ReportLocation.Geometry,
+			MapZoom:        report.ReportLocation.MapZoom,
 		},
 		ReportStatus: string(report.ReportStatus),
 		HasProgress:  report.HasProgress,
