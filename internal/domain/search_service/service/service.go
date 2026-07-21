@@ -45,7 +45,7 @@ func (s *SearchService) SearchData(ctx context.Context, searchQuery string, user
 			zap.String("search_query", searchQuery),
 			zap.Error(err),
 		)
-		return nil, apperror.New(500, "USER_SEARCH_FAILED", "Gagal mencari data pengguna", err.Error())
+		return nil, apperror.New(500, "USER_SEARCH_FAILED", "Gagal mencari data pengguna", err.Error(), nil)
 	}
 
 	reportsData, err := s.reportRepo.FullTextSearchReportPaginated(ctx, strings.ToLower(searchQuery), limit, reportsDataNextCursor)
@@ -55,7 +55,7 @@ func (s *SearchService) SearchData(ctx context.Context, searchQuery string, user
 			zap.String("search_query", searchQuery),
 			zap.Error(err),
 		)
-		return nil, apperror.New(500, "REPORT_SEARCH_FAILED", "Gagal mencari data laporan", err.Error())
+		return nil, apperror.New(500, "REPORT_SEARCH_FAILED", "Gagal mencari data laporan", err.Error(), nil)
 	}
 
 	resultUsers := make([]dto.UsersSearch, 0, len(*usersData))

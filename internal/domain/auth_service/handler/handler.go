@@ -261,7 +261,7 @@ func (h *AuthHandler) ForgotPasswordEmailVerificationHandler(c *fiber.Ctx) error
 	if err != nil {
 		logger.Error("Forgot password email verification failed", zap.Error(err))
 		if appErr, ok := err.(*apperror.AppError); ok {
-			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "errors", appErr.ErrorData)
 		}
 		return response.ResponseError(c, 500, "Gagal memproses permintaan", "", err.Error())
 	}

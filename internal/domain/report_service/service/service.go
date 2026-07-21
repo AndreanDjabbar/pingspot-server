@@ -84,7 +84,7 @@ func (s *ReportService) CreateReport(ctx context.Context, userID uint, req dto.C
 			zap.String("request_id", requestID),
 			zap.Error(tx.Error),
 		)
-		return nil, apperror.New(500, "TRANSACTION_START_FAILED", "Gagal memulai transaksi", tx.Error.Error())
+		return nil, apperror.New(500, "TRANSACTION_START_FAILED", "Gagal memulai transaksi", tx.Error.Error(), nil)
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -104,7 +104,7 @@ func (s *ReportService) CreateReport(ctx context.Context, userID uint, req dto.C
 	}
 	if err := s.reportRepo.Create(ctx, &reportStruct, tx); err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "REPORT_CREATE_FAILED", "Gagal membuat laporan", err.Error())
+		return nil, apperror.New(500, "REPORT_CREATE_FAILED", "Gagal membuat laporan", err.Error(), nil)
 	}
 
 	reportID := reportStruct.ID
@@ -132,7 +132,7 @@ func (s *ReportService) CreateReport(ctx context.Context, userID uint, req dto.C
 
 	if err := s.reportLocationRepo.Create(ctx, &reportLocationStruct, tx); err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "REPORT_LOCATION_CREATE_FAILED", "Gagal menyimpan lokasi laporan", err.Error())
+		return nil, apperror.New(500, "REPORT_LOCATION_CREATE_FAILED", "Gagal menyimpan lokasi laporan", err.Error(), nil)
 	}
 
 	var reportImages model.ReportImage
@@ -146,11 +146,11 @@ func (s *ReportService) CreateReport(ctx context.Context, userID uint, req dto.C
 	}
 	if err := s.reportImageRepo.Create(ctx, &reportImages, tx); err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "REPORT_IMAGE_CREATE_FAILED", "Gagal menyimpan gambar laporan", err.Error())
+		return nil, apperror.New(500, "REPORT_IMAGE_CREATE_FAILED", "Gagal menyimpan gambar laporan", err.Error(), nil)
 	}
 	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Gagal menyimpan perubahan", err.Error())
+		return nil, apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Gagal menyimpan perubahan", err.Error(), nil)
 	}
 
 	reportResult := &dto.CreateReportResponse{
@@ -171,7 +171,7 @@ func (s *ReportService) CreateReport(ctx context.Context, userID uint, req dto.C
 func (s *ReportService) EditReport(ctx context.Context, userID, reportID uint, req dto.EditReportRequest) (*dto.EditReportResponse, error) {
 	tx := s.postgreDB.Begin()
 	if tx.Error != nil {
-		return nil, apperror.New(500, "TRANSACTION_START_FAILED", "Gagal memulai transaksi", tx.Error.Error())
+		return nil, apperror.New(500, "TRANSACTION_START_FAILED", "Gagal memulai transaksi", tx.Error.Error(), nil)
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -183,19 +183,19 @@ func (s *ReportService) EditReport(ctx context.Context, userID, reportID uint, r
 	if err != nil {
 		tx.Rollback()
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "REPORT_NOT_FOUND", "Laporan tidak ditemukan", "")
+			return nil, apperror.New(404, "REPORT_NOT_FOUND", "Laporan tidak ditemukan", "", nil)
 		}
-		return nil, apperror.New(500, "REPORT_FETCH_FAILED", "Gagal mengambil laporan", err.Error())
+		return nil, apperror.New(500, "REPORT_FETCH_FAILED", "Gagal mengambil laporan", err.Error(), nil)
 	}
 
 	if existingReport.UserID != userID {
 		tx.Rollback()
-		return nil, apperror.New(403, "FORBIDDEN", "anda tidak memiliki izin untuk mengunggah progres pada laporan ini", "")
+		return nil, apperror.New(403, "FORBIDDEN", "anda tidak memiliki izin untuk mengunggah progres pada laporan ini", "", nil)
 	}
 
 	if existingReport.ReportStatus == model.RESOLVED {
 		tx.Rollback()
-		return nil, apperror.New(400, "REPORT_ALREADY_RESOLVED", "laporan sudah selesai, tidak dapat menyunting laporan lagi", "")
+		return nil, apperror.New(400, "REPORT_ALREADY_RESOLVED", "laporan sudah selesai, tidak dapat menyunting laporan lagi", "", nil)
 	}
 
 	existingReportLocation := existingReport.ReportLocation
@@ -246,22 +246,22 @@ func (s *ReportService) EditReport(ctx context.Context, userID, reportID uint, r
 
 	if _, err := s.reportRepo.UpdateTX(ctx, tx, existingReport); err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "REPORT_UPDATE_FAILED", "Gagal memperbarui laporan", err.Error())
+		return nil, apperror.New(500, "REPORT_UPDATE_FAILED", "Gagal memperbarui laporan", err.Error(), nil)
 	}
 
 	if _, err := s.reportLocationRepo.UpdateTX(ctx, tx, existingReportLocation); err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "REPORT_LOCATION_UPDATE_FAILED", "Gagal memperbarui lokasi laporan", err.Error())
+		return nil, apperror.New(500, "REPORT_LOCATION_UPDATE_FAILED", "Gagal memperbarui lokasi laporan", err.Error(), nil)
 	}
 
 	if _, err := s.reportImageRepo.UpdateTX(ctx, tx, existingReportImages); err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "REPORT_IMAGE_UPDATE_FAILED", "Gagal memperbarui gambar laporan", err.Error())
+		return nil, apperror.New(500, "REPORT_IMAGE_UPDATE_FAILED", "Gagal memperbarui gambar laporan", err.Error(), nil)
 	}
 
 	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Gagal menyimpan perubahan", err.Error())
+		return nil, apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Gagal menyimpan perubahan", err.Error(), nil)
 	}
 
 	reportResult := &dto.EditReportResponse{
@@ -275,7 +275,7 @@ func (s *ReportService) EditReport(ctx context.Context, userID, reportID uint, r
 func (s *ReportService) DeleteReport(ctx context.Context, userID, reportID uint, deleteType string) error {
 	tx := s.postgreDB.Begin()
 	if tx.Error != nil {
-		return apperror.New(500, "TRANSACTION_START_FAILED", "Gagal memulai transaksi", tx.Error.Error())
+		return apperror.New(500, "TRANSACTION_START_FAILED", "Gagal memulai transaksi", tx.Error.Error(), nil)
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -287,13 +287,13 @@ func (s *ReportService) DeleteReport(ctx context.Context, userID, reportID uint,
 	if err != nil {
 		tx.Rollback()
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return apperror.New(404, "REPORT_NOT_FOUND", "Laporan tidak ditemukan", "")
+			return apperror.New(404, "REPORT_NOT_FOUND", "Laporan tidak ditemukan", "", nil)
 		}
-		return apperror.New(500, "REPORT_FETCH_FAILED", "Gagal mengambil laporan", err.Error())
+		return apperror.New(500, "REPORT_FETCH_FAILED", "Gagal mengambil laporan", err.Error(), nil)
 	}
 	if existingReport.UserID != userID {
 		tx.Rollback()
-		return apperror.New(403, "FORBIDDEN", "anda tidak memiliki izin untuk menghapus laporan ini", "")
+		return apperror.New(403, "FORBIDDEN", "anda tidak memiliki izin untuk menghapus laporan ini", "", nil)
 	}
 
 	currentTime := time.Now().Unix()
@@ -304,17 +304,17 @@ func (s *ReportService) DeleteReport(ctx context.Context, userID, reportID uint,
 		existingReport.DeletedAt = &currentTime
 		if _, err := s.reportRepo.UpdateTX(ctx, tx, existingReport); err != nil {
 			tx.Rollback()
-			return apperror.New(500, "REPORT_DELETE_FAILED", "Gagal menghapus laporan", err.Error())
+			return apperror.New(500, "REPORT_DELETE_FAILED", "Gagal menghapus laporan", err.Error(), nil)
 		}
 	case "hard":
 		if _, err := s.reportRepo.DeleteTX(ctx, tx, existingReport); err != nil {
 			tx.Rollback()
-			return apperror.New(500, "REPORT_DELETE_FAILED", "Gagal menghapus laporan", err.Error())
+			return apperror.New(500, "REPORT_DELETE_FAILED", "Gagal menghapus laporan", err.Error(), nil)
 		}
 	}
 	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
-		return apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Gagal menyimpan perubahan", err.Error())
+		return apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Gagal menyimpan perubahan", err.Error(), nil)
 	}
 	return nil
 }
@@ -326,14 +326,14 @@ func (s *ReportService) GetAllReport(ctx context.Context, userID, cursorID uint,
 	reports, err := s.reportRepo.GetByIsDeletedPaginated(ctx, uint(limit), cursorID, reportType, status, sortBy, hasProgress, distance, isDeleted)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "REPORT_NOT_FOUND", "Laporan tidak ditemukan", "")
+			return nil, apperror.New(404, "REPORT_NOT_FOUND", "Laporan tidak ditemukan", "", nil)
 		}
-		return nil, apperror.New(500, "REPORT_FETCH_FAILED", "Gagal mengambil laporan", err.Error())
+		return nil, apperror.New(500, "REPORT_FETCH_FAILED", "Gagal mengambil laporan", err.Error(), nil)
 	}
 
 	reportsCount, err := s.reportRepo.GetByReportTypeCount(ctx)
 	if err != nil {
-		return nil, apperror.New(500, "REPORT_COUNT_FAILED", "Gagal mendapatkan total laporan", err.Error())
+		return nil, apperror.New(500, "REPORT_COUNT_FAILED", "Gagal mendapatkan total laporan", err.Error(), nil)
 	}
 
 	var fullReports []dto.Report
@@ -341,23 +341,23 @@ func (s *ReportService) GetAllReport(ctx context.Context, userID, cursorID uint,
 	for _, report := range *reports {
 		likeReactionCount, err := s.reportReactionRepo.GetLikeReactionCount(ctx, report.ID)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(500, "REACTION_COUNT_FAILED", "Gagal mendapatkan reaksi suka", err.Error())
+			return nil, apperror.New(500, "REACTION_COUNT_FAILED", "Gagal mendapatkan reaksi suka", err.Error(), nil)
 		}
 		dislikeReactionCount, err := s.reportReactionRepo.GetDislikeReactionCount(ctx, report.ID)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(500, "REACTION_COUNT_FAILED", "Gagal mendapatkan reaksi tidak suka", err.Error())
+			return nil, apperror.New(500, "REACTION_COUNT_FAILED", "Gagal mendapatkan reaksi tidak suka", err.Error(), nil)
 		}
 
 		var isLikedByCurrentUser, isDislikedByCurrentUser, isResolvedByCurrentUser, isOnProgressByCurrentUser, isNotResolvedByCurrentUser bool
 
 		resolvedVoteCount, err := s.reportVoteRepo.GetResolvedVoteCount(ctx, report.ID)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(500, "VOTE_COUNT_FAILED", "Gagal mendapatkan suara 'RESOLVED'", err.Error())
+			return nil, apperror.New(500, "VOTE_COUNT_FAILED", "Gagal mendapatkan suara 'RESOLVED'", err.Error(), nil)
 		}
 
 		onProgressVoteCount, err := s.reportVoteRepo.GetOnProgressVoteCount(ctx, report.ID)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(500, "VOTE_COUNT_FAILED", "Gagal mendapatkan suara 'ON_PROGRESS'", err.Error())
+			return nil, apperror.New(500, "VOTE_COUNT_FAILED", "Gagal mendapatkan suara 'ON_PROGRESS'", err.Error(), nil)
 		}
 
 		fullReports = append(fullReports, dto.Report{
@@ -485,26 +485,26 @@ func (s *ReportService) GetReportByID(ctx context.Context, userID, reportID uint
 	report, err := s.reportRepo.GetByIDIsDeleted(ctx, reportID, isDeleted)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "REPORT_NOT_FOUND", "Laporan tidak ditemukan", "")
+			return nil, apperror.New(404, "REPORT_NOT_FOUND", "Laporan tidak ditemukan", "", nil)
 		}
-		return nil, apperror.New(500, "REPORT_FETCH_FAILED", "Gagal mengambil laporan", err.Error())
+		return nil, apperror.New(500, "REPORT_FETCH_FAILED", "Gagal mengambil laporan", err.Error(), nil)
 	}
 	var isLikedByCurrentUser, isDislikedByCurrentUser, isResolvedByCurrentUser, isOnProgressByCurrentUser bool
 	likeReactionCount, err := s.reportReactionRepo.GetLikeReactionCount(ctx, report.ID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, apperror.New(500, "REACTION_COUNT_FAILED", "Gagal mendapatkan reaksi suka", err.Error())
+		return nil, apperror.New(500, "REACTION_COUNT_FAILED", "Gagal mendapatkan reaksi suka", err.Error(), nil)
 	}
 	dislikeReactionCount, err := s.reportReactionRepo.GetDislikeReactionCount(ctx, report.ID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, apperror.New(500, "REACTION_COUNT_FAILED", "Gagal mendapatkan reaksi tidak suka", err.Error())
+		return nil, apperror.New(500, "REACTION_COUNT_FAILED", "Gagal mendapatkan reaksi tidak suka", err.Error(), nil)
 	}
 	resolvedVoteCount, err := s.reportVoteRepo.GetResolvedVoteCount(ctx, report.ID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, apperror.New(500, "VOTE_COUNT_FAILED", "Gagal mendapatkan suara 'RESOLVED'", err.Error())
+		return nil, apperror.New(500, "VOTE_COUNT_FAILED", "Gagal mendapatkan suara 'RESOLVED'", err.Error(), nil)
 	}
 	onProgressVoteCount, err := s.reportVoteRepo.GetOnProgressVoteCount(ctx, report.ID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, apperror.New(500, "VOTE_COUNT_FAILED", "Gagal mendapatkan suara 'ON_PROGRESS'", err.Error())
+		return nil, apperror.New(500, "VOTE_COUNT_FAILED", "Gagal mendapatkan suara 'ON_PROGRESS'", err.Error(), nil)
 	}
 	fullReport := dto.Report{
 		ID:                report.ID,
@@ -626,7 +626,7 @@ func (s *ReportService) GetReportByID(ctx context.Context, userID, reportID uint
 func (s *ReportService) ReactToReport(ctx context.Context, userID uint, reportID uint, reactionType string) (*dto.ReactReportResponse, error) {
 	tx := s.postgreDB.Begin()
 	if tx.Error != nil {
-		return nil, apperror.New(500, "TRANSACTION_START_FAILED", "Gagal memulai transaksi", tx.Error.Error())
+		return nil, apperror.New(500, "TRANSACTION_START_FAILED", "Gagal memulai transaksi", tx.Error.Error(), nil)
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -640,7 +640,7 @@ func (s *ReportService) ReactToReport(ctx context.Context, userID uint, reportID
 	existingReport, err := s.reportReactionRepo.GetByUserReportIDTX(ctx, tx, userID, reportID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		tx.Rollback()
-		return nil, apperror.New(500, "REACTION_FETCH_FAILED", "Gagal mendapatkan reaksi laporan", err.Error())
+		return nil, apperror.New(500, "REACTION_FETCH_FAILED", "Gagal mendapatkan reaksi laporan", err.Error(), nil)
 	}
 
 	switch {
@@ -653,14 +653,14 @@ func (s *ReportService) ReactToReport(ctx context.Context, userID uint, reportID
 		newReportreaction, err := s.reportReactionRepo.CreateTX(ctx, tx, &newReaction)
 		if err != nil {
 			tx.Rollback()
-			return nil, apperror.New(500, "REACTION_CREATE_FAILED", "Gagal menambahkan reaksi", err.Error())
+			return nil, apperror.New(500, "REACTION_CREATE_FAILED", "Gagal menambahkan reaksi", err.Error(), nil)
 		}
 		resultReaction = newReportreaction
 
 	case existingReport.Type == modelReactionType:
 		if err := s.reportReactionRepo.DeleteTX(ctx, tx, existingReport); err != nil {
 			tx.Rollback()
-			return nil, apperror.New(500, "REACTION_DELETE_FAILED", "Gagal menghapus reaksi", err.Error())
+			return nil, apperror.New(500, "REACTION_DELETE_FAILED", "Gagal menghapus reaksi", err.Error(), nil)
 		}
 		resultReaction = nil
 
@@ -670,14 +670,14 @@ func (s *ReportService) ReactToReport(ctx context.Context, userID uint, reportID
 		updatedReportReaction, err := s.reportReactionRepo.UpdateTX(ctx, tx, existingReport)
 		if err != nil {
 			tx.Rollback()
-			return nil, apperror.New(500, "REACTION_UPDATE_FAILED", "Gagal memperbarui reaksi", err.Error())
+			return nil, apperror.New(500, "REACTION_UPDATE_FAILED", "Gagal memperbarui reaksi", err.Error(), nil)
 		}
 		resultReaction = updatedReportReaction
 	}
 
 	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Gagal menyimpan perubahan", err.Error())
+		return nil, apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Gagal menyimpan perubahan", err.Error(), nil)
 	}
 
 	response := &dto.ReactReportResponse{
@@ -697,7 +697,7 @@ func (s *ReportService) ReactToReport(ctx context.Context, userID uint, reportID
 func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID uint, voteType string) (*dto.GetVoteReportResponse, error) {
 	tx := s.postgreDB.Begin()
 	if tx.Error != nil {
-		return nil, apperror.New(500, "TRANSACTION_START_FAILED", "Gagal memulai transaksi", tx.Error.Error())
+		return nil, apperror.New(500, "TRANSACTION_START_FAILED", "Gagal memulai transaksi", tx.Error.Error(), nil)
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -709,39 +709,39 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 	if err != nil {
 		tx.Rollback()
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "REPORT_NOT_FOUND", "Laporan tidak ditemukan", "")
+			return nil, apperror.New(404, "REPORT_NOT_FOUND", "Laporan tidak ditemukan", "", nil)
 		}
-		return nil, apperror.New(500, "REPORT_FETCH_FAILED", "Gagal mengambil laporan", err.Error())
+		return nil, apperror.New(500, "REPORT_FETCH_FAILED", "Gagal mengambil laporan", err.Error(), nil)
 	}
 
 	existingVote, err := s.reportVoteRepo.GetByUserReportIDTX(ctx, tx, userID, reportID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		tx.Rollback()
-		return nil, apperror.New(500, "VOTE_FETCH_FAILED", "Gagal mendapatkan suara laporan", err.Error())
+		return nil, apperror.New(500, "VOTE_FETCH_FAILED", "Gagal mendapatkan suara laporan", err.Error(), nil)
 	}
 
 	if existingVote != nil {
-		return nil, apperror.New(400, "ALREADY_VOTED", "Anda sudah memberikan suara pada laporan ini", "")
+		return nil, apperror.New(400, "ALREADY_VOTED", "Anda sudah memberikan suara pada laporan ini", "", nil)
 	}
 
 	if report.UserID == userID {
 		tx.Rollback()
-		return nil, apperror.New(400, "CANNOT_VOTE_OWN_REPORT", "Anda tidak dapat memberikan suara pada laporan anda sendiri", "")
+		return nil, apperror.New(400, "CANNOT_VOTE_OWN_REPORT", "Anda tidak dapat memberikan suara pada laporan anda sendiri", "", nil)
 	}
 
 	if report.ReportStatus == model.RESOLVED {
 		tx.Rollback()
-		return nil, apperror.New(400, "REPORT_ALREADY_RESOLVED", "Anda tidak dapat memberikan suara pada laporan yang sudah selesai", "")
+		return nil, apperror.New(400, "REPORT_ALREADY_RESOLVED", "Anda tidak dapat memberikan suara pada laporan yang sudah selesai", "", nil)
 	}
 
 	if report.ReportStatus == model.EXPIRED {
 		tx.Rollback()
-		return nil, apperror.New(400, "REPORT_EXPIRED", "Anda tidak dapat memberikan suara pada laporan yang sudah kedaluwarsa", "")
+		return nil, apperror.New(400, "REPORT_EXPIRED", "Anda tidak dapat memberikan suara pada laporan yang sudah kedaluwarsa", "", nil)
 	}
 
 	if report.HasProgress == nil || !*report.HasProgress {
 		tx.Rollback()
-		return nil, apperror.New(400, "REPORT_NO_PROGRESS", "Anda tidak dapat memberikan suara pada laporan tanpa progres (informasi saja)", "")
+		return nil, apperror.New(400, "REPORT_NO_PROGRESS", "Anda tidak dapat memberikan suara pada laporan tanpa progres (informasi saja)", "", nil)
 	}
 
 	modelVoteType := model.ReportStatus(voteType)
@@ -759,14 +759,14 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 		newReportVote, err := s.reportVoteRepo.CreateTX(ctx, tx, &newVote)
 		if err != nil {
 			tx.Rollback()
-			return nil, apperror.New(500, "VOTE_CREATE_FAILED", "Gagal menambahkan suara", err.Error())
+			return nil, apperror.New(500, "VOTE_CREATE_FAILED", "Gagal menambahkan suara", err.Error(), nil)
 		}
 		resultVote = newReportVote
 
 	case existingVote.VoteType == modelVoteType:
 		if err := s.reportVoteRepo.DeleteTX(ctx, tx, existingVote); err != nil {
 			tx.Rollback()
-			return nil, apperror.New(500, "VOTE_DELETE_FAILED", "Gagal menghapus suara", err.Error())
+			return nil, apperror.New(500, "VOTE_DELETE_FAILED", "Gagal menghapus suara", err.Error(), nil)
 		}
 		resultVote = nil
 	default:
@@ -775,7 +775,7 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 		updatedReportVote, err := s.reportVoteRepo.UpdateTX(ctx, tx, existingVote)
 		if err != nil {
 			tx.Rollback()
-			return nil, apperror.New(500, "VOTE_UPDATE_FAILED", "Gagal memperbarui suara", err.Error())
+			return nil, apperror.New(500, "VOTE_UPDATE_FAILED", "Gagal memperbarui suara", err.Error(), nil)
 		}
 		resultVote = updatedReportVote
 	}
@@ -784,7 +784,7 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 		reportVoteCounts, err := s.reportVoteRepo.GetReportVoteCountsTX(ctx, tx, reportID)
 		if err != nil {
 			tx.Rollback()
-			return nil, apperror.New(500, "VOTE_COUNT_FAILED", "Gagal mendapatkan jumlah suara laporan", err.Error())
+			return nil, apperror.New(500, "VOTE_COUNT_FAILED", "Gagal mendapatkan jumlah suara laporan", err.Error(), nil)
 		}
 
 		voteTypeCountsOrder := util.GetVoteTypeOrder(reportVoteCounts)
@@ -792,7 +792,7 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 		totalVote, err := s.reportVoteRepo.GetTotalVoteCountTX(ctx, tx, reportID)
 		if err != nil {
 			tx.Rollback()
-			return nil, apperror.New(500, "VOTE_COUNT_FAILED", "Gagal mendapatkan total suara laporan", err.Error())
+			return nil, apperror.New(500, "VOTE_COUNT_FAILED", "Gagal mendapatkan total suara laporan", err.Error(), nil)
 		}
 		topVote := voteTypeCountsOrder[0]
 		secondVote := voteTypeCountsOrder[1]
@@ -815,7 +815,7 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 			)
 			if err := s.tasksService.AutoResolveReportTask(reportID); err != nil {
 				tx.Rollback()
-				return nil, apperror.New(500, "AUTO_RESOLVE_TASK_FAILED", "Gagal membuat tugas penyelesaian otomatis", err.Error())
+				return nil, apperror.New(500, "AUTO_RESOLVE_TASK_FAILED", "Gagal membuat tugas penyelesaian otomatis", err.Error(), nil)
 			}
 
 			reportStatusMessage := map[any]string{
@@ -838,19 +838,19 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 
 			if _, err := s.reportProgressRepo.CreateTX(ctx, tx, newProgress); err != nil {
 				tx.Rollback()
-				return nil, apperror.New(500, "PROGRESS_CREATE_FAILED", "Gagal mengunggah progres laporan", err.Error())
+				return nil, apperror.New(500, "PROGRESS_CREATE_FAILED", "Gagal mengunggah progres laporan", err.Error(), nil)
 			}
 		}
 
 		if _, err := s.reportRepo.UpdateTX(ctx, tx, report); err != nil {
 			tx.Rollback()
-			return nil, apperror.New(500, "REPORT_UPDATE_FAILED", "Gagal memperbarui status laporan", err.Error())
+			return nil, apperror.New(500, "REPORT_UPDATE_FAILED", "Gagal memperbarui status laporan", err.Error(), nil)
 		}
 	}
 
 	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Gagal menyimpan perubahan", err.Error())
+		return nil, apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Gagal menyimpan perubahan", err.Error(), nil)
 	}
 
 	return &dto.GetVoteReportResponse{
@@ -869,7 +869,7 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 func (s *ReportService) UploadProgressReport(ctx context.Context, userID, reportID uint, req dto.UploadProgressReportRequest) (*dto.UploadProgressReportResponse, error) {
 	tx := s.postgreDB.Begin()
 	if tx.Error != nil {
-		return nil, apperror.New(500, "TRANSACTION_START_FAILED", "gagal memulai transaksi", tx.Error.Error())
+		return nil, apperror.New(500, "TRANSACTION_START_FAILED", "gagal memulai transaksi", tx.Error.Error(), nil)
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -887,31 +887,31 @@ func (s *ReportService) UploadProgressReport(ctx context.Context, userID, report
 	if err != nil {
 		tx.Rollback()
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "REPORT_NOT_FOUND", "laporan tidak ditemukan", "")
+			return nil, apperror.New(404, "REPORT_NOT_FOUND", "laporan tidak ditemukan", "", nil)
 		}
-		return nil, apperror.New(500, "REPORT_FETCH_FAILED", "gagal mengambil laporan", err.Error())
+		return nil, apperror.New(500, "REPORT_FETCH_FAILED", "gagal mengambil laporan", err.Error(), nil)
 	}
 
 	if report.UserID != userID {
 		tx.Rollback()
-		return nil, apperror.New(403, "FORBIDDEN", "anda tidak memiliki izin untuk mengunggah progres pada laporan ini", "")
+		return nil, apperror.New(403, "FORBIDDEN", "anda tidak memiliki izin untuk mengunggah progres pada laporan ini", "", nil)
 	}
 
 	if report.HasProgress == nil || !*report.HasProgress {
 		tx.Rollback()
-		return nil, apperror.New(400, "REPORT_NO_PROGRESS", "laporan ini tidak memerlukan progres (informasi saja)", "")
+		return nil, apperror.New(400, "REPORT_NO_PROGRESS", "laporan ini tidak memerlukan progres (informasi saja)", "", nil)
 	}
 
 	if report.ReportStatus == model.RESOLVED {
 		tx.Rollback()
-		return nil, apperror.New(400, "REPORT_ALREADY_RESOLVED", "laporan sudah selesai, tidak dapat mengunggah progres lagi", "")
+		return nil, apperror.New(400, "REPORT_ALREADY_RESOLVED", "laporan sudah selesai, tidak dapat mengunggah progres lagi", "", nil)
 	}
 
 	if req.Status == string(model.RESOLVED) {
 		report.ReportStatus = model.RESOLVED
 		if _, err := s.reportRepo.UpdateTX(ctx, tx, report); err != nil {
 			tx.Rollback()
-			return nil, apperror.New(500, "REPORT_UPDATE_FAILED", "gagal memperbarui status laporan", err.Error())
+			return nil, apperror.New(500, "REPORT_UPDATE_FAILED", "gagal memperbarui status laporan", err.Error(), nil)
 		}
 	}
 
@@ -927,7 +927,7 @@ func (s *ReportService) UploadProgressReport(ctx context.Context, userID, report
 	newProgress, err := s.reportProgressRepo.CreateTX(ctx, tx, reportProgress)
 	if err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "PROGRESS_CREATE_FAILED", "gagal mengunggah progres laporan", err.Error())
+		return nil, apperror.New(500, "PROGRESS_CREATE_FAILED", "gagal mengunggah progres laporan", err.Error(), nil)
 	}
 
 	report.ReportStatus = model.ReportStatus(req.Status)
@@ -936,7 +936,7 @@ func (s *ReportService) UploadProgressReport(ctx context.Context, userID, report
 	report.LastUpdatedProgressAt = mainutils.Int64PtrOrNil(time.Now().Unix())
 	if _, err := s.reportRepo.UpdateTX(ctx, tx, report); err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "REPORT_UPDATE_FAILED", "gagal memperbarui status laporan", err.Error())
+		return nil, apperror.New(500, "REPORT_UPDATE_FAILED", "gagal memperbarui status laporan", err.Error(), nil)
 	}
 
 	response := &dto.UploadProgressReportResponse{
@@ -951,7 +951,7 @@ func (s *ReportService) UploadProgressReport(ctx context.Context, userID, report
 
 	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "TRANSACTION_COMMIT_FAILED", "gagal menyimpan transaksi", err.Error())
+		return nil, apperror.New(500, "TRANSACTION_COMMIT_FAILED", "gagal menyimpan transaksi", err.Error(), nil)
 	}
 
 	return response, nil
@@ -961,9 +961,9 @@ func (s *ReportService) GetProgressReports(ctx context.Context, reportID uint) (
 	reportProgresses, err := s.reportProgressRepo.GetByReportID(ctx, reportID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "PROGRESS_NOT_FOUND", "progres laporan tidak ditemukan", "")
+			return nil, apperror.New(404, "PROGRESS_NOT_FOUND", "progres laporan tidak ditemukan", "", nil)
 		}
-		return nil, apperror.New(500, "PROGRESS_FETCH_FAILED", "gagal mengambil progres laporan", err.Error())
+		return nil, apperror.New(500, "PROGRESS_FETCH_FAILED", "gagal mengambil progres laporan", err.Error(), nil)
 	}
 	var response []dto.GetProgressReportResponse
 	for _, progress := range reportProgresses {
@@ -983,27 +983,27 @@ func (s *ReportService) CreateReportComment(ctx context.Context, userID, reportI
 	report, err := s.reportRepo.GetByID(ctx, reportID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "REPORT_NOT_FOUND", "Laporan tidak ditemukan", "")
+			return nil, apperror.New(404, "REPORT_NOT_FOUND", "Laporan tidak ditemukan", "", nil)
 		}
-		return nil, apperror.New(500, "REPORT_FETCH_FAILED", "Gagal mengambil laporan", err.Error())
+		return nil, apperror.New(500, "REPORT_FETCH_FAILED", "Gagal mengambil laporan", err.Error(), nil)
 	}
 
 	if report.IsDeleted != nil && *report.IsDeleted {
-		return nil, apperror.New(400, "REPORT_DELETED", "Tidak dapat menambahkan komentar pada laporan yang telah dihapus", "")
+		return nil, apperror.New(400, "REPORT_DELETED", "Tidak dapat menambahkan komentar pada laporan yang telah dihapus", "", nil)
 	}
 
 	if report.ReportStatus == model.EXPIRED {
-		return nil, apperror.New(400, "REPORT_EXPIRED", "Tidak dapat menambahkan komentar pada laporan yang telah kedaluwarsa", "")
+		return nil, apperror.New(400, "REPORT_EXPIRED", "Tidak dapat menambahkan komentar pada laporan yang telah kedaluwarsa", "", nil)
 	}
 
 	parentCommentIDObj, err := mainutils.StringPtrToObjectIDPtr(req.ParentCommentID)
 	if err != nil {
-		return nil, apperror.New(400, "INVALID_PARENT_COMMENT_ID", "ID komentar induk tidak valid", err.Error())
+		return nil, apperror.New(400, "INVALID_PARENT_COMMENT_ID", "ID komentar induk tidak valid", err.Error(), nil)
 	}
 
 	threadRootIDObj, err := mainutils.StringPtrToObjectIDPtr(req.ThreadRootID)
 	if err != nil {
-		return nil, apperror.New(400, "INVALID_THREAD_ROOT_ID", "ID akar thread tidak valid", err.Error())
+		return nil, apperror.New(400, "INVALID_THREAD_ROOT_ID", "ID akar thread tidak valid", err.Error(), nil)
 	}
 
 	var commentMedia model.CommentMedia
@@ -1011,7 +1011,7 @@ func (s *ReportService) CreateReportComment(ctx context.Context, userID, reportI
 	if req.MediaType != nil {
 		commentMediaType := model.CommentMediaType(*req.MediaType)
 		if req.MediaURL == nil {
-			return nil, apperror.New(400, "MEDIA_URL_REQUIRED", "URL media diperlukan saat tipe media disediakan", "")
+			return nil, apperror.New(400, "MEDIA_URL_REQUIRED", "URL media diperlukan saat tipe media disediakan", "", nil)
 		}
 		commentMedia = model.CommentMedia{
 			URL:    *req.MediaURL,
@@ -1046,7 +1046,7 @@ func (s *ReportService) CreateReportComment(ctx context.Context, userID, reportI
 
 	reportCommentCreated, err := s.reportCommentRepo.Create(ctx, &reportComment)
 	if err != nil {
-		return nil, apperror.New(500, "COMMENT_CREATE_FAILED", "Gagal membuat komentar laporan", err.Error())
+		return nil, apperror.New(500, "COMMENT_CREATE_FAILED", "Gagal membuat komentar laporan", err.Error(), nil)
 	}
 	newCommentID := reportCommentCreated.ID.Hex()
 
@@ -1075,12 +1075,12 @@ func (s *ReportService) GetReportComments(ctx context.Context, reportID uint, cu
 
 	primitiveCursor, err := mainutils.StringPtrToObjectIDPtr(cursorID)
 	if err != nil {
-		return nil, apperror.New(400, "INVALID_CURSOR_ID", "ID kursor tidak valid", err.Error())
+		return nil, apperror.New(400, "INVALID_CURSOR_ID", "ID kursor tidak valid", err.Error(), nil)
 	}
 
 	commentsFromDB, err := s.reportCommentRepo.GetPaginatedRootByReportID(ctx, reportID, primitiveCursor, (limit + 1))
 	if err != nil {
-		return nil, apperror.New(500, "COMMENT_FETCH_FAILED", "Gagal mengambil komentar", err.Error())
+		return nil, apperror.New(500, "COMMENT_FETCH_FAILED", "Gagal mengambil komentar", err.Error(), nil)
 	}
 
 	hasMore := len(commentsFromDB) > limit
@@ -1119,7 +1119,7 @@ func (s *ReportService) GetReportComments(ctx context.Context, reportID uint, cu
 	}
 	users, err := s.userRepo.GetByIDs(ctx, userIDs)
 	if err != nil {
-		return nil, apperror.New(500, "USER_FETCH_FAILED", "Gagal mengambil data pengguna", err.Error())
+		return nil, apperror.New(500, "USER_FETCH_FAILED", "Gagal mengambil data pengguna", err.Error(), nil)
 	}
 
 	userMap := make(map[uint]*model.User)
@@ -1179,17 +1179,17 @@ func (s *ReportService) GetReportComments(ctx context.Context, reportID uint, cu
 func (s *ReportService) GetReportStatistics(ctx context.Context) (*dto.GetReportStatisticsResponse, error) {
 	totalReports, err := s.reportRepo.GetByReportTypeCount(ctx)
 	if err != nil {
-		return nil, apperror.New(500, "TOTAL_REPORTS_FETCH_FAILED", "Gagal mengambil total laporan", err.Error())
+		return nil, apperror.New(500, "TOTAL_REPORTS_FETCH_FAILED", "Gagal mengambil total laporan", err.Error(), nil)
 	}
 
 	reportsByStatus, err := s.reportRepo.GetByReportStatusCount(ctx, string(model.WAITING), string(model.ON_PROGRESS), string(model.WAITING_CONFIRMATION), string(model.RESOLVED), string(model.EXPIRED))
 	if err != nil {
-		return nil, apperror.New(500, "RESOLVED_REPORTS_FETCH_FAILED", "Gagal mengambil laporan yang diselesaikan", err.Error())
+		return nil, apperror.New(500, "RESOLVED_REPORTS_FETCH_FAILED", "Gagal mengambil laporan yang diselesaikan", err.Error(), nil)
 	}
 
 	monthlyReports, err := s.reportRepo.GetMonthlyReportCount(ctx)
 	if err != nil {
-		return nil, apperror.New(500, "MONTHLY_REPORTS_FETCH_FAILED", "Gagal mengambil laporan bulanan", err.Error())
+		return nil, apperror.New(500, "MONTHLY_REPORTS_FETCH_FAILED", "Gagal mengambil laporan bulanan", err.Error(), nil)
 	}
 
 	return &dto.GetReportStatisticsResponse{
@@ -1204,22 +1204,22 @@ func (s *ReportService) GetReportCommentReplies(ctx context.Context, rootID stri
 
 	primitiveRootID, err := mainutils.StringPtrToObjectIDPtr(&rootID)
 	if err != nil {
-		return nil, apperror.New(400, "INVALID_ROOT_ID", "ID akar thread tidak valid", err.Error())
+		return nil, apperror.New(400, "INVALID_ROOT_ID", "ID akar thread tidak valid", err.Error(), nil)
 	}
 
 	primitiveCursor, err := mainutils.StringPtrToObjectIDPtr(cursorID)
 	if err != nil {
-		return nil, apperror.New(400, "INVALID_CURSOR_ID", "ID kursor tidak valid", err.Error())
+		return nil, apperror.New(400, "INVALID_CURSOR_ID", "ID kursor tidak valid", err.Error(), nil)
 	}
 
 	repliesFromDB, err := s.reportCommentRepo.GetPaginatedRepliesByRootID(ctx, *primitiveRootID, primitiveCursor, limit+1)
 	if err != nil {
-		return nil, apperror.New(500, "REPLY_FETCH_FAILED", "Gagal mengambil balasan", err.Error())
+		return nil, apperror.New(500, "REPLY_FETCH_FAILED", "Gagal mengambil balasan", err.Error(), nil)
 	}
 
 	rootComment, err := s.reportCommentRepo.GetByID(ctx, *primitiveRootID)
 	if err != nil {
-		return nil, apperror.New(500, "ROOT_COMMENT_FETCH_FAILED", "Gagal mengambil komentar akar", err.Error())
+		return nil, apperror.New(500, "ROOT_COMMENT_FETCH_FAILED", "Gagal mengambil komentar akar", err.Error(), nil)
 	}
 
 	userIDSet := make(map[uint]struct{})
@@ -1259,7 +1259,7 @@ func (s *ReportService) GetReportCommentReplies(ctx context.Context, rootID stri
 	if len(parentIDs) > 0 {
 		parents, err := s.reportCommentRepo.GetByIDs(ctx, parentIDs)
 		if err != nil {
-			return nil, apperror.New(500, "PARENT_FETCH_FAILED", "Gagal mengambil parent comments", err.Error())
+			return nil, apperror.New(500, "PARENT_FETCH_FAILED", "Gagal mengambil parent comments", err.Error(), nil)
 		}
 
 		for i := range parents {
@@ -1275,7 +1275,7 @@ func (s *ReportService) GetReportCommentReplies(ctx context.Context, rootID stri
 
 	users, err := s.userRepo.GetByIDs(ctx, userIDs)
 	if err != nil {
-		return nil, apperror.New(500, "USER_FETCH_FAILED", "Gagal mengambil data pengguna", err.Error())
+		return nil, apperror.New(500, "USER_FETCH_FAILED", "Gagal mengambil data pengguna", err.Error(), nil)
 	}
 
 	userMap := make(map[uint]*model.User, len(users))
@@ -1292,7 +1292,7 @@ func (s *ReportService) GetReportCommentReplies(ctx context.Context, rootID stri
 
 	total, err := s.reportCommentRepo.GetCountsByRootID(ctx, *primitiveRootID)
 	if err != nil {
-		return nil, apperror.New(500, "COUNT_FETCH_FAILED", "Gagal menghitung total balasan", err.Error())
+		return nil, apperror.New(500, "COUNT_FETCH_FAILED", "Gagal menghitung total balasan", err.Error(), nil)
 	}
 
 	return &dto.GetReportCommentRepliesResponse{
