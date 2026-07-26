@@ -107,3 +107,26 @@ func FormatFollowValidationErrors(err error) map[string]string {
 	}
 	return errors
 }
+
+func FormatGetFollowDataValidationErrors(err error) map[string]string {
+	errors := map[string]string{}
+	if err == nil {
+		return errors
+	}
+	for _, e := range err.(validator.ValidationErrors) {
+		switch e.Field() {
+		case "FollowingID":
+			if e.Tag() == "required" {
+				errors["followingID"] = "ID yang diikuti wajib diisi"
+			}
+		case "FollowingType":
+			if e.Tag() == "required" {
+				errors["followingType"] = "Tipe yang diikuti wajib diisi"
+			}
+			if e.Tag() == "oneof" {
+				errors["followingType"] = "Tipe yang diikuti harus salah satu antara pengguna atau komunitas"
+			}
+		}
+	}
+	return errors
+}
