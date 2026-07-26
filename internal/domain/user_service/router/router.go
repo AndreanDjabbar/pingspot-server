@@ -94,4 +94,15 @@ func RegisterUserRoutes(app *fiber.App) {
 	})),  
 	userHandler.FollowHandler,
 	)
+
+	followRoute.Get(
+	"/:followingID/:followingType",
+	middleware.TimeoutMiddleware(5*time.Second),
+	middleware.UserRateLimiterMiddleware(middleware.NewRateLimiter(middleware.RateLimiterConfig{
+		Window:      1 * time.Minute,
+		MaxRequests: 50,
+		KeyPrefix: "get_follow_data",
+	})),  
+	userHandler.GetFollowDataHandler,
+	)
 }
