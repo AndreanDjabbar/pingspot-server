@@ -116,6 +116,15 @@ func Migrate(db *gorm.DB) error {
 				return tx.Migrator().DropIndex(&model.ReportVote{}, "idx_user_report_vote")
 			},
 		},
+		{
+			ID: "26072026_add_follow_model",
+			Migrate: func(tx *gorm.DB) error {
+				return tx.AutoMigrate(&model.Follow{})
+			},
+			Rollback: func(tx *gorm.DB) error {
+				return tx.Migrator().DropTable(&model.Follow{})
+			},
+		},
 	})
 
 	err := m.Migrate()
