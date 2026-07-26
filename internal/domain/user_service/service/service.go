@@ -325,19 +325,37 @@ func (s *UserService) Follow(ctx context.Context, userID uint, req dto.FollowReq
 		return nil, apperror.New(500, "USER_FETCH_FAILED", "gagal mengambil data pengguna", err.Error(), nil)
 	}
 
+	var followProcess string
+	
 	follow := model.Follow{
 		FollowingID:   req.FollowingID,
 		FollowingType: model.FollowingType(req.FollowingType),
 		FollowerUserID:  currentUser.ID,
 	}
 
-	if err := s.followRepo.CreateTX(ctx, s.db, &follow); err != nil {
-		return nil, apperror.New(500, "FOLLOW_FAILED", "gagal mengikuti pengguna", err.Error(), nil)
+	existingFollow, err := s.followRepo.GetByFollowerAndFollowing(ctx, currentUser.ID, req.FollowingID, follow.FollowingType)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, apperror.New(500, "FOLLOW_CHECK_FAILED", "gagal memeriksa status mengikuti", err.Error(), nil)
 	}
+
+	if existingFollow != nil {
+		unfollowErr := s.followRepo.DeleteTX(ctx, s.db, existingFollow)
+		if unfollowErr != nil {
+			return nil, apperror.New(500, "UNFOLLOW_FAILED", "gagal berhenti mengikuti pengguna", unfollowErr.Error(), nil)
+		}
+		followProcess = "unfollow"
+	} else {
+		if err := s.followRepo.CreateTX(ctx, s.db, &follow); err != nil {
+			return nil, apperror.New(500, "FOLLOW_FAILED", "gagal mengikuti pengguna", err.Error(), nil)
+		}
+		followProcess = "follow"
+	}
+
 
 	return &dto.FollowResponse{
 		FollowingID:   follow.FollowingID,
 		FollowingType: string(follow.FollowingType),
 		FollowerUserID:  follow.FollowerUserID,
+		FollowProcess: followProcess,
 	}, nil
 }

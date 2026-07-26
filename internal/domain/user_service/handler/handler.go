@@ -244,6 +244,9 @@ func (h *UserHandler) FollowHandler(c *fiber.Ctx) error {
 		}
 		return response.ResponseError(c, 500, "Gagal mengikuti pengguna", "", err.Error())
 	}
-
-	return response.ResponseSuccess(c, 200, "Berhasil mengikuti pengguna", "data", followingResult)
+	var successMessage string = "Berhasil mengikuti pengguna"
+	if followingResult.FollowProcess == "unfollow" {
+		successMessage = "Berhasil berhenti mengikuti pengguna"
+	}
+	return response.ResponseSuccess(c, 200, successMessage, "data", followingResult)
 }

@@ -38,4 +38,5 @@ type FollowResponse struct {
 	FollowingID   uint   `json:"followingID"`
 	FollowingType string `json:"followingType"`
 	FollowerUserID  uint   `json:"followerUserId"`
+	FollowProcess string `json:"followProcess"`
 }
