@@ -12,6 +12,7 @@ type FollowRepository interface {
 	GetByFollowerAndFollowing(ctx context.Context, followerUserID uint, followingID uint, followingType model.FollowingType) (*model.Follow, error)
 	DeleteTX(ctx context.Context, tx *gorm.DB, follow *model.Follow) error
 	GetFollowersCount(ctx context.Context, followingID uint, followingType model.FollowingType) (int64, error)
+	GetFollowingCount(ctx context.Context, followerUserID uint, followingType model.FollowingType) (int64, error)
 }
 
 type followRepository struct {
@@ -47,6 +48,14 @@ func (r *followRepository) DeleteTX(ctx context.Context, tx *gorm.DB, follow *mo
 func (r *followRepository) GetFollowersCount(ctx context.Context, followingID uint, followingType model.FollowingType) (int64, error) {
 	var count int64
 	if err := r.db.WithContext(ctx).Model(&model.Follow{}).Where("following_id = ? AND following_type = ?", followingID, followingType).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (r *followRepository) GetFollowingCount(ctx context.Context, followerUserID uint, followingType model.FollowingType) (int64, error) {
+	var count int64
+	if err := r.db.WithContext(ctx).Model(&model.Follow{}).Where("follower_user_id = ? AND following_type = ?", followerUserID, followingType).Count(&count).Error; err != nil {
 		return 0, err
 	}
 	return count, nil

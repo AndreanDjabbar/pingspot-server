@@ -250,3 +250,36 @@ func (h *UserHandler) FollowHandler(c *fiber.Ctx) error {
 	}
 	return response.ResponseSuccess(c, 200, successMessage, "data", followingResult)
 }
+
+func (h *UserHandler) GetFollowDataHandler(c *fiber.Ctx) error {
+	ctx := c.UserContext()
+
+	followingIDParam := c.Params("followingID")
+	followingType := c.Params("followingType")
+
+	followingID, err := mainutils.StringToUint(followingIDParam)
+	if err != nil {
+		logger.Error("Invalid followingID format", zap.String("followingID", followingIDParam), zap.Error(err))
+		return response.ResponseError(c, 400, "Format followingID tidak valid", "", "followingID harus berupa angka")
+	}
+
+	var req dto.GetFollowDataRequest
+	req.FollowingID = followingID
+	req.FollowingType = followingType
+	if err := validation.Validate.Struct(req); err != nil {
+		errors := validation.FormatGetFollowDataValidationErrors(err)
+		logger.Error("Validation failed", zap.Error(err))
+		return response.ResponseError(c, 400, "Validasi gagal", "errors", errors)
+	}
+
+	followingData, err := h.userService.GetFollowing(ctx, followingID, followingType)
+	if err != nil {
+		logger.Error("Failed to get following data", zap.Error(err))
+		if appErr, ok := err.(*apperror.AppError); ok {
+			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+		}
+		return response.ResponseError(c, 500, "Gagal mendapatkan data following", "", err.Error())
+	}
+
+	return response.ResponseSuccess(c, 200, "Berhasil mendapatkan data following", "data", followingData)
+}

@@ -359,3 +359,20 @@ func (s *UserService) Follow(ctx context.Context, userID uint, req dto.FollowReq
 		FollowProcess: followProcess,
 	}, nil
 }
+
+func (s *UserService) GetFollowing(ctx context.Context, followingID uint, followingType string) (*dto.GetFollowDataResponse, error) {
+	followingTypeEnum := model.FollowingType(followingType)
+	followersCount, err := s.followRepo.GetFollowersCount(ctx, followingID, followingTypeEnum)
+	if err != nil {
+		return nil, apperror.New(500, "FOLLOWERS_COUNT_FETCH_FAILED", "gagal mendapatkan jumlah pengikut", err.Error(), nil)
+	}
+	followingCount, err := s.followRepo.GetFollowingCount(ctx, followingID, followingTypeEnum)
+	if err != nil {
+		return nil, apperror.New(500, "FOLLOWING_COUNT_FETCH_FAILED", "gagal mendapatkan jumlah yang diikuti", err.Error(), nil)
+	}
+	return &dto.GetFollowDataResponse{
+		FollowingID:   followingID,
+		FollowersCount: followersCount,
+		FollowingCount: followingCount,
+	}, nil
+}
