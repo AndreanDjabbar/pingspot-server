@@ -19,14 +19,16 @@ import (
 type UserService struct {
 	userRepo        repository.UserRepository
 	userProfileRepo repository.UserProfileRepository
+	followRepo      repository.FollowRepository
 	db              *gorm.DB
 }
 
-func NewUserService(db *gorm.DB, userRepo repository.UserRepository, userProfileRepo repository.UserProfileRepository) *UserService {
+func NewUserService(db *gorm.DB, userRepo repository.UserRepository, userProfileRepo repository.UserProfileRepository, followRepo repository.FollowRepository) *UserService {
 	return &UserService{
 		db:              db,
 		userRepo:        userRepo,
 		userProfileRepo: userProfileRepo,
+		followRepo:      followRepo,
 	}
 }
 
@@ -312,4 +314,30 @@ func (s *UserService) SaveSecurity(ctx context.Context, userID uint, req dto.Sav
 	}
 
 	return nil
+}
+
+func (s *UserService) Follow(ctx context.Context, userID uint, req dto.FollowRequest) (*dto.FollowResponse, error) {
+	currentUser, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperror.New(404, "USER_NOT_FOUND", "pengguna tidak ditemukan", "", nil)
+		}
+		return nil, apperror.New(500, "USER_FETCH_FAILED", "gagal mengambil data pengguna", err.Error(), nil)
+	}
+
+	follow := model.Follow{
+		FollowingID:   req.FollowingID,
+		FollowingType: model.FollowingType(req.FollowingType),
+		FollowerUserID:  currentUser.ID,
+	}
+
+	if err := s.followRepo.CreateTX(ctx, s.db, &follow); err != nil {
+		return nil, apperror.New(500, "FOLLOW_FAILED", "gagal mengikuti pengguna", err.Error(), nil)
+	}
+
+	return &dto.FollowResponse{
+		FollowingID:   follow.FollowingID,
+		FollowingType: string(follow.FollowingType),
+		FollowerUserID:  follow.FollowerUserID,
+	}, nil
 }
