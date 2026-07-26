@@ -94,7 +94,7 @@ func FormatFollowValidationErrors(err error) map[string]string {
 		switch e.Field() {
 		case "FollowingID":
 			if e.Tag() == "required" {
-				errors["followingId"] = "ID yang diikuti wajib diisi"
+				errors["followingID"] = "ID yang diikuti wajib diisi"
 			}
 		case "FollowingType":
 			if e.Tag() == "required" {

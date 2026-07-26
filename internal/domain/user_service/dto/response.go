@@ -35,7 +35,7 @@ type SearchResponse struct {
 }
 
 type FollowResponse struct {
-	FollowingID   uint   `json:"followingId"`
+	FollowingID   uint   `json:"followingID"`
 	FollowingType string `json:"followingType"`
 	FollowerUserID  uint   `json:"followerUserId"`
 }

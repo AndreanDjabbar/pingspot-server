@@ -17,6 +17,6 @@ type SaveUserSecurityRequest struct {
 }
 
 type FollowRequest struct {
-	FollowingID   uint   `json:"followingId" validate:"required"`
+	FollowingID   uint   `json:"followingID" validate:"required"`
 	FollowingType string `json:"followingType" validate:"required,oneof=user community"`
 }
