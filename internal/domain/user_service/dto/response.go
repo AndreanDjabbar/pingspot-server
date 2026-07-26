@@ -33,3 +33,9 @@ type GetUserStatisticsResponse struct {
 type SearchResponse struct {
 	UsersData []SearchUsers `json:"usersData"`
 }
+
+type FollowResponse struct {
+	FollowingID   uint   `json:"followingId"`
+	FollowingType string `json:"followingType"`
+	FollowerUserID  uint   `json:"followerUserId"`
+}
