@@ -15,7 +15,8 @@ func RegisterUserRoutes(app *fiber.App) {
 	db := database.GetPostgresDB()
 	userRepo := repository.NewUserRepository(db)
 	userProfileRepo := repository.NewUserProfileRepository(db)
-	userService := service.NewUserService(db, userRepo, userProfileRepo)
+	followRepo := repository.NewFollowRepository(db)
+	userService := service.NewUserService(db, userRepo, userProfileRepo, followRepo)
 	userHandler := handler.NewUserHandler(userService)
 
 	userRoute := app.Group("/pingspot/api/user", middleware.ValidateAccessToken())
@@ -80,5 +81,17 @@ func RegisterUserRoutes(app *fiber.App) {
 		KeyPrefix: "save_user_security",
 	})),  
 	userHandler.SaveUserSecurityHandler,
+	)
+
+	followRoute := app.Group("/pingspot/api/user/follow", middleware.ValidateAccessToken())
+
+	followRoute.Post("/", 
+	middleware.TimeoutMiddleware(10*time.Second),
+	middleware.UserRateLimiterMiddleware(middleware.NewRateLimiter(middleware.RateLimiterConfig{
+		Window:      1 * time.Minute,
+		MaxRequests: 50,
+		KeyPrefix: "follow",
+	})),  
+	userHandler.FollowHandler,
 	)
 }
