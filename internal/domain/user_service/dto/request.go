@@ -15,13 +15,3 @@ type SaveUserSecurityRequest struct {
 	NewPassword          string `json:"newPassword" validate:"required,min=6"`
 	NewPasswordConfirmation   string `json:"newPasswordConfirmation" validate:"required,eqfield=NewPassword"`
 }
-
-type FollowRequest struct {
-	FollowingID   uint   `json:"followingID" validate:"required"`
-	FollowingType string `json:"followingType" validate:"required,oneof=user community"`
-}
-
-type GetFollowDataRequest struct {
-	FollowingID   uint   `json:"followingID" validate:"required"`
-	FollowingType string `json:"followingType" validate:"required,oneof=user community"`
-}
