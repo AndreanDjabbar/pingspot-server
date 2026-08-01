@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 	"errors"
-	"pingspot/internal/domain/user_service/dto"
+	"pingspot/internal/domain/social_service/dto"
 	userRepository "pingspot/internal/domain/user_service/repository"
 	socialRepository "pingspot/internal/domain/social_service/repository"
 	"pingspot/internal/model"
@@ -69,7 +69,7 @@ func (s *SocialService) Follow(ctx context.Context, userID uint, req dto.FollowR
 	}, nil
 }
 
-func (s *SocialService) GetFollowing(ctx context.Context, followingID uint, followingType string) (*dto.GetFollowDataResponse, error) {
+func (s *SocialService) GetFollowing(ctx context.Context, followingID uint, followingType string, currentUserID uint) (*dto.GetFollowDataResponse, error) {
 	followingTypeEnum := model.FollowingType(followingType)
 	followersCount, err := s.followRepo.GetFollowersCount(ctx, followingID, followingTypeEnum)
 	if err != nil {
@@ -79,9 +79,24 @@ func (s *SocialService) GetFollowing(ctx context.Context, followingID uint, foll
 	if err != nil {
 		return nil, apperror.New(500, "FOLLOWING_COUNT_FETCH_FAILED", "gagal mendapatkan jumlah yang diikuti", err.Error(), nil)
 	}
+	myFollowData, err := s.followRepo.GetByFollowerAndFollowing(ctx, currentUserID, followingID, followingTypeEnum)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, apperror.New(500, "MY_FOLLOW_DATA_FETCH_FAILED", "gagal mendapatkan data mengikuti saya", err.Error(), nil)
+	}
+	var myFollowDataDTO *dto.Follow
+	if myFollowData != nil {
+		myFollowDataDTO = &dto.Follow{
+			ID:             myFollowData.ID,
+			FollowingID:    myFollowData.FollowingID,
+			FollowingType:  myFollowData.FollowingType,
+			FollowerUserID: myFollowData.FollowerUserID,
+			CreatedAt:      myFollowData.CreatedAt,
+		}
+	}
 	return &dto.GetFollowDataResponse{
 		FollowingID:   followingID,
 		FollowersCount: followersCount,
 		FollowingCount: followingCount,
+		MyFollowData:   myFollowDataDTO,
 	}, nil
 }

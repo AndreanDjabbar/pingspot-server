@@ -2,7 +2,7 @@ package handler
 
 import (
 	"pingspot/internal/domain/social_service/service"
-	"pingspot/internal/domain/user_service/dto"
+	"pingspot/internal/domain/social_service/dto"
 	"pingspot/internal/domain/user_service/validation"
 	apperror "pingspot/pkg/app_error"
 	"pingspot/pkg/logger"
@@ -61,6 +61,14 @@ func (h *SocialHandler) FollowHandler(c *fiber.Ctx) error {
 func (h *SocialHandler) GetFollowDataHandler(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
+	claims, err := tokenutils.GetJWTClaims(c)
+	if err != nil {
+		logger.Error("Failed to get JWT claims", zap.Error(err))
+		return response.ResponseError(c, 401, "Token tidak valid", "", "Anda harus login terlebih dahulu")
+	}
+
+	userID := uint(claims["user_id"].(float64))
+
 	followingIDParam := c.Params("followingID")
 	followingType := c.Params("followingType")
 
@@ -79,7 +87,7 @@ func (h *SocialHandler) GetFollowDataHandler(c *fiber.Ctx) error {
 		return response.ResponseError(c, 400, "Validasi gagal", "errors", errors)
 	}
 
-	followingData, err := h.socialService.GetFollowing(ctx, followingID, followingType)
+	followingData, err := h.socialService.GetFollowing(ctx, followingID, followingType, userID)
 	if err != nil {
 		logger.Error("Failed to get following data", zap.Error(err))
 		if appErr, ok := err.(*apperror.AppError); ok {
