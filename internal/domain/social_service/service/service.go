@@ -34,6 +34,10 @@ func (s *SocialService) Follow(ctx context.Context, userID uint, req dto.FollowR
 		return nil, apperror.New(500, "USER_FETCH_FAILED", "gagal mengambil data pengguna", err.Error(), nil)
 	}
 
+	if currentUser.ID == req.FollowingID {
+		return nil, apperror.New(400, "FOLLOW_SELF_NOT_ALLOWED", "tidak dapat mengikuti diri sendiri", "", nil)
+	}
+
 	var followProcess string
 	
 	follow := model.Follow{
