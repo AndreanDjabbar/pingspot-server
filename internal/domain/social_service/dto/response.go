@@ -13,3 +13,8 @@ type GetFollowDataResponse struct {
 	FollowingCount int64         `json:"followingCount"`
 	MyFollowData   *Follow `json:"myFollowData,omitempty"`
 }
+
+type GetUserConnectionsResponse struct {
+	Followers []*UserConnection `json:"followers"`
+	Following []*UserConnection `json:"following"`
+}
