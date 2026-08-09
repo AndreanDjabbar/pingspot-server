@@ -98,3 +98,26 @@ func (h *SocialHandler) GetFollowDataHandler(c *fiber.Ctx) error {
 
 	return response.ResponseSuccess(c, 200, "Berhasil mendapatkan data following", "data", followingData)
 }
+
+func (h *SocialHandler) GetUserConnectionsHandler(c *fiber.Ctx) error {
+	ctx := c.UserContext()
+
+	userIDParam := c.Params("userID")
+
+	userID, err := mainutils.StringToUint(userIDParam)
+	if err != nil {
+		logger.Error("Invalid userID format", zap.String("userID", userIDParam), zap.Error(err))
+		return response.ResponseError(c, 400, "Format userID tidak valid", "", "userID harus berupa angka")
+	}
+
+	userConnections, err := h.socialService.GetUserConnections(ctx, userID)
+	if err != nil {
+		logger.Error("Failed to get user connections", zap.Error(err))
+		if appErr, ok := err.(*apperror.AppError); ok {
+			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+		}
+		return response.ResponseError(c, 500, "Gagal mendapatkan data koneksi pengguna", "", err.Error())
+	}
+
+	return response.ResponseSuccess(c, 200, "Berhasil mendapatkan data koneksi pengguna", "data", userConnections)
+}

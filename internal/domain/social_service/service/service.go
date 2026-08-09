@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"pingspot/internal/domain/social_service/dto"
-	userRepository "pingspot/internal/domain/user_service/repository"
 	socialRepository "pingspot/internal/domain/social_service/repository"
+	userRepository "pingspot/internal/domain/user_service/repository"
 	"pingspot/internal/model"
 	apperror "pingspot/pkg/app_error"
+
 	"gorm.io/gorm"
 )
 
@@ -102,5 +103,52 @@ func (s *SocialService) GetFollowing(ctx context.Context, followingID uint, foll
 		FollowersCount: followersCount,
 		FollowingCount: followingCount,
 		MyFollowData:   myFollowDataDTO,
+	}, nil
+}
+
+func (s *SocialService) GetUserConnections(ctx context.Context, userID uint) (*dto.GetUserConnectionsResponse, error) {
+	currentUser, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperror.New(404, "USER_NOT_FOUND", "pengguna tidak ditemukan", "", nil)
+		}
+		return nil, apperror.New(500, "USER_FETCH_FAILED", "gagal mengambil data pengguna", err.Error(), nil)
+	}
+
+	userFollowers, err := s.followRepo.GetFollowersByUserID(ctx, currentUser.ID)
+	if err != nil {
+		return nil, apperror.New(500, "USER_CONNECTIONS_FETCH_FAILED", "gagal mendapatkan koneksi pengguna", err.Error(), nil)
+	}
+
+	userFollowing, err := s.followRepo.GetFollowingByUserID(ctx, currentUser.ID)
+	if err != nil {
+		return nil, apperror.New(500, "USER_CONNECTIONS_FETCH_FAILED", "gagal mendapatkan koneksi pengguna", err.Error(), nil)
+	}
+
+	var followersDTO []*dto.UserConnection
+	for _, user := range userFollowers {
+		followersDTO = append(followersDTO, &dto.UserConnection{
+			UserID:   user.ID,
+			Username: user.Username,
+			FullName: user.FullName,
+			ProfilePicture: user.Profile.ProfilePicture,
+			Status:   "offline",
+			Relation: "follower",
+		})
+	}
+	var followingDTO []*dto.UserConnection
+	for _, user := range userFollowing {
+		followingDTO = append(followingDTO, &dto.UserConnection{
+			UserID:   user.ID,
+			Username: user.Username,
+			FullName: user.FullName,
+			ProfilePicture: user.Profile.ProfilePicture,
+			Status:   "offline",
+			Relation: "following",
+		})
+	}
+	return &dto.GetUserConnectionsResponse{
+		Followers: followersDTO,
+		Following: followingDTO,
 	}, nil
 }

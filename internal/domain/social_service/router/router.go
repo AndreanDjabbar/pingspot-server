@@ -42,4 +42,17 @@ func RegisterSocialRoutes(app *fiber.App) {
 	})),  
 	socialHandler.GetFollowDataHandler,
 	)
+
+	connectionRoute := app.Group("/pingspot/api/social/connection", middleware.ValidateAccessToken())
+
+	connectionRoute.Get(
+	"/:userID/user",
+	middleware.TimeoutMiddleware(5*time.Second),
+	middleware.UserRateLimiterMiddleware(middleware.NewRateLimiter(middleware.RateLimiterConfig{
+		Window:      1 * time.Minute,
+		MaxRequests: 50,
+		KeyPrefix: "get_user_connections",
+	})),  
+	socialHandler.GetUserConnectionsHandler,
+	)
 }
