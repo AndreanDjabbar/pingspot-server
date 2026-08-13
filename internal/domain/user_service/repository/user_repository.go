@@ -157,13 +157,7 @@ func (r *userRepository) FullTextSearchUsersPaginated(ctx context.Context, searc
 		Where("search_vector @@ to_tsquery('simple', ?)", searchQuery)
 
 	if cursorID != 0 {
-		tx = tx.Where(`
-		(
-			ts_rank(search_vector, to_tsquery('simple', ?)) < ts_rank(search_vector, to_tsquery('simple', (SELECT search_vector FROM users WHERE id = ?)))
-		) OR (
-			ts_rank(search_vector, to_tsquery('simple', ?)) = ts_rank(search_vector, to_tsquery('simple', (SELECT search_vector FROM users WHERE id = ?))) 
-			AND id > ?
-		)`, searchQuery, cursorID, searchQuery, cursorID, cursorID)
+		tx = tx.Where(`id > ?`, cursorID)
 	}
 
 	err := tx.
