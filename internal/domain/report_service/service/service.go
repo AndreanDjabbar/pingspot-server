@@ -18,7 +18,6 @@ import (
 	"regexp"
 	"strconv"
 	"time"
-
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.uber.org/zap"
@@ -631,43 +630,46 @@ func (s *ReportService) ReactToReport(ctx context.Context, userID uint, reportID
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
+			panic(r)
 		}
 	}()
 
 	modelReactionType := model.ReactionType(reactionType)
 	var resultReaction *model.ReportReaction
+	isDelete := false
 
-	existingReport, err := s.reportReactionRepo.GetByUserReportIDTX(ctx, tx, userID, reportID)
+	existingReaction, err := s.reportReactionRepo.GetByUserReportIDTX(ctx, tx, userID, reportID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		tx.Rollback()
 		return nil, apperror.New(500, "REACTION_FETCH_FAILED", "Gagal mendapatkan reaksi laporan", err.Error(), nil)
 	}
 
 	switch {
-	case existingReport == nil:
+	case existingReaction == nil:
 		newReaction := model.ReportReaction{
 			UserID:   userID,
 			ReportID: reportID,
 			Type:     modelReactionType,
 		}
-		newReportreaction, err := s.reportReactionRepo.CreateTX(ctx, tx, &newReaction)
+		newReportReaction, err := s.reportReactionRepo.CreateTX(ctx, tx, &newReaction)
 		if err != nil {
 			tx.Rollback()
 			return nil, apperror.New(500, "REACTION_CREATE_FAILED", "Gagal menambahkan reaksi", err.Error(), nil)
 		}
-		resultReaction = newReportreaction
+		resultReaction = newReportReaction
 
-	case existingReport.Type == modelReactionType:
-		if err := s.reportReactionRepo.DeleteTX(ctx, tx, existingReport); err != nil {
+	case existingReaction.Type == modelReactionType:
+		if err := s.reportReactionRepo.DeleteTX(ctx, tx, existingReaction); err != nil {
 			tx.Rollback()
 			return nil, apperror.New(500, "REACTION_DELETE_FAILED", "Gagal menghapus reaksi", err.Error(), nil)
 		}
 		resultReaction = nil
+		isDelete = true
 
 	default:
-		existingReport.Type = modelReactionType
-		existingReport.UpdatedAt = time.Now().Unix()
-		updatedReportReaction, err := s.reportReactionRepo.UpdateTX(ctx, tx, existingReport)
+		existingReaction.Type = modelReactionType
+		existingReaction.UpdatedAt = time.Now().Unix()
+		updatedReportReaction, err := s.reportReactionRepo.UpdateTX(ctx, tx, existingReaction)
 		if err != nil {
 			tx.Rollback()
 			return nil, apperror.New(500, "REACTION_UPDATE_FAILED", "Gagal memperbarui reaksi", err.Error(), nil)
@@ -684,11 +686,39 @@ func (s *ReportService) ReactToReport(ctx context.Context, userID uint, reportID
 		ReportID: reportID,
 		UserID:   userID,
 	}
-
 	if resultReaction != nil {
 		response.ReactionType = string(resultReaction.Type)
 		response.CreatedAt = resultReaction.CreatedAt
 		response.UpdatedAt = resultReaction.UpdatedAt
+	}
+
+	if isDelete {
+		return response, nil
+	}
+
+	report, err := s.reportRepo.GetByID(ctx, reportID)
+	if err != nil {
+		return nil, apperror.New(500, "REPORT_FETCH_FAILED", "Gagal mendapatkan laporan", err.Error(), nil)
+	}
+
+	reactorUser, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, apperror.New(500, "USER_FETCH_FAILED", "Gagal mendapatkan data pengguna", err.Error(), nil)
+	}
+
+	if report.UserID != userID {
+		stringUserID := strconv.FormatUint(uint64(userID), 10)
+		if err := s.tasksService.CreateNotificationTask(
+			report.UserID,
+			fmt.Sprintf("Pengguna %s memberikan reaksi pada laporan Anda", reactorUser.Username),
+			fmt.Sprintf("/report/%d", reportID),
+			mainutils.StrPtrOrNil(stringUserID),
+			model.EntityTypeUser,
+			model.ReportNotificationCategory,
+			model.NotificationTypeInfo,
+		); err != nil {
+			return nil, apperror.New(500, "NOTIFICATION_TASK_FAILED", "Gagal membuat tugas notifikasi", err.Error(), nil)
+		}
 	}
 
 	return response, nil
