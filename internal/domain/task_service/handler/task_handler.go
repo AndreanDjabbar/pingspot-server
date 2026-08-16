@@ -4,7 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"pingspot/internal/domain/report_service/repository"
+	ReportRepo "pingspot/internal/domain/report_service/repository"
+	NotificationRepo "pingspot/internal/domain/notification_service/repository"
 	"pingspot/internal/domain/task_service/payload"
 	"pingspot/internal/model"
 	"pingspot/pkg/logger"
@@ -18,13 +19,15 @@ import (
 
 type TaskHandler struct {
 	DB         *gorm.DB
-	ReportRepo repository.ReportRepository
+	ReportRepo ReportRepo.ReportRepository
+	NotificationRepo NotificationRepo.NotificationRepository
 }
 
-func NewTaskHandler(db *gorm.DB, reportRepo repository.ReportRepository) *TaskHandler {
+func NewTaskHandler(db *gorm.DB, reportRepo ReportRepo.ReportRepository, notificationRepo NotificationRepo.NotificationRepository) *TaskHandler {
 	return &TaskHandler{
 		DB:         db,
 		ReportRepo: reportRepo,
+		NotificationRepo: notificationRepo,
 	}
 }
 
@@ -64,6 +67,32 @@ func (h *TaskHandler) AutoResolveReportHandler(ctx context.Context, t *asynq.Tas
 	} else {
 		tx.Rollback()
 	}
+
+	return nil
+}
+
+func (h *TaskHandler) CreateNotificationHandler(ctx context.Context, t *asynq.Task) error {
+	var payload payload.CreateNotificationPayload
+	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+		return err
+	}
+	Tx := h.DB.Begin()
+	notification := &model.Notification{
+		UserID:      payload.UserID,
+		Title:       payload.Title,
+		Description: payload.Description,
+		EntityID:    payload.EntityID,
+		EntityType:  &payload.EntityType,
+		Category:    payload.Category,
+		Type:        payload.Type,
+		IsRead:      mainutils.BoolPtrOrNil(false),
+	}
+
+	if err := h.NotificationRepo.CreateTX(ctx, Tx, notification); err != nil {
+		Tx.Rollback()
+		return fmt.Errorf("failed to create notification: %w", err)
+	}
+	Tx.Commit()
 
 	return nil
 }

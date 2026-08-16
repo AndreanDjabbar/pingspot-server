@@ -10,4 +10,6 @@ const (
 	TaskSendNotificationEmail = "email:send_notification"
 
 	TaskCleanupInactiveUsers = "user:cleanup_inactive"
+
+	TaskCreateNotification = "notification:create_notification"
 )

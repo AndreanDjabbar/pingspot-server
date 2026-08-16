@@ -1,7 +1,7 @@
 package cron_Worker
 
 import (
-	"pingspot/internal/domain/report_service/repository"
+	reportRepo "pingspot/internal/domain/report_service/repository"
 	tasksService "pingspot/internal/domain/task_service/service"
 	"pingspot/internal/infrastructure/database"
 	"pingspot/internal/worker/cron_worker/handler"
@@ -15,9 +15,9 @@ import (
 func StartCron(client *asynq.Client) {
 	c := cron.New(cron.WithSeconds())
 	db := database.GetPostgresDB()
-	reportRepo := repository.NewReportRepository(db)
-	tasksService := tasksService.NewTaskService(client, reportRepo)
-	
+	reportRepo := reportRepo.NewReportRepository(db)
+	tasksService := tasksService.NewTaskService(client)
+
 	cronHandler := handler.NewCronHandler(db, reportRepo, tasksService)
 
 	_, err := c.AddFunc("0 0 11 * * *", func() {
