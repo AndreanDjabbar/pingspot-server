@@ -125,6 +125,15 @@ func Migrate(db *gorm.DB) error {
 				return tx.Migrator().DropTable(&model.Follow{})
 			},
 		},
+				{
+			ID: "16082026_add_notification_model",
+			Migrate: func(tx *gorm.DB) error {
+				return tx.AutoMigrate(&model.Notification{})
+			},
+			Rollback: func(tx *gorm.DB) error {
+				return tx.Migrator().DropTable(&model.Notification{})
+			},
+		},
 	})
 
 	err := m.Migrate()
