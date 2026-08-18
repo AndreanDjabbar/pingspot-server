@@ -3,11 +3,15 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"pingspot/internal/domain/social_service/dto"
 	socialRepository "pingspot/internal/domain/social_service/repository"
+	tasksService "pingspot/internal/domain/task_service/service"
 	userRepository "pingspot/internal/domain/user_service/repository"
 	"pingspot/internal/model"
 	apperror "pingspot/pkg/app_error"
+	mainutils "pingspot/pkg/utils/main_util"
+	"strconv"
 
 	"gorm.io/gorm"
 )
@@ -16,13 +20,15 @@ type SocialService struct {
 	followRepo      socialRepository.FollowRepository
 	userRepo        userRepository.UserRepository
 	db              *gorm.DB
+	tasksService    tasksService.TaskService
 }
 
-func NewSocialService(db *gorm.DB, followRepo socialRepository.FollowRepository, userRepo userRepository.UserRepository) *SocialService {
+func NewSocialService(db *gorm.DB, followRepo socialRepository.FollowRepository, userRepo userRepository.UserRepository, tasksService tasksService.TaskService) *SocialService {
 	return &SocialService{
 		db:           db,
 		followRepo: followRepo,
-		userRepo:   userRepo,
+		userRepo:    userRepo,
+		tasksService: tasksService,
 	}
 }
 
@@ -63,8 +69,19 @@ func (s *SocialService) Follow(ctx context.Context, userID uint, req dto.FollowR
 			return nil, apperror.New(500, "FOLLOW_FAILED", "gagal mengikuti pengguna", err.Error(), nil)
 		}
 		followProcess = "follow"
-	}
 
+		if err := s.tasksService.CreateNotificationTask(
+			req.FollowingID,
+			"Seseorang mulai mengikuti Anda",
+			fmt.Sprintf("Pengguna %s mulai mengikuti Anda", currentUser.Username),
+			mainutils.StrPtrOrNil(strconv.FormatUint(uint64(currentUser.ID), 10)),
+			model.EntityTypeUser,
+			model.UserNotificationCategory,
+			model.NotificationTypeInfo,
+		); err != nil {
+			return nil, apperror.New(500, "NOTIFICATION_TASK_FAILED", "gagal membuat tugas notifikasi", err.Error(), nil)
+		}
+	}
 
 	return &dto.FollowResponse{
 		FollowingID:   follow.FollowingID,

@@ -710,8 +710,8 @@ func (s *ReportService) ReactToReport(ctx context.Context, userID uint, reportID
 		stringUserID := strconv.FormatUint(uint64(userID), 10)
 		if err := s.tasksService.CreateNotificationTask(
 			report.UserID,
+			"Seseorang memberikan reaksi pada laporan Anda",
 			fmt.Sprintf("Pengguna %s memberikan reaksi pada laporan Anda", reactorUser.Username),
-			fmt.Sprintf("/report/%d", reportID),
 			mainutils.StrPtrOrNil(stringUserID),
 			model.EntityTypeUser,
 			model.ReportNotificationCategory,
@@ -875,6 +875,26 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 		if _, err := s.reportRepo.UpdateTX(ctx, tx, report); err != nil {
 			tx.Rollback()
 			return nil, apperror.New(500, "REPORT_UPDATE_FAILED", "Gagal memperbarui status laporan", err.Error(), nil)
+		}
+	}
+
+	if resultVote != nil && report.UserID != userID {
+		voterUser, err := s.userRepo.GetByID(ctx, userID)
+		if err != nil {
+			tx.Rollback()
+			return nil, apperror.New(500, "USER_FETCH_FAILED", "Gagal mendapatkan data pengguna", err.Error(), nil)
+		}
+		if err := s.tasksService.CreateNotificationTask(
+			report.UserID,
+			"Seseorang memberikan suara pada laporan Anda",
+			fmt.Sprintf("Pengguna %s memberikan suara pada laporan Anda", voterUser.Username),
+			mainutils.StrPtrOrNil(strconv.FormatUint(uint64(reportID), 10)),
+			model.EntityTypeReport,
+			model.ReportNotificationCategory,
+			model.NotificationTypeInfo,
+		); err != nil {
+			tx.Rollback()
+			return nil, apperror.New(500, "NOTIFICATION_TASK_FAILED", "Gagal membuat tugas notifikasi suara", err.Error(), nil)
 		}
 	}
 
@@ -1079,6 +1099,59 @@ func (s *ReportService) CreateReportComment(ctx context.Context, userID, reportI
 		return nil, apperror.New(500, "COMMENT_CREATE_FAILED", "Gagal membuat komentar laporan", err.Error(), nil)
 	}
 	newCommentID := reportCommentCreated.ID.Hex()
+
+	commenter, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, apperror.New(500, "USER_FETCH_FAILED", "Gagal mendapatkan data pengguna", err.Error(), nil)
+	}
+
+	if report.UserID != userID {
+		if err := s.tasksService.CreateNotificationTask(
+			report.UserID,
+			"Seseorang mengomentari laporan Anda",
+			fmt.Sprintf("Pengguna %s mengomentari laporan Anda", commenter.Username),
+			mainutils.StrPtrOrNil(newCommentID),
+			model.EntityTypeComment,
+			model.ReportNotificationCategory,
+			model.NotificationTypeInfo,
+		); err != nil {
+			return nil, apperror.New(500, "NOTIFICATION_TASK_FAILED", "Gagal membuat tugas notifikasi laporan", err.Error(), nil)
+		}
+	}
+
+	if parentCommentIDObj != nil {
+		parentComment, err := s.reportCommentRepo.GetByID(ctx, *parentCommentIDObj)
+		if err == nil && parentComment.UserID != userID && parentComment.UserID != report.UserID {
+			if err := s.tasksService.CreateNotificationTask(
+				parentComment.UserID,
+				fmt.Sprintf("Pengguna %s membalas komentar Anda", commenter.Username),
+				fmt.Sprintf("/reports/%d", reportID),
+				mainutils.StrPtrOrNil(newCommentID),
+				model.EntityTypeComment,
+				model.ReportNotificationCategory,
+				model.NotificationTypeInfo,
+			); err != nil {
+				return nil, apperror.New(500, "NOTIFICATION_TASK_FAILED", "Gagal membuat tugas notifikasi balasan", err.Error(), nil)
+			}
+		}
+	}
+
+	for _, mentionedUserID := range req.Mentions {
+		if mentionedUserID == userID || mentionedUserID == report.UserID {
+			continue
+		}
+		if err := s.tasksService.CreateNotificationTask(
+			mentionedUserID,
+			fmt.Sprintf("Pengguna %s menyebut Anda dalam komentar", commenter.Username),
+			fmt.Sprintf("/reports/%d", reportID),
+			mainutils.StrPtrOrNil(newCommentID),
+			model.EntityTypeComment,
+			model.ReportNotificationCategory,
+			model.NotificationTypeInfo,
+		); err != nil {
+			return nil, apperror.New(500, "NOTIFICATION_TASK_FAILED", "Gagal membuat tugas notifikasi mention", err.Error(), nil)
+		}
+	}
 
 	var parentCommentIDStr, threadRootIDStr *string
 	if reportCommentCreated.ParentCommentID != nil {
