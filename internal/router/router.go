@@ -6,6 +6,7 @@ import (
 	searchRouter "pingspot/internal/domain/search_service/router"
 	userRouter "pingspot/internal/domain/user_service/router"
 	socialRouter "pingspot/internal/domain/social_service/router"
+	notificationRouter "pingspot/internal/domain/notification_service/router"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -16,4 +17,5 @@ func RegisterRoutes(app *fiber.App) {
 	searchRouter.RegisterSearchRoutes(app)
 	mainRouter.RegisterReportRoutes(app)
 	socialRouter.RegisterSocialRoutes(app)
+	notificationRouter.RegisterNotificationRoutes(app)
 }
