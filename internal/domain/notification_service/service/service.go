@@ -48,6 +48,7 @@ func (s *NotificationService) GetNotifications(ctx context.Context, userID uint)
 			Type:        string(notification.Type),
 			Title:       notification.Title,
 			Description: notification.Description,
+			Category:    string(notification.Category),
 			IsRead:      *notification.IsRead,
 			ReadAt:      notification.ReadAt,
 			CreatedAt:   notification.CreatedAt,

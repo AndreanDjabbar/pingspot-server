@@ -4,6 +4,7 @@ type Notification struct {
 	ID          uint   `json:"id"`
 	UserID      uint   `json:"userID"`
 	Type        string `json:"type"`
+	Category    string `json:"category"`
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	IsRead      bool   `json:"isRead"`
