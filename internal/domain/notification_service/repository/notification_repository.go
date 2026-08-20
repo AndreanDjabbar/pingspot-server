@@ -22,7 +22,7 @@ func NewNotificationRepository(db *gorm.DB) NotificationRepository {
 
 func (r *notificationRepository) GetByUserID(ctx context.Context, userID uint) (*[]model.Notification, error) {
 	var notifications []model.Notification
-	if err := r.db.WithContext(ctx).Where("user_id = ?", userID).Find(&notifications).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("user_id = ?", userID).Order("created_at DESC").Find(&notifications).Error; err != nil {
 		return nil, err
 	}
 	return &notifications, nil
