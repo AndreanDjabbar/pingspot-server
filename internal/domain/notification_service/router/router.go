@@ -31,4 +31,15 @@ func RegisterNotificationRoutes(app *fiber.App) {
 		})),
 		notificationHandler.GetNotifications,
 	)
+
+	notificationRoute.Patch(
+		"/:notificationID/read",
+		middleware.TimeoutMiddleware(10*time.Second),
+		middleware.UserRateLimiterMiddleware(middleware.NewRateLimiter(middleware.RateLimiterConfig{
+			Window:      1 * time.Minute,
+			MaxRequests: 50,
+			KeyPrefix: "mark_notification_read",
+		})),
+		notificationHandler.MarkNotificationAsRead,
+	)
 }
