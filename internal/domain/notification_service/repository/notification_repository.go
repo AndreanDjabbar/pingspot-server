@@ -12,6 +12,7 @@ type NotificationRepository interface {
 	GetByUserID(ctx context.Context, userID uint) (*[]model.Notification, error)
 	CreateTX(ctx context.Context, tx *gorm.DB, notification *model.Notification) error
 	UpdateTX(ctx context.Context, tx *gorm.DB, notification *model.Notification) error
+	MarkAllAsReadTX(ctx context.Context, tx *gorm.DB, userID uint) error
 }
 
 type notificationRepository struct {
@@ -48,6 +49,16 @@ func (r *notificationRepository) GetByID(ctx context.Context, id uint) (*model.N
 func (r *notificationRepository) UpdateTX(ctx context.Context, tx *gorm.DB, notification *model.Notification) error {
 	
 	if err := tx.WithContext(ctx).Save(notification).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *notificationRepository) MarkAllAsReadTX(ctx context.Context, tx *gorm.DB, userID uint) error {
+	if err := tx.WithContext(ctx).Model(&model.Notification{}).Where("user_id = ? AND is_read = ?", userID, false).Updates(map[string]any{
+		"is_read": true,
+		"read_at": gorm.Expr("EXTRACT(EPOCH FROM NOW())::BIGINT"),
+	}).Error; err != nil {
 		return err
 	}
 	return nil

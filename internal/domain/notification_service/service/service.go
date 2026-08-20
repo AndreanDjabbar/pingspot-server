@@ -107,3 +107,32 @@ func (s *NotificationService) MarkNotificationAsRead(ctx context.Context, userID
 	}
 	return nil
 }
+
+func (s *NotificationService) MarkAllNotificationsAsRead(ctx context.Context, userID uint) error {
+	existingUser, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		logger.Error("Failed to get user by ID", zap.Error(err))
+		return apperror.New(500, "USER_FETCH_FAILED", "gagal mendapatkan pengguna", err.Error(), nil)
+	}
+	if existingUser == nil {
+		return apperror.New(404, "USER_NOT_FOUND", "pengguna tidak ditemukan", "Pengguna dengan ID tersebut tidak ada", nil)
+	}
+
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	err = s.notificationRepo.MarkAllAsReadTX(ctx, tx, userID)
+	if err != nil {
+		tx.Rollback()
+		logger.Error("Failed to mark all notifications as read", zap.Error(err))
+		return apperror.New(500, "NOTIFICATION_MARK_ALL_AS_READ_FAILED", "gagal menandai semua notifikasi sebagai dibaca", err.Error(), nil)
+	}
+	if err := tx.Commit().Error; err != nil {
+		logger.Error("Failed to commit transaction", zap.Error(err))
+		return apperror.New(500, "TRANSACTION_COMMIT_FAILED", "gagal menyelesaikan transaksi", err.Error(), nil)
+	}
+	return nil
+}
