@@ -53,4 +53,26 @@ func RegisterNotificationRoutes(app *fiber.App) {
 		})),
 		notificationHandler.MarkNotificationAsRead,
 	)
+
+	notificationRoute.Delete(
+		"/:notificationID",
+		middleware.TimeoutMiddleware(10*time.Second),
+		middleware.UserRateLimiterMiddleware(middleware.NewRateLimiter(middleware.RateLimiterConfig{
+			Window:      1 * time.Minute,
+			MaxRequests: 50,
+			KeyPrefix: "delete_notification",
+		})),
+		notificationHandler.DeleteNotification,
+	)
+
+	notificationRoute.Delete(
+		"/",
+		middleware.TimeoutMiddleware(10*time.Second),
+		middleware.UserRateLimiterMiddleware(middleware.NewRateLimiter(middleware.RateLimiterConfig{
+			Window:      1 * time.Minute,
+			MaxRequests: 50,
+			KeyPrefix: "delete_all_notifications",
+		})),
+		notificationHandler.DeleteAllNotifications,
+	)
 }

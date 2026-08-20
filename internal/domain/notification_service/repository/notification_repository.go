@@ -13,6 +13,8 @@ type NotificationRepository interface {
 	CreateTX(ctx context.Context, tx *gorm.DB, notification *model.Notification) error
 	UpdateTX(ctx context.Context, tx *gorm.DB, notification *model.Notification) error
 	MarkAllAsReadTX(ctx context.Context, tx *gorm.DB, userID uint) error
+	DeleteByIDTX(ctx context.Context, tx *gorm.DB, id uint) error
+	DeleteByUserIDTX(ctx context.Context, tx *gorm.DB, userID uint) error
 }
 
 type notificationRepository struct {
@@ -59,6 +61,20 @@ func (r *notificationRepository) MarkAllAsReadTX(ctx context.Context, tx *gorm.D
 		"is_read": true,
 		"read_at": gorm.Expr("EXTRACT(EPOCH FROM NOW())::BIGINT"),
 	}).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *notificationRepository) DeleteByIDTX(ctx context.Context, tx *gorm.DB, id uint) error {
+	if err := tx.WithContext(ctx).Delete(&model.Notification{}, id).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *notificationRepository) DeleteByUserIDTX(ctx context.Context, tx *gorm.DB, userID uint) error {
+	if err := tx.WithContext(ctx).Where("user_id = ?", userID).Delete(&model.Notification{}).Error; err != nil {
 		return err
 	}
 	return nil

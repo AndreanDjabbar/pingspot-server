@@ -80,3 +80,47 @@ func (h *NotificationHandler) MarkAllNotificationsAsRead(c *fiber.Ctx) error {
 	}
 	return response.ResponseSuccess(c, 200, "Berhasil menandai semua notifikasi sebagai dibaca", "data", nil)
 }
+
+func (h *NotificationHandler) DeleteNotification(c *fiber.Ctx) error {
+	ctx := c.UserContext()
+	claims, err := tokenutils.GetJWTClaims(c)
+	if err != nil {
+		logger.Error("Failed to get JWT claims", zap.Error(err))
+		return response.ResponseError(c, 401, "Token tidak valid", "", "Anda harus login terlebih dahulu")
+	}
+	userId := uint(claims["user_id"].(float64))
+	notificationID, err := c.ParamsInt("notificationID")
+	if err != nil {
+		logger.Error("Failed to parse notification ID", zap.Error(err))
+		return response.ResponseError(c, 400, "ID notifikasi tidak valid", "", "ID notifikasi harus berupa angka")
+	}
+	err = h.notificationService.DeleteNotification(ctx, userId, uint(notificationID))
+	if err != nil {
+		logger.Error("Failed to delete notification", zap.Error(err))
+		if appErr, ok := err.(*apperror.AppError); ok {
+			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+		}
+		return response.ResponseError(c, 500, "Gagal menghapus notifikasi", "", err.Error())
+	}
+	return response.ResponseSuccess(c, 200, "Berhasil menghapus notifikasi", "data", nil)
+}
+
+func (h *NotificationHandler) DeleteAllNotifications(c *fiber.Ctx) error {
+	ctx := c.UserContext()
+	claims, err := tokenutils.GetJWTClaims(c)
+	if err != nil {
+		logger.Error("Failed to get JWT claims", zap.Error(err))
+		return response.ResponseError(c, 401, "Token tidak valid", "", "Anda harus login terlebih dahulu")
+	}
+
+	userId := uint(claims["user_id"].(float64))
+	err = h.notificationService.DeleteAllNotifications(ctx, userId)
+	if err != nil {
+		logger.Error("Failed to delete all notifications", zap.Error(err))
+		if appErr, ok := err.(*apperror.AppError); ok {
+			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+		}
+		return response.ResponseError(c, 500, "Gagal menghapus semua notifikasi", "", err.Error())
+	}
+	return response.ResponseSuccess(c, 200, "Berhasil menghapus semua notifikasi", "data", nil)
+}
