@@ -188,7 +188,7 @@ func (h *UserHandler) GetUserSearch(c *fiber.Ctx) error {
 	}
 
 	var nextCursorUsersData *uint = nil
-	if len(searchData.UsersData) > 0 {
+	if len(searchData.UsersData) > 0 && len(searchData.UsersData) == defaultLimit {
 		lastUser := searchData.UsersData[len(searchData.UsersData)-1]
 		nextCursorUsersData = &lastUser.UserID
 	}
