@@ -34,6 +34,12 @@ type ReactReportResponse struct {
 	UpdatedAt    int64  `json:"updatedAt"`
 }
 
+type SaveReportResponse struct {
+	ReportID uint `json:"reportID"`
+	UserID   uint `json:"userID"`
+	Save     bool `json:"save"`
+}
+
 type UploadProgressReportResponse struct {
 	ReportID              uint    `json:"reportID"`
 	Status                string  `json:"status"`

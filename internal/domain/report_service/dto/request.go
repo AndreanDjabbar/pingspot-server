@@ -58,6 +58,10 @@ type ReactionReportRequest struct {
 	ReactionType string `json:"reactionType" validate:"required,oneof=LIKE DISLIKE"`
 }
 
+type SaveReportRequest struct {
+	Save *bool `json:"save" validate:"required"`
+}
+
 type VoteReportRequest struct {
 	VoteType string `json:"voteType" validate:"required,oneof=RESOLVED ON_PROGRESS NOT_RESOLVED"`
 }
