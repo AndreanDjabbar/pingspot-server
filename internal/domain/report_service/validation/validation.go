@@ -366,3 +366,19 @@ func FormatCreateReportCommentValidationErrors(err error) map[string]string {
 	}
 	return errors
 }
+
+func FormatSaveReportValidationErrors(err error) map[string]string {
+	errors := map[string]string{}
+	if err == nil {
+		return errors
+	}
+	for _, e := range err.(validator.ValidationErrors) {
+		switch e.Field() {
+		case "Save":
+			if e.Tag() == "required" {
+				errors["save"] = "Field save wajib diisi"
+			}
+		}
+	}
+	return errors
+}
