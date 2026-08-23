@@ -46,6 +46,7 @@ type Report struct {
 	TotalVotes                 int64                       `json:"totalVotes"`
 	IsLikedByCurrentUser       bool                        `json:"isLikedByCurrentUser"`
 	IsDislikedByCurrentUser    bool                        `json:"isDislikedByCurrentUser"`
+	ReportSaved                 *ReportSaved                 `json:"reportSaved,omitempty"`
 	ReportReactions            []ReactReportResponse       `json:"reportReactions"`
 	ReportProgress             []GetProgressReportResponse `json:"reportProgress"`
 	ReportVotes                []GetVoteReportResponse     `json:"reportVotes,omitempty"`
@@ -118,4 +119,10 @@ type CommentReply struct {
 	ParentCommentID *string               `json:"parentCommentID"`
 	CreatedAt       int64                 `json:"createdAt"`
 	UpdatedAt       *int64                `json:"updatedAt,omitempty"`
+}
+
+type ReportSaved struct {
+	ReportID uint `json:"reportID"`
+	UserID   uint `json:"userID"`
+	Save     bool `json:"save"`
 }

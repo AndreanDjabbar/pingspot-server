@@ -362,6 +362,11 @@ func (s *ReportService) GetAllReport(ctx context.Context, userID, cursorID uint,
 			return nil, apperror.New(500, "VOTE_COUNT_FAILED", "Gagal mendapatkan suara 'ON_PROGRESS'", err.Error(), nil)
 		}
 
+		reportSaved, err := s.reportSavedRepo.GetByUserIDAndReportID(ctx, userID, report.ID)
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperror.New(500, "REPORT_SAVED_FETCH_FAILED", "Gagal mendapatkan status simpan laporan", err.Error(), nil)
+		}
+
 		fullReports = append(fullReports, dto.Report{
 			ID:                report.ID,
 			ReportTitle:       report.ReportTitle,
@@ -372,6 +377,11 @@ func (s *ReportService) GetAllReport(ctx context.Context, userID, cursorID uint,
 			UserName:          report.User.Username,
 			FullName:          report.User.FullName,
 			ProfilePicture:    report.User.Profile.ProfilePicture,
+			ReportSaved: &dto.ReportSaved{
+				UserID: userID,
+				ReportID: report.ID,
+				Save: reportSaved != nil,
+			},
 			Location: dto.ReportLocation{
 				DetailLocation: report.ReportLocation.DetailLocation,
 				Latitude:       report.ReportLocation.Latitude,
@@ -508,6 +518,12 @@ func (s *ReportService) GetReportByID(ctx context.Context, userID, reportID uint
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, apperror.New(500, "VOTE_COUNT_FAILED", "Gagal mendapatkan suara 'ON_PROGRESS'", err.Error(), nil)
 	}
+
+	reportSaved, err := s.reportSavedRepo.GetByUserIDAndReportID(ctx, userID, report.ID)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, apperror.New(500, "REPORT_SAVED_FETCH_FAILED", "Gagal mendapatkan status simpan laporan", err.Error(), nil)
+	}
+
 	fullReport := dto.Report{
 		ID:                report.ID,
 		ReportTitle:       report.ReportTitle,
@@ -518,6 +534,11 @@ func (s *ReportService) GetReportByID(ctx context.Context, userID, reportID uint
 		UserName:          report.User.Username,
 		FullName:          report.User.FullName,
 		ProfilePicture:    report.User.Profile.ProfilePicture,
+		ReportSaved: &dto.ReportSaved{
+			UserID: userID,
+			ReportID: report.ID,
+			Save: reportSaved != nil,
+		},
 		Location: dto.ReportLocation{
 			DetailLocation: report.ReportLocation.DetailLocation,
 			Latitude:       report.ReportLocation.Latitude,
