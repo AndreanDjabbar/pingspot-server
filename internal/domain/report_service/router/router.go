@@ -25,6 +25,7 @@ func RegisterReportRoutes(app *fiber.App) {
 	reportImageRepo := reportRepository.NewReportImageRepository(postgreDB)
 	reportReactionRepo := reportRepository.NewReportReactionRepository(postgreDB)
 	reportVoteRepo := reportRepository.NewReportVoteRepository(postgreDB)
+	reportSavedRepo := reportRepository.NewReportSavedRepository(postgreDB)
 	reportProgressRepo := reportRepository.NewReportProgressRepository(postgreDB)
 	userProfileRepo := userRepository.NewUserProfileRepository(postgreDB)
 	userRepo := userRepository.NewUserRepository(postgreDB)
@@ -44,7 +45,9 @@ func RegisterReportRoutes(app *fiber.App) {
 		userProfileRepo, 
 		reportProgressRepo, 
 		reportVoteRepo, 
-		tasksService, reportCommentRepository,
+		tasksService, 
+		reportCommentRepository,
+		reportSavedRepo,
 	)
 
 	reportHandler := handler.NewReportHandler(reportService)
@@ -164,5 +167,16 @@ func RegisterReportRoutes(app *fiber.App) {
 		KeyPrefix: "report_statistics",
 	})),  
 	reportHandler.GetReportStatisticsHandler,
+	)
+
+	reportRoute.Post(
+		"/:reportID/save",
+		middleware.TimeoutMiddleware(5*time.Second),
+		middleware.UserRateLimiterMiddleware(middleware.NewRateLimiter(middleware.RateLimiterConfig{
+			Window:      1 * time.Minute,
+			MaxRequests: 30,
+			KeyPrefix: "create_report_saved",
+		})), 
+		reportHandler.SaveReportHandler,
 	)
 }

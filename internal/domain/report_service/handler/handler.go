@@ -910,3 +910,40 @@ func (h *ReportHandler) GetReportCommentRepliesHandler(c *fiber.Ctx) error {
 	}
 	return response.ResponseSuccess(c, 200, "Sukses mengambil balasan komentar laporan", "data", mappedData)
 }
+
+func (h *ReportHandler) SaveReportHandler(c *fiber.Ctx) error {
+	ctx := c.UserContext()
+	reportIDParam := c.Params("reportID")
+	uintReportID, err := mainutils.StringToUint(reportIDParam)
+	if err != nil {
+		logger.Error("Invalid reportID format", zap.String("reportID", reportIDParam), zap.Error(err))
+		return response.ResponseError(c, 400, "Format reportID tidak valid", "", "reportID harus berupa angka")
+	}
+
+	var req dto.SaveReportRequest
+	if err := c.BodyParser(&req); err != nil {
+		logger.Error("Failed to parse request body", zap.Error(err))
+		return response.ResponseError(c, 400, "Format body request tidak valid", "", err.Error())
+	}
+	if err := validation.Validate.Struct(req); err != nil {
+		errors := validation.FormatSaveReportValidationErrors(err)
+		logger.Error("Validation failed", zap.Error(err))
+		return response.ResponseError(c, 400, "Validasi gagal", "errors", errors)
+	}
+
+	claims, err := tokenutils.GetJWTClaims(c)
+	if err != nil {
+		logger.Error("Failed to get JWT claims", zap.Error(err))
+		return response.ResponseError(c, 401, "Token tidak valid", "", "Anda harus login terlebih dahulu")
+	}
+	userID := uint(claims["user_id"].(float64))
+	save, err := h.reportService.SaveReport(ctx, userID, uintReportID, *req.Save)
+	if err != nil {
+		logger.Error("Failed to save report", zap.Uint("reportID", uintReportID), zap.Uint("userID", userID), zap.Error(err))
+		if appErr, ok := err.(*apperror.AppError); ok {
+			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+		}
+		return response.ResponseError(c, 500, "Gagal menyimpan laporan", "", err.Error())
+	}
+	return response.ResponseSuccess(c, 200, "Laporan berhasil disimpan", "", save)
+}

@@ -37,6 +37,7 @@ type ReportService struct {
 	userRepo           userRepository.UserRepository
 	userProfileRepo    userRepository.UserProfileRepository
 	reportCommentRepo  reportRepository.ReportCommentRepository
+	reportSavedRepo    reportRepository.ReportSavedRepository
 }
 
 func NewreportService(
@@ -52,6 +53,7 @@ func NewreportService(
 	reportVoteRepo reportRepository.ReportVoteRepository,
 	tasksService tasksService.TaskService,
 	reportCommentRepo reportRepository.ReportCommentRepository,
+	reportSavedRepo reportRepository.ReportSavedRepository,
 ) *ReportService {
 	return &ReportService{
 		postgreDB:          postgreDB,
@@ -66,6 +68,7 @@ func NewreportService(
 		reportVoteRepo:     reportVoteRepo,
 		tasksService:       tasksService,
 		reportCommentRepo:  reportCommentRepo,
+		reportSavedRepo:    reportSavedRepo,
 	}
 }
 
@@ -1403,4 +1406,143 @@ func (s *ReportService) GetReportCommentReplies(ctx context.Context, rootID stri
 		HasMore:     hasMore,
 		TotalCounts: total,
 	}, nil
+}
+
+func (s *ReportService) SaveReport(ctx context.Context, userID uint, reportID uint, save bool) (*dto.SaveReportResponse, error) {
+	_, err := s.userRepo.GetByID(ctx, userID)
+    if err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            return nil, apperror.New(
+                404,
+                "USER_NOT_FOUND",
+                "Pengguna tidak ditemukan",
+                "",
+                nil,
+            )
+        }
+
+        return nil, apperror.New(
+            500,
+            "USER_FETCH_FAILED",
+            "Gagal mengambil data pengguna",
+            err.Error(),
+            nil,
+        )
+    }
+
+    _, err = s.reportRepo.GetByID(ctx, reportID)
+    if err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            return nil, apperror.New(
+                404,
+                "REPORT_NOT_FOUND",
+                "Laporan tidak ditemukan",
+                "",
+                nil,
+            )
+        }
+
+        return nil, apperror.New(
+            500,
+            "REPORT_FETCH_FAILED",
+            "Gagal mengambil laporan",
+            err.Error(),
+            nil,
+        )
+    }
+
+    savedReport, err := s.reportSavedRepo.GetByUserIDAndReportID(
+        ctx,
+        userID,
+        reportID,
+    )
+
+    if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+        return nil, apperror.New(
+            500,
+            "SAVED_REPORT_FETCH_FAILED",
+            "Gagal mengambil data laporan tersimpan",
+            err.Error(),
+            nil,
+        )
+    }
+
+    tx := s.postgreDB.WithContext(ctx).Begin()
+    if tx.Error != nil {
+        return nil, apperror.New(
+            500,
+            "TRANSACTION_START_FAILED",
+            "Gagal memulai transaksi",
+            tx.Error.Error(),
+            nil,
+        )
+    }
+
+    defer func() {
+        if r := recover(); r != nil {
+            tx.Rollback()
+            panic(r)
+        }
+    }()
+
+    if save {
+        if savedReport == nil {
+            err := s.reportSavedRepo.CreateTX(
+                ctx,
+                tx,
+                &model.ReportSaved{
+                    UserID:   userID,
+                    ReportID: reportID,
+                },
+            )
+
+            if err != nil {
+                tx.Rollback()
+
+                return nil, apperror.New(
+                    500,
+                    "SAVED_REPORT_CREATE_FAILED",
+                    "Gagal menyimpan laporan",
+                    err.Error(),
+                    nil,
+                )
+            }
+        }
+    } else {
+        if savedReport != nil {
+            err := s.reportSavedRepo.DeleteTX(
+                ctx,
+                tx,
+                savedReport,
+            )
+
+            if err != nil {
+                tx.Rollback()
+
+                return nil, apperror.New(
+                    500,
+                    "SAVED_REPORT_DELETE_FAILED",
+                    "Gagal menghapus laporan tersimpan",
+                    err.Error(),
+                    nil,
+                )
+            }
+        }
+    }
+
+    if err := tx.Commit().Error; err != nil {
+        return nil, apperror.New(
+            500,
+            "TRANSACTION_COMMIT_FAILED",
+            "Gagal menyimpan perubahan laporan",
+            err.Error(),
+            nil,
+        )
+    }
+
+    return &dto.SaveReportResponse{
+        ReportID: reportID,
+        UserID:   userID,
+        Save:     save,
+    }, nil
 }
