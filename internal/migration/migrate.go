@@ -90,24 +90,6 @@ func Migrate(db *gorm.DB) error {
 			},
 		},
 		{
-			ID: "04052026_add_last_reminder_at_to_users",
-			Migrate: func(tx *gorm.DB) error {
-				return tx.AutoMigrate(&model.User{})
-			},
-			Rollback: func(tx *gorm.DB) error {
-				return tx.Migrator().DropColumn(&model.User{}, "last_reminder_at")
-			},
-		},
-		{
-			ID: "05162026_remove_last_reminder_at_from_users",
-			Migrate: func(tx *gorm.DB) error {
-				return tx.Migrator().DropColumn(&model.User{}, "last_reminder_at")
-			},
-			Rollback: func(tx *gorm.DB) error {
-				return tx.AutoMigrate(&model.User{})
-			},
-		},
-		{
 			ID: "06072026_add_unique_constraint_to_report_votes",
 			Migrate: func(tx *gorm.DB) error {
 				return tx.Migrator().CreateIndex(&model.ReportVote{}, "idx_user_report_vote")
