@@ -1148,8 +1148,8 @@ func (s *ReportService) CreateReportComment(ctx context.Context, userID, reportI
 		if err == nil && parentComment.UserID != userID && parentComment.UserID != report.UserID {
 			if err := s.tasksService.CreateNotificationTask(
 				parentComment.UserID,
+				"Seseorang membalas komentar Anda",
 				fmt.Sprintf("Pengguna %s membalas komentar Anda", commenter.Username),
-				fmt.Sprintf("/reports/%d", reportID),
 				mainutils.StrPtrOrNil(newCommentID),
 				model.EntityTypeComment,
 				model.ReportNotificationCategory,
