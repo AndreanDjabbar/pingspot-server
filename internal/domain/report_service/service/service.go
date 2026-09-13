@@ -1567,3 +1567,23 @@ func (s *ReportService) SaveReport(ctx context.Context, userID uint, reportID ui
         Save:     save,
     }, nil
 }
+
+func (s *ReportService) GetSavedReports(ctx context.Context, userID uint, cursorID *string) (*dto.GetSavedReportsResponse, error) {
+	isDeleted := false
+	limit := 20
+
+	savedReports, err := s.reportSavedRepo.GetByUserIDIsDeletedPaginated(ctx, userID, isDeleted, limit, cursorID)
+	if err != nil {
+		return nil, apperror.New(
+			500,
+			"SAVED_REPORTS_FETCH_FAILED",
+			"Gagal mengambil laporan tersimpan",
+			err.Error(),
+			nil,
+		)
+	}
+
+	return &dto.GetSavedReportsResponse{
+		SavedReports: savedReports,
+	}, nil
+}

@@ -947,3 +947,35 @@ func (h *ReportHandler) SaveReportHandler(c *fiber.Ctx) error {
 	}
 	return response.ResponseSuccess(c, 200, "Laporan berhasil disimpan", "", save)
 }
+
+func (h *ReportHandler) GetSavedReportsHandler(c *fiber.Ctx) error {
+	cursorID := c.Query("cursorID")
+
+	claims, err := tokenutils.GetJWTClaims(c)
+	if err != nil {
+		logger.Error("Failed to get JWT claims", zap.Error(err))
+		return response.ResponseError(c, 401, "Token tidak valid", "", "Anda harus login terlebih dahulu")
+	}
+	userID := uint(claims["user_id"].(float64))
+
+	savedReports, err := h.reportService.GetSavedReports(c.UserContext(), userID, mainutils.StrPtrOrNil(cursorID))
+	if err != nil {
+		logger.Error("Failed to get saved reports", zap.Uint("userID", userID), zap.Error(err))
+		if appErr, ok := err.(*apperror.AppError); ok {
+			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+		}
+		return response.ResponseError(c, 500, "Gagal mendapatkan laporan tersimpan", "", err.Error())
+	}
+
+	var nextCursor *uint = nil
+	if len(*savedReports.SavedReports) > 0 {
+		lastReport := (*savedReports.SavedReports)[len(*savedReports.SavedReports)-1]
+		nextCursor = &lastReport.ReportSavedID
+	}
+
+	mappedData := fiber.Map{
+		"savedReports": savedReports,
+		"nextCursor":   nextCursor,
+	}
+	return response.ResponseSuccess(c, 200, "Berhasil mengambil laporan tersimpan", "data", mappedData)	
+}
