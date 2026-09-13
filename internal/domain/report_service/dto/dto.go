@@ -121,6 +121,22 @@ type CommentReply struct {
 	UpdatedAt       *int64                `json:"updatedAt,omitempty"`
 }
 
+type GetSavedReports struct {
+	ReportSavedID uint `json:"reportSavedID"`
+	ReportID uint `json:"reportID"`
+	UserID   uint `json:"userID"`
+	ReportTitle string `json:"reportTitle"`
+	ReportType string `json:"reportType"`
+	ReportDescription string `json:"reportDescription"`
+	ReportStatus string `json:"reportStatus"`
+	ReportLatitude float64 `json:"reportLatitude"`
+	ReportLongitude float64 `json:"reportLongitude"`
+	ReportMapZoom int `json:"reportMapZoom"`
+	ReportCountry string `json:"reportCountry"`
+	ReportCountryCode string `json:"reportCountryCode"`
+	ReportState string `json:"reportState"`
+}
+
 type ReportSaved struct {
 	ReportID uint `json:"reportID"`
 	UserID   uint `json:"userID"`

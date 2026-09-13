@@ -102,3 +102,7 @@ type GetReportStatisticsResponse struct {
 	ReportsByStatus     map[string]int64 `json:"reportsByStatus"`
 	MonthlyReportCounts map[string]int64 `json:"monthlyReportCounts"`
 }
+
+type GetSavedReportsResponse struct {
+	SavedReports *[]GetSavedReports `json:"savedReports"`
+}
