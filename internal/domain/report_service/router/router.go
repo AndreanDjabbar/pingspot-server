@@ -179,4 +179,15 @@ func RegisterReportRoutes(app *fiber.App) {
 		})), 
 		reportHandler.SaveReportHandler,
 	)
+
+	reportRoute.Get(
+		"/save",
+		middleware.TimeoutMiddleware(15*time.Second),
+		middleware.UserRateLimiterMiddleware(middleware.NewRateLimiter(middleware.RateLimiterConfig{
+			Window:      1 * time.Minute,
+			MaxRequests: 100,
+			KeyPrefix: "get_saved_reports",
+		})),  
+		reportHandler.GetSavedReportsHandler,
+	)
 }
