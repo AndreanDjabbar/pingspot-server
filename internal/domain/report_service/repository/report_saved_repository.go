@@ -86,6 +86,9 @@ func (r *reportSavedRepository) GetByUserIDIsDeletedPaginated(
 			rs.id AS report_saved_id,
 			r.id AS report_id,
 			r.user_id AS user_id,
+			u.username AS user_name,
+			u.full_name AS full_name,
+			up.profile_picture AS profile_picture,
 			r.report_title AS report_title,
 			r.report_type AS report_type,
 			r.report_description AS report_description,
@@ -99,6 +102,8 @@ func (r *reportSavedRepository) GetByUserIDIsDeletedPaginated(
 		`).
 		Joins("JOIN reports r ON r.id = rs.report_id").
 		Joins("JOIN report_locations rl ON rl.report_id = r.id").
+		Joins("JOIN users u ON u.id = r.user_id").
+		Joins("LEFT JOIN user_profiles up ON up.user_id = u.id").
 		Where("rs.id IN ?", reportSavedIDs)
 
 	if err := query.Scan(&savedReports).Error; err != nil {

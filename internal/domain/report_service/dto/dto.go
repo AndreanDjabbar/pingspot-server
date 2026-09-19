@@ -125,6 +125,9 @@ type GetSavedReports struct {
 	ReportSavedID uint `json:"reportSavedID"`
 	ReportID uint `json:"reportID"`
 	UserID   uint `json:"userID"`
+	UserName string `json:"userName"`
+	FullName string `json:"fullName"`
+	ProfilePicture	*string `json:"profilePicture"`
 	ReportTitle string `json:"reportTitle"`
 	ReportType string `json:"reportType"`
 	ReportDescription string `json:"reportDescription"`
