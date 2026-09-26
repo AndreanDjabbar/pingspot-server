@@ -232,6 +232,14 @@ func Int64PtrOrNil(i int64) *int64 {
 	return &i
 }
 
+func UintToStrPtr(u uint) *string {
+	if u == 0 {
+		return nil
+	}
+	s := strconv.FormatUint(uint64(u), 10)
+	return &s
+}
+
 func StringToInt(s string) (int, error) {
 	if s == "" {
 		return 0, nil
