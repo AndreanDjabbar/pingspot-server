@@ -99,10 +99,11 @@ func (h *SocialHandler) GetFollowDataHandler(c *fiber.Ctx) error {
 	return response.ResponseSuccess(c, 200, "Berhasil mendapatkan data following", "data", followingData)
 }
 
-func (h *SocialHandler) GetUserConnectionsHandler(c *fiber.Ctx) error {
+func (h *SocialHandler) GetUserConnectionsFollowersHandler(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
 	userIDParam := c.Params("userID")
+	cursorID := c.Query("cursorID")
 
 	userID, err := mainutils.StringToUint(userIDParam)
 	if err != nil {
@@ -110,7 +111,7 @@ func (h *SocialHandler) GetUserConnectionsHandler(c *fiber.Ctx) error {
 		return response.ResponseError(c, 400, "Format userID tidak valid", "", "userID harus berupa angka")
 	}
 
-	userConnections, err := h.socialService.GetUserConnections(ctx, userID)
+	userConnectionsFollowers, err := h.socialService.GetUserConnectionsFollowers(ctx, userID, mainutils.StrPtrOrNil(cursorID))
 	if err != nil {
 		logger.Error("Failed to get user connections", zap.Error(err))
 		if appErr, ok := err.(*apperror.AppError); ok {
@@ -119,5 +120,51 @@ func (h *SocialHandler) GetUserConnectionsHandler(c *fiber.Ctx) error {
 		return response.ResponseError(c, 500, "Gagal mendapatkan data koneksi pengguna", "", err.Error())
 	}
 
-	return response.ResponseSuccess(c, 200, "Berhasil mendapatkan data koneksi pengguna", "data", userConnections)
+	var nextCursorID *string
+	if len(userConnectionsFollowers.Followers) > 0 {
+		lastFollower := userConnectionsFollowers.Followers[len(userConnectionsFollowers.Followers)-1]
+		nextCursorID = mainutils.UintToStrPtr(lastFollower.FollowID)
+	}
+
+	mappedData := fiber.Map{
+		"followers":  userConnectionsFollowers.Followers,
+		"nextCursor": nextCursorID,
+	}
+
+	return response.ResponseSuccess(c, 200, "Berhasil mendapatkan data koneksi pengguna", "data", mappedData)
+}
+
+func (h *SocialHandler) GetUserConnectionsFollowingHandler(c *fiber.Ctx) error {
+	ctx := c.UserContext()
+
+	userIDParam := c.Params("userID")
+	cursorID := c.Query("cursorID")
+
+	userID, err := mainutils.StringToUint(userIDParam)
+	if err != nil {
+		logger.Error("Invalid userID format", zap.String("userID", userIDParam), zap.Error(err))
+		return response.ResponseError(c, 400, "Format userID tidak valid", "", "userID harus berupa angka")
+	}
+
+	userConnections, err := h.socialService.GetUserConnectionsFollowing(ctx, userID, mainutils.StrPtrOrNil(cursorID))
+	if err != nil {
+		logger.Error("Failed to get user connections", zap.Error(err))
+		if appErr, ok := err.(*apperror.AppError); ok {
+			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+		}
+		return response.ResponseError(c, 500, "Gagal mendapatkan data koneksi pengguna", "", err.Error())
+	}
+
+	var nextCursorID *string
+	if len(userConnections.Following) > 0 {
+		lastFollowing := userConnections.Following[len(userConnections.Following)-1]
+		nextCursorID = mainutils.UintToStrPtr(lastFollowing.FollowID)
+	}
+
+	mappedData := fiber.Map{
+		"following":  userConnections.Following,
+		"nextCursor": nextCursorID,
+	}
+
+	return response.ResponseSuccess(c, 200, "Berhasil mendapatkan data koneksi pengguna", "data", mappedData)
 }

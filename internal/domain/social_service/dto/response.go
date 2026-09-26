@@ -18,3 +18,11 @@ type GetUserConnectionsResponse struct {
 	Followers []*UserConnection `json:"followers"`
 	Following []*UserConnection `json:"following"`
 }
+
+type GetUserConnectionsFollowersResponse struct {
+	Followers []*UserConnection `json:"followers"`
+}
+
+type GetUserConnectionsFollowingResponse struct {
+	Following []*UserConnection `json:"following"`
+}

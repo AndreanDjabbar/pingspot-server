@@ -12,9 +12,15 @@ type Follow struct {
 
 type UserConnection struct {
 	UserID   uint   `json:"userID"`
+	FollowID uint   `json:"followID"`
 	Username string `json:"username"`
 	FullName string `json:"fullName"`
 	ProfilePicture *string `json:"profilePicture"`
 	Status   string `json:"status"`
 	Relation string `json:"relation"`
+}
+
+type GetConnectionsRepositoryResponse struct {
+	User *model.User `json:"user"`
+	Follow *model.Follow `json:"follow"`
 }

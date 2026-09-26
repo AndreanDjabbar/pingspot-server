@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"pingspot/internal/domain/social_service/dto"
 	"pingspot/internal/model"
 
 	"gorm.io/gorm"
@@ -15,6 +16,8 @@ type FollowRepository interface {
 	GetFollowingCount(ctx context.Context, followerUserID uint, followingType model.FollowingType) (int64, error)
 	GetFollowersByUserID(ctx context.Context, userID uint) ([]*model.User, error)
 	GetFollowingByUserID(ctx context.Context, userID uint) ([]*model.User, error)
+	GetFollowersByUserIDPaginated(ctx context.Context, userID uint, limit int, cursorID *string) ([]*dto.GetConnectionsRepositoryResponse, error)
+	GetFollowingByUserIDPaginated(ctx context.Context, userID uint, limit int, cursorID *string) ([]*dto.GetConnectionsRepositoryResponse, error)
 }
 
 type followRepository struct {
@@ -91,4 +94,106 @@ func (r *followRepository) GetFollowingByUserID(ctx context.Context, userID uint
     }
 
     return following, nil
+}
+
+func (r *followRepository) GetFollowersByUserIDPaginated(ctx context.Context, userID uint, limit int, cursorID *string) ([]*dto.GetConnectionsRepositoryResponse, error) {
+	type row struct {
+		model.User
+		FollowID       uint
+		FollowerUserID uint
+		FollowingID    uint
+		FollowingType  model.FollowingType
+		FollowCreatedAt int64
+	}
+
+	var rows []row
+
+	query := r.db.WithContext(ctx).
+		Table("follows").
+		Select(`users.*, 
+			follows.id as follow_id, 
+			follows.follower_user_id, 
+			follows.following_id, 
+			follows.following_type, 
+			follows.created_at as follow_created_at`).
+		Joins("JOIN users ON follows.follower_user_id = users.id").
+		Where("follows.following_id = ? AND follows.following_type = ?", userID, model.FollowingTypeUser).
+		Order("follows.id DESC").
+		Limit(limit)
+
+	if cursorID != nil && *cursorID != "" {
+		query = query.Where("follows.id < ?", *cursorID)
+	}
+
+	if err := query.Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	items := make([]*dto.GetConnectionsRepositoryResponse, 0, len(rows))
+	for _, rr := range rows {
+		u := rr.User
+		items = append(items, &dto.GetConnectionsRepositoryResponse{
+			User: &u,
+			Follow: &model.Follow{
+				ID:             rr.FollowID,
+				FollowerUserID: rr.FollowerUserID,
+				FollowingID:    rr.FollowingID,
+				FollowingType:  rr.FollowingType,
+				CreatedAt:      rr.FollowCreatedAt,
+			},
+		})
+	}
+
+	return items, nil
+}
+
+func (r *followRepository) GetFollowingByUserIDPaginated(ctx context.Context, userID uint, limit int, cursorID *string) ([]*dto.GetConnectionsRepositoryResponse, error) {
+	type row struct {
+		model.User
+		FollowID       uint
+		FollowerUserID uint
+		FollowingID    uint
+		FollowingType  model.FollowingType
+		FollowCreatedAt int64
+	}
+
+	var rows []row
+
+	query := r.db.WithContext(ctx).
+		Table("follows").
+		Select(`users.*, 
+			follows.id as follow_id, 
+			follows.follower_user_id, 
+			follows.following_id, 
+			follows.following_type, 
+			follows.created_at as follow_created_at`).
+		Joins("JOIN users ON follows.following_id = users.id").
+		Where("follows.follower_user_id = ? AND follows.following_type = ?", userID, model.FollowingTypeUser).
+		Order("follows.id DESC").
+		Limit(limit)
+
+	if cursorID != nil && *cursorID != "" {
+		query = query.Where("follows.id < ?", *cursorID)
+	}
+
+	if err := query.Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	items := make([]*dto.GetConnectionsRepositoryResponse, 0, len(rows))
+	for _, rr := range rows {
+		u := rr.User
+		items = append(items, &dto.GetConnectionsRepositoryResponse{
+			User: &u,
+			Follow: &model.Follow{
+				ID:             rr.FollowID,
+				FollowerUserID: rr.FollowerUserID,
+				FollowingID:    rr.FollowingID,
+				FollowingType:  rr.FollowingType,
+				CreatedAt:      rr.FollowCreatedAt,
+			},
+		})
+	}
+
+	return items, nil
 }
