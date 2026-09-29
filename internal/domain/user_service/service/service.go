@@ -278,6 +278,7 @@ func (s *UserService) GetProfile(ctx context.Context, userID uint) (*dto.GetProf
 		Gender:         user.Profile.Gender,
 		Email:          user.Email,
 		IsCompleteProfile: isCompleteProfile,
+		IsDisableEmailNotification: user.IsDisableEmailNotification,
 		MissingFields:     missingFields,
 		IsDefaultUsername: user.IsDefaultUsername,
 	}, nil
@@ -309,6 +310,24 @@ func (s *UserService) SaveSecurity(ctx context.Context, userID uint, req dto.Sav
 	user.Password = &hashedPassword
 	if err := s.userRepo.Save(ctx, user); err != nil {
 		return apperror.New(500, "PASSWORD_UPDATE_FAILED", "Gagal memperbarui kata sandi", err.Error(), nil)
+	}
+
+	return nil
+}
+
+func (s *UserService) UpdateEmailNotificationPreference(ctx context.Context, userID uint, req dto.UpdateEmailNotificationPreferenceRequest) error {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return apperror.New(404, "USER_NOT_FOUND", "pengguna tidak ditemukan", "", nil)
+		}
+		return apperror.New(500, "USER_FETCH_FAILED", "gagal mengambil data pengguna", err.Error(), nil)
+	}
+
+	user.IsDisableEmailNotification = *req.IsDisableEmailNotification
+
+	if err := s.userRepo.Save(ctx, user); err != nil {
+		return apperror.New(500, "EMAIL_NOTIFICATION_UPDATE_FAILED", "Gagal memperbarui preferensi notifikasi email", err.Error(), nil)
 	}
 
 	return nil

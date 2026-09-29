@@ -15,3 +15,7 @@ type SaveUserSecurityRequest struct {
 	NewPassword          string `json:"newPassword" validate:"required,min=6"`
 	NewPasswordConfirmation   string `json:"newPasswordConfirmation" validate:"required,eqfield=NewPassword"`
 }
+
+type UpdateEmailNotificationPreferenceRequest struct {
+	IsDisableEmailNotification *bool `json:"isDisableEmailNotification" validate:"required"`
+}

@@ -30,6 +30,17 @@ func RegisterUserRoutes(app *fiber.App) {
 	userHandler.GetUserStatistics,
 	)
 
+	userRoute.Patch(
+		"/email-notification-preference",
+		middleware.TimeoutMiddleware(10*time.Second),
+		middleware.UserRateLimiterMiddleware(middleware.NewRateLimiter(middleware.RateLimiterConfig{
+			Window:      1 * time.Minute,
+			MaxRequests: 50,
+			KeyPrefix: "user_email_notification",
+		})),  
+		userHandler.UpdateEmailNotificationPreference,
+	)
+
 	userRoute.Get("/search", 
 	middleware.TimeoutMiddleware(10*time.Second),
 	middleware.UserRateLimiterMiddleware(middleware.NewRateLimiter(middleware.RateLimiterConfig{

@@ -214,3 +214,31 @@ func (h *UserHandler) GetProfileByUsernameHandler(c *fiber.Ctx) error {
 	}
 	return response.ResponseSuccess(c, 200, "Berhasil mendapatkan profil pengguna", "data", userProfile)
 }
+
+func (h *UserHandler) UpdateEmailNotificationPreference(c *fiber.Ctx) error {
+	ctx := c.UserContext()
+	var req dto.UpdateEmailNotificationPreferenceRequest
+	if err := c.BodyParser(&req); err != nil {
+		logger.Error("Failed to parse request body", zap.Error(err))
+		return response.ResponseError(c, 400, "Format body request tidak valid", "", err.Error())
+	}
+	if err := validation.Validate.Struct(req); err != nil {
+		errors := validation.FormatUpdateEmailNotificationPreferenceValidationErrors(err)
+		logger.Error("Validation failed", zap.Error(err))
+		return response.ResponseError(c, 400, "Validasi gagal", "errors", errors)
+	}
+	claims, err := tokenutils.GetJWTClaims(c)
+	if err != nil {
+		logger.Error("Failed to get JWT claims", zap.Error(err))
+		return response.ResponseError(c, 401, "Token tidak valid", "", "Anda harus login terlebih dahulu")
+	}
+	userId := uint(claims["user_id"].(float64))
+	if err := h.userService.UpdateEmailNotificationPreference(ctx, userId, req); err != nil {
+		logger.Error("Failed to update email notification preference", zap.Error(err))
+		if appErr, ok := err.(*apperror.AppError); ok {
+			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+		}
+		return response.ResponseError(c, 500, "Gagal memperbarui preferensi notifikasi email", "", err.Error())
+	}
+	return response.ResponseSuccess(c, 200, "Preferensi notifikasi email berhasil diperbarui", "data", nil)
+}

@@ -130,3 +130,19 @@ func FormatGetFollowDataValidationErrors(err error) map[string]string {
 	}
 	return errors
 }
+
+func FormatUpdateEmailNotificationPreferenceValidationErrors(err error) map[string]string {
+	errors := map[string]string{}
+	if err == nil {
+		return errors
+	}
+	for _, e := range err.(validator.ValidationErrors) {
+		switch e.Field() {
+		case "IsDisableEmailNotification":
+			if e.Tag() == "required" {
+				errors["isDisableEmailNotification"] = "Preferensi notifikasi email wajib diisi"
+			}
+		}
+	}
+	return errors
+}

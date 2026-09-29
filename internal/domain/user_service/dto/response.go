@@ -20,6 +20,7 @@ type GetProfileResponse struct {
 	Gender 	   		*string `json:"gender"`
 	Email			string  `json:"email"`	
 	IsDefaultUsername bool    `json:"isDefaultUsername"`
+	IsDisableEmailNotification bool    `json:"isDisableEmailNotification"`
 	IsCompleteProfile bool    `json:"isCompleteProfile"`
 	MissingFields 	[]string `json:"missingFields,omitempty"`
 }
