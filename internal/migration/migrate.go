@@ -125,6 +125,15 @@ func Migrate(db *gorm.DB) error {
 				return tx.Migrator().DropTable(&model.ReportSaved{})
 			},
 		},
+		{
+			ID: "09292026_add_is_disable_email_notification_to_users",
+			Migrate: func(tx *gorm.DB) error {
+				return tx.AutoMigrate(&model.User{})
+			},
+			Rollback: func(tx *gorm.DB) error {
+				return tx.Migrator().DropColumn(&model.User{}, "is_disable_email_notification")
+			},
+		},
 	})
 
 	err := m.Migrate()
