@@ -148,7 +148,8 @@ func getVerificationEmailTemplate() string {
 }
 
 
-func SendPasswordResetEmail(to, username, resetLink string) error {
+
+func SendPasswordResetEmail(to, username, resetLink string, isDisabled bool) error {
 	return mainutils.SendEmail(mainutils.EmailData{
 		To:            to,
 		Subject:       "Reset Password PingSpot",
@@ -158,6 +159,7 @@ func SendPasswordResetEmail(to, username, resetLink string) error {
 		TemplateData: map[string]interface{}{
 			"ResetLink": resetLink,
 		},
+		DisabledNotifications: isDisabled,
 	})
 }
 
@@ -175,7 +177,7 @@ func getPasswordResetEmailTemplate() string {
 	
 		<!-- Preheader (preview text in inbox) -->
 		<div style="display: none; max-height: 0; overflow: hidden; opacity: 0; color: #f4f3fb; font-size: 1px; line-height: 1px;">
-			Kami menerima permintaan reset password untuk akun Anda. Link berlaku selama 15 menit.
+			Kami menerima permintaan reset password untuk akun Anda. Link berlaku selama 5 menit.
 		</div>
 	
 		<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f3fb;">
@@ -232,7 +234,7 @@ func getPasswordResetEmailTemplate() string {
 								<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: 0 auto 28px;">
 									<tr>
 										<td style="padding: 6px 14px; background-color: #fffbeb; border-radius: 999px; color: #92400e; font-size: 13px; font-weight: 600;">
-											⏱️ Berlaku selama 15 menit
+											⏱️ Berlaku selama 5 menit
 										</td>
 									</tr>
 								</table>
@@ -263,7 +265,7 @@ func getPasswordResetEmailTemplate() string {
 									<tr>
 										<td style="border-top: 1px solid #ebe9f7; padding-top: 22px; text-align: center;">
 											<p style="margin: 0; color: #64688a; font-size: 14px; line-height: 1.6;">
-												🔒 Link ini akan kedaluwarsa dalam 15 menit demi keamanan Anda.<br>
+												🔒 Link ini akan kedaluwarsa dalam 5 menit demi keamanan Anda.<br>
 												Jika Anda tidak meminta reset password, abaikan email ini &mdash; password Anda tidak akan berubah.
 											</p>
 										</td>

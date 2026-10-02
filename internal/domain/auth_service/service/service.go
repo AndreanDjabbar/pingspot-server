@@ -566,7 +566,7 @@ func (s *AuthService) ForgotPasswordEmailVerification(ctx context.Context, req d
 		}
 
 		verificationLink := fmt.Sprintf("%s/auth/forgot-password/verification?code=%s&email=%s", env.ClientURL(), verificationCode, req.Email)
-		go util.SendPasswordResetEmail(req.Email, req.Email, verificationLink)
+		go util.SendPasswordResetEmail(req.Email, req.Email, verificationLink, user.IsDisableEmailNotification)
 		return nil
 	}
 	return apperror.New(404, "USER_NOT_FOUND", "User tidak ditemukan", "", nil)
