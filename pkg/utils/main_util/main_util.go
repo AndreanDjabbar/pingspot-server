@@ -94,11 +94,16 @@ type EmailData struct {
 	Subject       string
 	RecipientName string
 	EmailType     EmailType
+	DisabledNotifications bool
 	BodyTempate   string
 	TemplateData  map[string]any
 }
 
 func SendEmail(data EmailData) error {
+	if data.DisabledNotifications {
+		return nil
+	}
+
 	if data.To == "" || data.RecipientName == "" {
 		return fmt.Errorf("recipient email and name cannot be empty")
 	}
