@@ -16,6 +16,8 @@ type CacheRepository interface {
 	SRem(ctx context.Context, key string, members ...any) error
 	SIsMember(ctx context.Context, key string, member any) (bool, error)
 	TTL(ctx context.Context, key string) (time.Duration, error)
+	SetNX(ctx context.Context, key string, value any, expiration time.Duration) (bool, error)
+	FilterByCooldown(ctx context.Context, contextType string, recipientIDs []string, sourceID string, ttl time.Duration) ([]string, error)
 }
 
 type cacheRepository struct {
@@ -28,6 +30,37 @@ func NewCacheRepository(rdb *redis.UniversalClient) CacheRepository {
 
 func (r *cacheRepository) Set(ctx context.Context, key string, value any, expiration time.Duration) error {
     return (*r.rdb).Set(ctx, key, value, expiration).Err()
+}
+
+func (r *cacheRepository) SetNX(ctx context.Context, key string, value any, expiration time.Duration) (bool, error) {
+	return (*r.rdb).SetNX(ctx, key, value, expiration).Result()
+}
+
+func (r *cacheRepository) FilterByCooldown(ctx context.Context, contextType string, recipientIDs []string, sourceID string, ttl time.Duration) ([]string, error) {
+	if len(recipientIDs) == 0 {
+		return []string{}, nil
+	}
+
+	pipe := (*r.rdb).Pipeline()
+	cmds := make([]*redis.BoolCmd, len(recipientIDs))
+
+	for i, recipientID := range recipientIDs {
+		key := contextType + ":" + recipientID + ":" + sourceID
+		cmds[i] = pipe.SetNX(ctx, key, 1, ttl)
+	}
+
+	_, err := pipe.Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var allowedRecipients []string
+	for i, cmd := range cmds {
+		if cmd.Val() {
+			allowedRecipients = append(allowedRecipients, recipientIDs[i])
+		}
+	}
+	return allowedRecipients, nil
 }
 
 func (r *cacheRepository) SAdd(ctx context.Context, key string, members ...any) error {
