@@ -87,6 +87,7 @@ const (
 	EmailTypeVerification     EmailType = "verification"
 	EmailTypePasswordReset    EmailType = "password_reset"
 	EmailTypeProgressReminder EmailType = "progress_reminder"
+	EmailTypeNewReport        EmailType = "new_report"
 )
 
 type EmailData struct {
@@ -190,6 +191,33 @@ func RenderEmailTemplate(data EmailData) (string, error) {
 			ReportTitle:   reportTitle,
 			ReportLink:    reportLink,
 			DaysRemaining: daysRemaining,
+		}
+	
+	case EmailTypeNewReport:
+		reportTitle, ok := data.TemplateData["ReportTitle"].(string)
+		if !ok || reportTitle == "" {
+			return "", fmt.Errorf("report title is required for new report email")
+		}
+		reportLink, ok := data.TemplateData["ReportLink"].(string)
+		if !ok || reportLink == "" {
+			return "", fmt.Errorf("report link is required for new report email")
+		}
+		userEmail, ok := data.TemplateData["UserEmail"].(string)
+		if !ok || userEmail == "" {
+			return "", fmt.Errorf("user email is required for new report email")
+		}
+
+		templateHTML = data.BodyTempate
+		templateData = struct {
+			UserName    string
+			ReportTitle string
+			UserEmail   string
+			ReportLink  string
+		}{
+			UserName:    data.RecipientName,
+			ReportTitle: reportTitle,
+			ReportLink:  reportLink,
+			UserEmail:   userEmail,
 		}
 
 	default:
