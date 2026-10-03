@@ -15,3 +15,8 @@ type CreateNotificationPayload struct {
 	Category    model.NotificationCategory `json:"category,omitempty"`
 	Type        model.NotificationType     `json:"type,omitempty"`
 }
+
+type SendFollowerReportNotificationPayload struct {
+	Report model.Report `json:"report"`
+	User model.User   `json:"user"`
+}

@@ -4,11 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	ReportRepo "pingspot/internal/domain/report_service/repository"
-	NotificationRepo "pingspot/internal/domain/notification_service/repository"
+	notificationRepo "pingspot/internal/domain/notification_service/repository"
+	reportRepo "pingspot/internal/domain/report_service/repository"
+	socialRepo "pingspot/internal/domain/social_service/repository"
 	"pingspot/internal/domain/task_service/payload"
+	"pingspot/internal/domain/task_service/util"
 	"pingspot/internal/model"
+	cacheRepo "pingspot/internal/repository"
 	"pingspot/pkg/logger"
+	"pingspot/pkg/utils/env_util"
 	mainutils "pingspot/pkg/utils/main_util"
 	"time"
 
@@ -19,15 +23,19 @@ import (
 
 type TaskHandler struct {
 	DB         *gorm.DB
-	ReportRepo ReportRepo.ReportRepository
-	NotificationRepo NotificationRepo.NotificationRepository
+	ReportRepo reportRepo.ReportRepository
+	NotificationRepo notificationRepo.NotificationRepository
+	SocialRepo socialRepo.FollowRepository
+	CacheRepo cacheRepo.CacheRepository
 }
 
-func NewTaskHandler(db *gorm.DB, reportRepo ReportRepo.ReportRepository, notificationRepo NotificationRepo.NotificationRepository) *TaskHandler {
+func NewTaskHandler(db *gorm.DB, cacheRepo cacheRepo.CacheRepository, reportRepo reportRepo.ReportRepository, notificationRepo notificationRepo.NotificationRepository, socialRepo socialRepo.FollowRepository) *TaskHandler {
 	return &TaskHandler{
 		DB:         db,
 		ReportRepo: reportRepo,
 		NotificationRepo: notificationRepo,
+		SocialRepo: socialRepo,
+		CacheRepo: cacheRepo,
 	}
 }
 
@@ -95,4 +103,71 @@ func (h *TaskHandler) CreateNotificationHandler(ctx context.Context, t *asynq.Ta
 	Tx.Commit()
 
 	return nil
+}
+
+func (h *TaskHandler) SendFollowerReportNotificationHandler(ctx context.Context, t *asynq.Task) error {
+    var payload payload.SendFollowerReportNotificationPayload
+    if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+        return fmt.Errorf("failed to unmarshal payload: %w", err)
+    }
+
+    followers, err := h.SocialRepo.GetFollowersByUserID(ctx, payload.User.ID)
+    if err != nil {
+        return fmt.Errorf("failed to get followers: %w", err)
+    }
+
+    if len(followers) == 0 {
+        logger.Info("No followers found for user", zap.Int("user_id", int(payload.User.ID)))
+        return nil
+    }
+
+    const cooldownDuration = 10 * time.Hour
+
+    var activeFollowerIDs []string
+    followerMap := make(map[string]model.User)
+
+    for _, follower := range followers {
+        if follower.IsDisableEmailNotification {
+            continue
+        }
+
+        idStr := fmt.Sprintf("%d", follower.ID)
+        activeFollowerIDs = append(activeFollowerIDs, idStr)
+        followerMap[idStr] = *follower
+    }
+
+    if len(activeFollowerIDs) == 0 {
+        logger.Info("All followers have disabled email notifications", zap.Int("user_id", int(payload.User.ID)))
+        return nil
+    }
+
+    allowedFollowerIDs, err := h.CacheRepo.FilterByCooldown(
+        ctx, 
+        "email:follower_new_report", 
+        activeFollowerIDs, 
+        fmt.Sprintf("%d", payload.User.ID), 
+        cooldownDuration,
+    )
+    if err != nil {
+        return fmt.Errorf("failed to filter followers by cooldown: %w", err)
+    }
+
+    if len(allowedFollowerIDs) == 0 {
+        logger.Info("No followers allowed to receive notification due to cooldown", zap.Int("user_id", int(payload.User.ID)))
+        return nil
+    }
+
+    eligibleFollowers := make([]model.User, len(allowedFollowerIDs))
+    for i, idStr := range allowedFollowerIDs {
+        eligibleFollowers[i] = followerMap[idStr]
+    }
+
+    reportLink := fmt.Sprintf("%s/main/reports/%d", env_util.ClientURL(), payload.Report.ID)
+
+    if err := util.SendNotificationNewReportEmails(payload.Report, payload.User, eligibleFollowers, reportLink); err != nil {
+        logger.Error("Failed to send report notification emails", zap.Error(err))
+        return fmt.Errorf("failed to send notification emails: %w", err)
+    }
+
+    return nil
 }
