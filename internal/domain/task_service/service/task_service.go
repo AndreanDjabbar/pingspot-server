@@ -17,6 +17,7 @@ type TaskService interface {
 	AutoResolveReportTask(reportID uint) error
 	CreateNotificationTask(userID uint, title string, description string, entityID *string, entityType model.EntityType, category model.NotificationCategory, notificationType model.NotificationType) error
 	SendFollowerReportNotificationTask(report model.Report, user model.User) error
+	SendReportCommentNotificationTask(report model.Report, comment model.ReportComment, commenter model.User) error
 }
 
 type taskService struct {
@@ -70,5 +71,20 @@ func (s *taskService) SendFollowerReportNotificationTask(report model.Report, us
 		return fmt.Errorf("failed to enqueue send follower report notification task: %w", err)
 	}
 	logger.Info("Send follower report notification task enqueued for", zap.Int("report_id", int(report.ID)))
+	return nil
+}
+
+func (s *taskService) SendReportCommentNotificationTask(report model.Report, comment model.ReportComment, commenter model.User) error {
+	payload, _ := json.Marshal(payload.SendReportCommentNotificationPayload{
+		Report:  report,
+		Comment: comment,
+		Commenter:    commenter,
+	})
+	task := asynq.NewTask(tasks.TaskSendReportCommentNotification, payload)
+	_, err := s.client.Enqueue(task, asynq.ProcessIn(5*time.Second))
+	if err != nil {
+		return fmt.Errorf("failed to enqueue send report comment notification task: %w", err)
+	}
+	logger.Info("Send report comment notification task enqueued for", zap.Int("report_id", int(report.ID)))
 	return nil
 }

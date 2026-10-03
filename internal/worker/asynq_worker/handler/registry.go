@@ -27,4 +27,5 @@ func RegisterAllHandlers(mux *asynq.ServeMux) {
 	mux.HandleFunc(tasks.TaskAutoResolveReport, taskHandler.AutoResolveReportHandler)
 	mux.HandleFunc(tasks.TaskCreateNotification, taskHandler.CreateNotificationHandler)
 	mux.HandleFunc(tasks.TaskSendFollowerReportNotification, taskHandler.SendFollowerReportNotificationHandler)
+	mux.HandleFunc(tasks.TaskSendReportCommentNotification, taskHandler.SendReportCommentNotificationHandler)
 }

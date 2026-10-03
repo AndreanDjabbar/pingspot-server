@@ -20,3 +20,9 @@ type SendFollowerReportNotificationPayload struct {
 	Report model.Report `json:"report"`
 	User model.User   `json:"user"`
 }
+
+type SendReportCommentNotificationPayload struct {
+	Report  model.Report        `json:"report"`
+	Comment model.ReportComment `json:"comment"`
+	Commenter    model.User          `json:"user"`
+}

@@ -1109,17 +1109,6 @@ func (s *ReportService) CreateReportComment(ctx context.Context, userID, reportI
 		}
 	}
 
-	// for _, userMentioned := range req.Mentions {
-	// 	user, err := s.userRepo.GetByID(userMentioned)
-	// 	if err != nil {
-	// 		if errors.Is(err, gorm.ErrRecordNotFound) {
-	// 			continue
-	// 		}
-	// 		return nil, apperror.New(500, "USER_FETCH_FAILED", "Gagal mengambil data pengguna yang disebutkan")
-	// 	}
-
-	// }
-
 	var reportComment model.ReportComment
 	reportComment = model.ReportComment{
 		ReportID:        reportID,
@@ -1154,6 +1143,11 @@ func (s *ReportService) CreateReportComment(ctx context.Context, userID, reportI
 			model.NotificationTypeInfo,
 		); err != nil {
 			return nil, apperror.New(500, "NOTIFICATION_TASK_FAILED", "Gagal membuat tugas notifikasi laporan", err.Error(), nil)
+		}
+
+		if err := s.tasksService.SendReportCommentNotificationTask(*report, *reportCommentCreated, *commenter);
+		err != nil {
+			return nil, apperror.New(500, "NOTIFICATION_TASK_FAILED", "Gagal membuat tugas notifikasi email laporan", err.Error(), nil)
 		}
 	}
 

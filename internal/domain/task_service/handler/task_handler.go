@@ -171,3 +171,43 @@ func (h *TaskHandler) SendFollowerReportNotificationHandler(ctx context.Context,
 
     return nil
 }
+
+func (h *TaskHandler) SendReportCommentNotificationHandler(ctx context.Context, t *asynq.Task) error {
+	var payload payload.SendReportCommentNotificationPayload
+
+	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+		return fmt.Errorf("failed to unmarshal payload: %w", err)
+	}
+
+	if payload.Report.User.IsDisableEmailNotification {
+		logger.Info("Report owner has disabled email notifications", zap.Int("user_id", int(payload.Report.UserID)), zap.Int("report_id", int(payload.Report.ID)))
+		return nil
+	}
+
+	const cooldownDuration = 4 * time.Hour
+
+	allowedIDs, err := h.CacheRepo.FilterByCooldown(
+        ctx,
+        "email:report_comment",
+        []string{fmt.Sprintf("%d", payload.Report.UserID)},
+        fmt.Sprintf("%d", payload.Report.ID),
+        cooldownDuration,
+    )
+    if err != nil {
+        return fmt.Errorf("failed to filter comment cooldown: %w", err)
+    }
+
+    if len(allowedIDs) == 0 {
+        logger.Info("Comment email suppressed due to cooldown", zap.Int("user_id", int(payload.Report.UserID)), zap.Int("report_id", int(payload.Report.ID)))
+		return nil
+	}
+
+	reportLink := fmt.Sprintf("%s/main/reports/%d", env_util.ClientURL(), payload.Report.ID)
+
+	if err := util.SendNotificationReportCommentEmail(payload.Report, payload.Comment, payload.Commenter, reportLink); err != nil {
+		logger.Error("Failed to send report comment notification emails", zap.Error(err))
+		return fmt.Errorf("failed to send report comment notification emails: %w", err)
+	}
+
+	return nil
+}

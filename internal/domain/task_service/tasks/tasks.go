@@ -9,6 +9,7 @@ const (
 	TaskSendWelcomeEmail      = "email:send_welcome"
 	TaskSendNotificationEmail = "email:send_notification"
 	TaskSendFollowerReportNotification = "email:send_follower_report_notification"
+	TaskSendReportCommentNotification = "email:send_report_comment_notification"
 
 	TaskCleanupInactiveUsers = "user:cleanup_inactive"
 
