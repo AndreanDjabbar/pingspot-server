@@ -93,6 +93,13 @@ func (s *ReportService) CreateReport(ctx context.Context, userID uint, req dto.C
 			tx.Rollback()
 		}
 	}()
+
+	currentUser, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		tx.Rollback()
+		return nil, apperror.New(500, "USER_GET_FAILED", "Gagal mendapatkan informasi pengguna", err.Error(), nil)
+	}
+
 	var reportStruct model.Report
 	reportStruct = model.Report{
 		UserID:            userID,
@@ -150,6 +157,13 @@ func (s *ReportService) CreateReport(ctx context.Context, userID uint, req dto.C
 		tx.Rollback()
 		return nil, apperror.New(500, "REPORT_IMAGE_CREATE_FAILED", "Gagal menyimpan gambar laporan", err.Error(), nil)
 	}
+
+	if err := s.tasksService.SendFollowerReportNotificationTask(reportStruct, *currentUser); err != nil {
+		tx.Rollback()
+		return nil, apperror.New(500, "AUTO_RESOLVE_TASK_FAILED", "Gagal membuat tugas penyelesaian otomatis", err.Error(), nil)
+	}
+
+
 	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
 		return nil, apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Gagal menyimpan perubahan", err.Error(), nil)
@@ -324,7 +338,6 @@ func (s *ReportService) DeleteReport(ctx context.Context, userID, reportID uint,
 func (s *ReportService) GetAllReport(ctx context.Context, userID, cursorID uint, reportType, status, sortBy, hasProgress string, distance dto.Distance) (*dto.GetReportsResponse, error) {
 	isDeleted := false
 	limit := 5
-
 	reports, err := s.reportRepo.GetByIsDeletedPaginated(ctx, uint(limit), cursorID, reportType, status, sortBy, hasProgress, distance, isDeleted)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -866,6 +879,7 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 				report.ReportTitle,
 				reportLink,
 				7,
+				report.User.IsDisableEmailNotification,
 			)
 			if err := s.tasksService.AutoResolveReportTask(reportID); err != nil {
 				tx.Rollback()
