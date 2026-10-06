@@ -21,7 +21,7 @@ type ReportRepository interface {
 	GetByReportStatusCount(ctx context.Context, status ...string) (map[string]int64, error)
 	GetByIDIsDeleted(ctx context.Context, reportID uint, isDeleted bool) (*model.Report, error)
 	GetByIsDeleted(ctx context.Context, isDeleted bool) ([]*model.Report, error)
-	GetByIsDeletedPaginated(ctx context.Context, limit, cursorID uint, reportType, status, sortBy, hasProgress string, distance dto.Distance, isDeleted bool) (*[]model.Report, error)
+	GetByIsDeletedPaginated(ctx context.Context, limit, cursorID, userID uint, reportType, status, sortBy, hasProgress string, distance dto.Distance, isDeleted bool) (*[]model.Report, error)
 	GetPaginated(ctx context.Context, limit, cursorID uint, reportType, status, sortBy, hasProgress string, distance dto.Distance) (*[]model.Report, error)
 	GetByReportTypeCount(ctx context.Context) (*dto.TotalReportCount, error)
 	GetMonthlyReportCount(ctx context.Context) (map[string]int64, error)
@@ -339,11 +339,15 @@ func (r *reportRepository) GetPaginated(ctx context.Context, limit, cursorID uin
 	return &reports, nil
 }
 
-func (r *reportRepository) GetByIsDeletedPaginated(ctx context.Context, limit, cursorID uint, reportType, status, sortBy, hasProgress string, distance dto.Distance, isDeleted bool) (*[]model.Report, error) {
+func (r *reportRepository) GetByIsDeletedPaginated(ctx context.Context, limit, cursorID, userID uint, reportType, status, sortBy, hasProgress string, distance dto.Distance, isDeleted bool) (*[]model.Report, error) {
 	var reportIDs []int64
 	var reports []model.Report
 
 	subQuery := r.db.WithContext(ctx).Table("reports")
+
+	if userID != 0 {
+		subQuery = subQuery.Where("reports.user_id = ?", userID)
+	}
 
 	if reportType != "" && reportType != "all" {
 		subQuery = subQuery.Where("reports.report_type = ?", reportType)

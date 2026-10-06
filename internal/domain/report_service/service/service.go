@@ -335,10 +335,10 @@ func (s *ReportService) DeleteReport(ctx context.Context, userID, reportID uint,
 	return nil
 }
 
-func (s *ReportService) GetAllReport(ctx context.Context, userID, cursorID uint, reportType, status, sortBy, hasProgress string, distance dto.Distance) (*dto.GetReportsResponse, error) {
+func (s *ReportService) GetAllReport(ctx context.Context, userID, cursorID, reportOwnerID uint, reportType, status, sortBy, hasProgress string, distance dto.Distance) (*dto.GetReportsResponse, error) {
 	isDeleted := false
 	limit := 5
-	reports, err := s.reportRepo.GetByIsDeletedPaginated(ctx, uint(limit), cursorID, reportType, status, sortBy, hasProgress, distance, isDeleted)
+	reports, err := s.reportRepo.GetByIsDeletedPaginated(ctx, uint(limit), cursorID, reportOwnerID, reportType, status, sortBy, hasProgress, distance, isDeleted)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, apperror.New(404, "REPORT_NOT_FOUND", "Laporan tidak ditemukan", "", nil)

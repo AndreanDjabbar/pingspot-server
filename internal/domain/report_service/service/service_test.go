@@ -416,7 +416,7 @@ func TestReportService_GetAllReport(t *testing.T) {
 		mockReportVoteRepo.On("GetOnProgressVoteCount", ctx, uint(2)).Return(int64(0), nil)
 		mockReportVoteRepo.On("GetNotResolvedVoteCount", ctx, uint(2)).Return(int64(0), nil)
 
-		result, err := service.GetAllReport(ctx, 1, 0, "", "", "", "", distance)
+		result, err := service.GetAllReport(ctx, 1, 0, 0, "", "", "", "", distance)
 
 		assert.Nil(t, err)
 		assert.NoError(t, err)
@@ -437,7 +437,7 @@ func TestReportService_GetAllReport(t *testing.T) {
 		mockReportRepo.On("GetByIsDeletedPaginated", ctx, uint(5), uint(0), "", "", "", "", distance, false).
 			Return(nil, errors.New("database error"))
 
-		result, err := service.GetAllReport(ctx, 1, 0, "", "", "", "", distance)
+		result, err := service.GetAllReport(ctx, 1, 0, 0, "", "", "", "", distance)
 
 		assert.Error(t, err)
 		assert.Nil(t, result)

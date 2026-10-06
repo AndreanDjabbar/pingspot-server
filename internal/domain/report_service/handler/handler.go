@@ -424,6 +424,7 @@ func (h *ReportHandler) GetReportHandler(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 	reportID := c.Query("reportID")
 	cursorID := c.Query("cursorID")
+	reportOwnerID := c.Query("userID")
 	distance := c.Query("distance")
 	reportType := c.Query("reportType")
 	status := c.Query("status")
@@ -442,6 +443,11 @@ func (h *ReportHandler) GetReportHandler(c *fiber.Ctx) error {
 		logger.Error("Invalid afterID format", zap.String("afterID", cursorID), zap.Error(err))
 		return response.ResponseError(c, 400, "Format afterID tidak valid", "", "afterID harus berupa angka")
 	}
+	reportOwnerIDUint, err := mainutils.StringToUint(reportOwnerID)
+	if err != nil && reportOwnerID != "" {
+		logger.Error("Invalid userID format", zap.String("userID", reportOwnerID), zap.Error(err))
+		return response.ResponseError(c, 400, "Format userID tidak valid", "", "userID harus berupa angka")
+	}
 
 	claims, err := tokenutils.GetJWTClaims(c)
 	if err != nil {
@@ -451,7 +457,7 @@ func (h *ReportHandler) GetReportHandler(c *fiber.Ctx) error {
 	userID := uint(claims["user_id"].(float64))
 
 	if reportID == "" {
-		reports, err := h.reportService.GetAllReport(ctx, userID, cursorIDUint, reportType, status, sortBy, hasProgress, formattedDistance)
+		reports, err := h.reportService.GetAllReport(ctx, userID, cursorIDUint, reportOwnerIDUint, reportType, status, sortBy, hasProgress, formattedDistance)
 		if err != nil {
 			logger.Error("Failed to get all reports", zap.Error(err))
 			if appErr, ok := err.(*apperror.AppError); ok {

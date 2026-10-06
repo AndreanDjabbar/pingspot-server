@@ -90,8 +90,8 @@ func (m *MockReportRepository) GetByIsDeleted(ctx context.Context, isDeleted boo
 	return args.Get(0).([]*model.Report), args.Error(1)
 }
 
-func (m *MockReportRepository) GetByIsDeletedPaginated(ctx context.Context, limit, cursorID uint, reportType, status, sortBy, hasProgress string, distance dto.Distance, isDeleted bool) (*[]model.Report, error) {
-	args := m.Called(ctx, limit, cursorID, reportType, status, sortBy, hasProgress, distance, isDeleted)
+func (m *MockReportRepository) GetByIsDeletedPaginated(ctx context.Context, limit, cursorID, userID uint, reportType, status, sortBy, hasProgress string, distance dto.Distance, isDeleted bool) (*[]model.Report, error) {
+	args := m.Called(ctx, limit, cursorID, userID, reportType, status, sortBy, hasProgress, distance, isDeleted)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
