@@ -60,19 +60,19 @@ func SendNotificationReportCommentEmail(report model.Report, comment model.Repor
 
 func getReportCommentEmailTemplate() string {
 	return `<!DOCTYPE html>
-<html lang="id" xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 	<head>
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<meta name="color-scheme" content="light">
 		<meta name="supported-color-schemes" content="light">
-		<title>Komentar Baru di Laporan Anda</title>
+		<title>New Comment on Your Report</title>
 	</head>
 	<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, Helvetica, Arial, sans-serif; background-color: #f4f3fb; line-height: 1.6; -webkit-text-size-adjust: 100%;">
 	
 		<!-- Preheader (preview text in inbox) -->
 		<div style="display: none; max-height: 0; overflow: hidden; opacity: 0; color: #f4f3fb; font-size: 1px; line-height: 1px;">
-			{{.CommenterName}} berkomentar di laporan Anda: {{.ReportTitle}}
+			{{.CommenterName}} commented on your report: {{.ReportTitle}}
 		</div>
 	
 		<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f3fb;">
@@ -88,7 +88,7 @@ func getReportCommentEmailTemplate() string {
 									PingSpot
 								</h1>
 								<p style="margin: 10px 0 0; color: #e4e0ff; font-size: 15px; font-weight: 500; letter-spacing: 0.3px;">
-									Komentar Baru di Laporan Anda
+									New Comment on Your Report
 								</p>
 							</td>
 						</tr>
@@ -107,10 +107,10 @@ func getReportCommentEmailTemplate() string {
 								</table>
 	
 								<h2 style="margin: 0 0 14px; color: #1e1b3a; font-size: 24px; font-weight: 700; text-align: center;">
-									Halo {{.UserName}}! 👋
+									Hello {{.UserName}}! 👋
 								</h2>
 								<p style="margin: 0 0 28px; color: #4b5068; font-size: 16px; text-align: center; line-height: 1.7;">
-									<strong style="color: #6C5CE7;">{{.CommenterName}}</strong> baru saja memberikan komentar pada laporan Anda.
+									<strong style="color: #6C5CE7;">{{.CommenterName}}</strong> just left a comment on your report.
 								</p>
 	
 								<!-- Report card -->
@@ -118,7 +118,7 @@ func getReportCommentEmailTemplate() string {
 									<tr>
 										<td style="padding: 22px 24px;">
 											<p style="margin: 0 0 6px; color: #6C5CE7; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">
-												Laporan Anda
+												Your Report
 											</p>
 											<p style="margin: 0; color: #1e1b3a; font-size: 18px; font-weight: 700; line-height: 1.4;">
 												📋 {{.ReportTitle}}
@@ -134,7 +134,7 @@ func getReportCommentEmailTemplate() string {
 										<td align="center" bgcolor="#6C5CE7" style="background-color: #6C5CE7; border-radius: 12px; box-shadow: 0 6px 18px rgba(108, 92, 231, 0.35);">
 											<a href="{{.ReportLink}}" target="_blank"
 											style="display: inline-block; padding: 16px 36px; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 16px; border-radius: 12px;">
-												Lihat Komentar &rarr;
+												View Comment &rarr;
 											</a>
 										</td>
 									</tr>
@@ -142,7 +142,7 @@ func getReportCommentEmailTemplate() string {
 	
 								<!-- Link fallback -->
 								<p style="margin: 0 0 8px; color: #8a8fa8; font-size: 12px; text-align: center; line-height: 1.6;">
-									Tombol tidak berfungsi? Salin tautan ini ke browser Anda:<br>
+									Button not working? Copy this link into your browser:<br>
 									<a href="{{.ReportLink}}" style="color: #6C5CE7; text-decoration: underline; word-break: break-all;">{{.ReportLink}}</a>
 								</p>
 							</td>
@@ -155,8 +155,8 @@ func getReportCommentEmailTemplate() string {
 									<tr>
 										<td style="border-top: 1px solid #ebe9f7; padding-top: 22px; text-align: center;">
 											<p style="margin: 0; color: #64688a; font-size: 14px; line-height: 1.6;">
-												🔔 Anda menerima email ini karena ada komentar baru di laporan milik Anda.<br>
-												Anda dapat menonaktifkan notifikasi email kapan saja melalui pengaturan akun.
+												🔔 You are receiving this email because there is a new comment on a report you own.<br>
+												You can turn off email notifications at any time in your account settings.
 											</p>
 										</td>
 									</tr>
@@ -168,10 +168,10 @@ func getReportCommentEmailTemplate() string {
 						<tr>
 							<td align="center" style="background-color: #faf9ff; padding: 28px 40px; border-top: 1px solid #ebe9f7;">
 								<p style="margin: 0 0 8px; color: #64688a; font-size: 13px; font-weight: 600;">
-									© 2026 PingSpot. Hak cipta dilindungi undang-undang.
+									© 2026 PingSpot. All rights reserved.
 								</p>
 								<p style="margin: 0; color: #9498b3; font-size: 12px; line-height: 1.6;">
-									Pertanyaan? Hubungi kami di
+									Questions? Contact us at
 									<a href="mailto:support@pingspot.com" style="color: #6C5CE7; text-decoration: none; font-weight: 600;">support@pingspot.com</a>
 								</p>
 							</td>
@@ -187,19 +187,19 @@ func getReportCommentEmailTemplate() string {
 
 func getNewReportEmailTemplate() string {
 	return `<!DOCTYPE html>
-<html lang="id" xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 	<head>
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<meta name="color-scheme" content="light">
 		<meta name="supported-color-schemes" content="light">
-		<title>Laporan Baru di PingSpot</title>
+		<title>New Report on PingSpot</title>
 	</head>
 	<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, Helvetica, Arial, sans-serif; background-color: #f4f3fb; line-height: 1.6; -webkit-text-size-adjust: 100%;">
 	
 		<!-- Preheader (preview text in inbox) -->
 		<div style="display: none; max-height: 0; overflow: hidden; opacity: 0; color: #f4f3fb; font-size: 1px; line-height: 1px;">
-			{{.UserName}} baru saja mempublikasikan laporan: {{.ReportTitle}}
+			{{.UserName}} just published a report: {{.ReportTitle}}
 		</div>
 	
 		<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f3fb;">
@@ -215,7 +215,7 @@ func getNewReportEmailTemplate() string {
 									PingSpot
 								</h1>
 								<p style="margin: 10px 0 0; color: #e4e0ff; font-size: 15px; font-weight: 500; letter-spacing: 0.3px;">
-									Laporan Baru dari Orang yang Anda Ikuti
+									New Report From Someone You Follow
 								</p>
 							</td>
 						</tr>
@@ -234,10 +234,10 @@ func getNewReportEmailTemplate() string {
 								</table>
 	
 								<h2 style="margin: 0 0 14px; color: #1e1b3a; font-size: 24px; font-weight: 700; text-align: center;">
-									Ada laporan baru! 👋
+									There's a new report! 👋
 								</h2>
 								<p style="margin: 0 0 28px; color: #4b5068; font-size: 16px; text-align: center; line-height: 1.7;">
-									<strong style="color: #6C5CE7;">{{.UserName}}</strong> baru saja mempublikasikan laporan baru. Lihat detailnya sekarang.
+									<strong style="color: #6C5CE7;">{{.UserName}}</strong> just published a new report. Check out the details now.
 								</p>
 	
 								<!-- Report card -->
@@ -245,13 +245,13 @@ func getNewReportEmailTemplate() string {
 									<tr>
 										<td style="padding: 22px 24px;">
 											<p style="margin: 0 0 6px; color: #6C5CE7; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">
-												Laporan Baru
+												New Report
 											</p>
 											<p style="margin: 0 0 10px; color: #1e1b3a; font-size: 18px; font-weight: 700; line-height: 1.4;">
 												📋 {{.ReportTitle}}
 											</p>
 											<p style="margin: 0; color: #64688a; font-size: 14px;">
-												Dipublikasikan oleh <strong style="color: #3b3866;">{{.UserName}}</strong>
+												Published by <strong style="color: #3b3866;">{{.UserName}}</strong>
 											</p>
 										</td>
 									</tr>
@@ -263,7 +263,7 @@ func getNewReportEmailTemplate() string {
 										<td align="center" bgcolor="#6C5CE7" style="background-color: #6C5CE7; border-radius: 12px; box-shadow: 0 6px 18px rgba(108, 92, 231, 0.35);">
 											<a href="{{.ReportLink}}" target="_blank"
 											style="display: inline-block; padding: 16px 36px; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 16px; border-radius: 12px;">
-												Lihat Laporan &rarr;
+												View Report &rarr;
 											</a>
 										</td>
 									</tr>
@@ -271,7 +271,7 @@ func getNewReportEmailTemplate() string {
 	
 								<!-- Link fallback -->
 								<p style="margin: 0 0 8px; color: #8a8fa8; font-size: 12px; text-align: center; line-height: 1.6;">
-									Tombol tidak berfungsi? Salin tautan ini ke browser Anda:<br>
+									Button not working? Copy this link into your browser:<br>
 									<a href="{{.ReportLink}}" style="color: #6C5CE7; text-decoration: underline; word-break: break-all;">{{.ReportLink}}</a>
 								</p>
 							</td>
@@ -284,8 +284,8 @@ func getNewReportEmailTemplate() string {
 									<tr>
 										<td style="border-top: 1px solid #ebe9f7; padding-top: 22px; text-align: center;">
 											<p style="margin: 0; color: #64688a; font-size: 14px; line-height: 1.6;">
-												🔔 Anda menerima email ini karena mengikuti <strong>{{.UserName}}</strong> di PingSpot.<br>
-												Anda dapat menonaktifkan notifikasi email kapan saja melalui pengaturan akun.
+												🔔 You're receiving this email because you follow <strong>{{.UserName}}</strong> on PingSpot.<br>
+												You can turn off email notifications at any time in your account settings.
 											</p>
 										</td>
 									</tr>
@@ -297,10 +297,10 @@ func getNewReportEmailTemplate() string {
 						<tr>
 							<td align="center" style="background-color: #faf9ff; padding: 28px 40px; border-top: 1px solid #ebe9f7;">
 								<p style="margin: 0 0 8px; color: #64688a; font-size: 13px; font-weight: 600;">
-									© 2026 PingSpot. Hak cipta dilindungi undang-undang.
+									© 2026 PingSpot. All rights reserved.
 								</p>
 								<p style="margin: 0; color: #9498b3; font-size: 12px; line-height: 1.6;">
-									Pertanyaan? Hubungi kami di
+									Questions? Contact us at
 									<a href="mailto:andreanjabar18@gmail.com" style="color: #6C5CE7; text-decoration: none; font-weight: 600;">andreanjabar18@gmail.com</a>
 								</p>
 							</td>

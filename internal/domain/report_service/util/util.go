@@ -42,7 +42,7 @@ func GetVoteTypeOrder(voteCount map[model.ReportStatus]int64) []struct {
 func SendPotentiallyResolvedReportEmail(to, username, reportTitle, reportLink string, daysRemaining int, disabledNotifications bool) error {
 	return mainutils.SendEmail(mainutils.EmailData{
 		To:            to,
-		Subject:       "Pengingat: Perbarui Progress Laporan Anda",
+		Subject:       "Reminder: Update Progress on Your Report",
 		RecipientName: username,
 		EmailType:     mainutils.EmailTypeProgressReminder,
 		TemplateData: map[string]any{
@@ -57,19 +57,19 @@ func SendPotentiallyResolvedReportEmail(to, username, reportTitle, reportLink st
 
 func getProgressReminderEmailTemplate() string {
 	return `<!DOCTYPE html>
-<html lang="id" xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 	<head>
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<meta name="color-scheme" content="light">
 		<meta name="supported-color-schemes" content="light">
-		<title>Pengingat Progress Laporan</title>
+		<title>Report Progress Reminder</title>
 	</head>
 	<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, Helvetica, Arial, sans-serif; background-color: #f4f3fb; line-height: 1.6; -webkit-text-size-adjust: 100%;">
 	
 		<!-- Preheader (preview text in inbox) -->
 		<div style="display: none; max-height: 0; overflow: hidden; opacity: 0; color: #f4f3fb; font-size: 1px; line-height: 1px;">
-			Laporan "{{.ReportTitle}}" perlu diperbarui. Unggah bukti progress sebelum periode berakhir.
+			Your report "{{.ReportTitle}}" needs an update. Upload proof of progress before the period ends.
 		</div>
 	
 		<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f3fb;">
@@ -85,7 +85,7 @@ func getProgressReminderEmailTemplate() string {
 									PingSpot
 								</h1>
 								<p style="margin: 10px 0 0; color: #e4e0ff; font-size: 15px; font-weight: 500; letter-spacing: 0.3px;">
-									Pengingat Progress Laporan
+									Report Progress Reminder
 								</p>
 							</td>
 						</tr>
@@ -94,12 +94,12 @@ func getProgressReminderEmailTemplate() string {
 						<tr>
 							<td style="padding: 44px 40px 20px;">
 								<h2 style="margin: 0 0 14px; color: #1e1b3a; font-size: 24px; font-weight: 700; text-align: center;">
-									Halo {{.UserName}}! 👋
+									Hello {{.UserName}}! 👋
 								</h2>
 								<p style="margin: 0 0 28px; color: #4b5068; font-size: 16px; text-align: center; line-height: 1.7;">
-									Laporan Anda masih berstatus
-									<span style="display: inline-block; padding: 2px 10px; background-color: #fff4d6; color: #92400e; border-radius: 999px; font-size: 14px; font-weight: 600;">Dalam Peninjauan</span>
-									dan menunggu pembaruan dari Anda.
+									Your report is still marked as
+									<span style="display: inline-block; padding: 2px 10px; background-color: #fff4d6; color: #92400e; border-radius: 999px; font-size: 14px; font-weight: 600;">Under Review</span>
+									and is waiting for an update from you.
 								</p>
 	
 								<!-- Report card -->
@@ -107,7 +107,7 @@ func getProgressReminderEmailTemplate() string {
 									<tr>
 										<td style="padding: 22px 24px;">
 											<p style="margin: 0 0 6px; color: #6C5CE7; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">
-												Laporan Anda
+												Your Report
 											</p>
 											<p style="margin: 0; color: #1e1b3a; font-size: 18px; font-weight: 700; line-height: 1.4;">
 												📋 {{.ReportTitle}}
@@ -121,11 +121,11 @@ func getProgressReminderEmailTemplate() string {
 									<tr>
 										<td style="padding: 18px 20px;">
 											<p style="margin: 0 0 6px; color: #92400e; font-size: 15px; font-weight: 700;">
-												⏰ Sisa waktu: 7 minggu
+												⏰ Time remaining: 7 weeks
 											</p>
 											<p style="margin: 0; color: #78350f; font-size: 14px; line-height: 1.6;">
-												Unggah bukti progress sebelum periode ini berakhir. Jika tidak ada pembaruan, laporan akan
-												<strong>otomatis ditandai sebagai Terselesaikan</strong>.
+												Upload proof of progress before this period ends. If there is no update, the report will be
+												<strong>automatically marked as Resolved</strong>.
 											</p>
 										</td>
 									</tr>
@@ -137,7 +137,7 @@ func getProgressReminderEmailTemplate() string {
 										<td align="center" bgcolor="#6C5CE7" style="background-color: #6C5CE7; border-radius: 12px; box-shadow: 0 6px 18px rgba(108, 92, 231, 0.35);">
 											<a href="{{.ReportLink}}" target="_blank"
 											style="display: inline-block; padding: 16px 36px; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 16px; border-radius: 12px;">
-												Perbarui Progress Sekarang &rarr;
+												Update Progress Now &rarr;
 											</a>
 										</td>
 									</tr>
@@ -152,7 +152,7 @@ func getProgressReminderEmailTemplate() string {
 									<tr>
 										<td style="border-top: 1px solid #ebe9f7; padding-top: 22px; text-align: center;">
 											<p style="margin: 0; color: #64688a; font-size: 14px; line-height: 1.6;">
-												Jika Anda memiliki pertanyaan, jangan ragu untuk menghubungi kami.
+												If you have any questions, feel free to contact us.
 											</p>
 										</td>
 									</tr>
@@ -164,10 +164,10 @@ func getProgressReminderEmailTemplate() string {
 						<tr>
 							<td align="center" style="background-color: #faf9ff; padding: 28px 40px; border-top: 1px solid #ebe9f7;">
 								<p style="margin: 0 0 8px; color: #64688a; font-size: 13px; font-weight: 600;">
-									© 2026 PingSpot. Hak cipta dilindungi undang-undang.
+									© 2026 PingSpot. All rights reserved.
 								</p>
 								<p style="margin: 0; color: #9498b3; font-size: 12px; line-height: 1.6;">
-									Ada pertanyaan? Hubungi kami melalui email
+									Questions? Contact us by email at
 									<a href="mailto:andreanjabar18@gmail.com" style="color: #6C5CE7; text-decoration: none; font-weight: 600;">andreanjabar18@gmail.com</a>
 								</p>
 							</td>

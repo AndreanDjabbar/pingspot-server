@@ -17,19 +17,19 @@ func SendVerificationEmail(to, username, verificationLink string) error {
 
 func getVerificationEmailTemplate() string {
 	return `<!DOCTYPE html>
-<html lang="id" xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 	<head>
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<meta name="color-scheme" content="light">
 		<meta name="supported-color-schemes" content="light">
-		<title>Verifikasi Akun PingSpot</title>
+		<title>Verify Your PingSpot Account</title>
 	</head>
 	<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, Helvetica, Arial, sans-serif; background-color: #f4f3fb; line-height: 1.6; -webkit-text-size-adjust: 100%;">
 	
 		<!-- Preheader (preview text in inbox) -->
 		<div style="display: none; max-height: 0; overflow: hidden; opacity: 0; color: #f4f3fb; font-size: 1px; line-height: 1px;">
-			Verifikasi email Anda untuk mulai menggunakan PingSpot. Link berlaku selama 5 menit.
+			Verify your email to start using PingSpot. The link is valid for 5 minutes.
 		</div>
 	
 		<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f3fb;">
@@ -45,7 +45,7 @@ func getVerificationEmailTemplate() string {
 									PingSpot
 								</h1>
 								<p style="margin: 10px 0 0; color: #e4e0ff; font-size: 15px; font-weight: 500; letter-spacing: 0.3px;">
-									Selamat datang di PingSpot!
+									Welcome to PingSpot!
 								</p>
 							</td>
 						</tr>
@@ -64,10 +64,10 @@ func getVerificationEmailTemplate() string {
 								</table>
 	
 								<h2 style="margin: 0 0 14px; color: #1e1b3a; font-size: 24px; font-weight: 700; text-align: center;">
-									Halo {{.UserName}}! 👋
+									Hello {{.UserName}}! 👋
 								</h2>
 								<p style="margin: 0 0 8px; color: #4b5068; font-size: 16px; text-align: center; line-height: 1.7;">
-									Terima kasih telah bergabung dengan PingSpot! Untuk mulai menggunakan dan mengamankan akun Anda, silakan verifikasi alamat email Anda.
+									Thank you for joining PingSpot! To start using and secure your account, please verify your email address.
 								</p>
 	
 								<!-- CTA -->
@@ -76,7 +76,7 @@ func getVerificationEmailTemplate() string {
 										<td align="center" bgcolor="#6C5CE7" style="background-color: #6C5CE7; border-radius: 12px; box-shadow: 0 6px 18px rgba(108, 92, 231, 0.35);">
 											<a href="{{.VerificationLink}}" target="_blank"
 											style="display: inline-block; padding: 16px 36px; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 16px; border-radius: 12px;">
-												Verifikasi Akun Saya &rarr;
+												Verify My Account &rarr;
 											</a>
 										</td>
 									</tr>
@@ -86,7 +86,7 @@ func getVerificationEmailTemplate() string {
 								<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: 0 auto 28px;">
 									<tr>
 										<td style="padding: 6px 14px; background-color: #fffbeb; border-radius: 999px; color: #92400e; font-size: 13px; font-weight: 600;">
-											⏱️ Berlaku selama 5 menit
+											⏱️ Valid for 5 minutes
 										</td>
 									</tr>
 								</table>
@@ -96,10 +96,10 @@ func getVerificationEmailTemplate() string {
 									<tr>
 										<td style="padding: 18px 20px;">
 											<p style="margin: 0 0 6px; color: #3b3866; font-size: 14px; font-weight: 700;">
-												Tombol tidak berfungsi?
+												Button not working?
 											</p>
 											<p style="margin: 0; color: #64688a; font-size: 13px; line-height: 1.5;">
-												Salin dan tempel link ini ke browser Anda:
+												Copy and paste this link into your browser:
 											</p>
 											<p style="margin: 8px 0 0; word-break: break-all;">
 												<a href="{{.VerificationLink}}" style="color: #6C5CE7; text-decoration: underline; font-size: 13px;">{{.VerificationLink}}</a>
@@ -117,8 +117,8 @@ func getVerificationEmailTemplate() string {
 									<tr>
 										<td style="border-top: 1px solid #ebe9f7; padding-top: 22px; text-align: center;">
 											<p style="margin: 0; color: #64688a; font-size: 14px; line-height: 1.6;">
-												🔒 Link ini akan kedaluwarsa dalam 5 menit demi keamanan Anda.<br>
-												Jika Anda tidak membuat akun, abaikan email ini.
+												🔒 This link will expire in 5 minutes for your security.<br>
+												If you didn't create an account, you can ignore this email.
 											</p>
 										</td>
 									</tr>
@@ -130,11 +130,11 @@ func getVerificationEmailTemplate() string {
 						<tr>
 							<td align="center" style="background-color: #faf9ff; padding: 28px 40px; border-top: 1px solid #ebe9f7;">
 								<p style="margin: 0 0 8px; color: #64688a; font-size: 13px; font-weight: 600;">
-									© 2026 PingSpot. Hak cipta dilindungi undang-undang.
+									© 2026 PingSpot. All rights reserved.
 								</p>
 								<p style="margin: 0; color: #9498b3; font-size: 12px; line-height: 1.6;">
-									Pertanyaan? Hubungi kami di
-									<a href="andreanjabar18@gmail.com" style="color: #6C5CE7; text-decoration: none; font-weight: 600;">andreanjabar18@gmail.com</a>
+									Questions? Contact us at
+									<a href="mailto:andreanjabar18@gmail.com" style="color: #6C5CE7; text-decoration: none; font-weight: 600;">andreanjabar18@gmail.com</a>
 								</p>
 							</td>
 						</tr>
@@ -146,8 +146,6 @@ func getVerificationEmailTemplate() string {
 	</body>
 </html>`
 }
-
-
 
 func SendPasswordResetEmail(to, username, resetLink string, isDisabled bool) error {
 	return mainutils.SendEmail(mainutils.EmailData{
@@ -165,19 +163,19 @@ func SendPasswordResetEmail(to, username, resetLink string, isDisabled bool) err
 
 func getPasswordResetEmailTemplate() string {
 	return `<!DOCTYPE html>
-<html lang="id" xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 	<head>
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<meta name="color-scheme" content="light">
 		<meta name="supported-color-schemes" content="light">
-		<title>Reset Password PingSpot</title>
+		<title>Reset Your PingSpot Password</title>
 	</head>
 	<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, Helvetica, Arial, sans-serif; background-color: #f4f3fb; line-height: 1.6; -webkit-text-size-adjust: 100%;">
 	
 		<!-- Preheader (preview text in inbox) -->
 		<div style="display: none; max-height: 0; overflow: hidden; opacity: 0; color: #f4f3fb; font-size: 1px; line-height: 1px;">
-			Kami menerima permintaan reset password untuk akun Anda. Link berlaku selama 5 menit.
+			We received a request to reset your account password. The link is valid for 5 minutes.
 		</div>
 	
 		<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f3fb;">
@@ -193,7 +191,7 @@ func getPasswordResetEmailTemplate() string {
 									PingSpot
 								</h1>
 								<p style="margin: 10px 0 0; color: #e4e0ff; font-size: 15px; font-weight: 500; letter-spacing: 0.3px;">
-									Reset Password Anda
+									Reset Your Password
 								</p>
 							</td>
 						</tr>
@@ -212,10 +210,10 @@ func getPasswordResetEmailTemplate() string {
 								</table>
 	
 								<h2 style="margin: 0 0 14px; color: #1e1b3a; font-size: 24px; font-weight: 700; text-align: center;">
-									Halo {{.UserName}}! 👋
+									Hello {{.UserName}}! 👋
 								</h2>
 								<p style="margin: 0 0 8px; color: #4b5068; font-size: 16px; text-align: center; line-height: 1.7;">
-									Kami menerima permintaan untuk mereset password akun Anda. Klik tombol di bawah untuk melanjutkan proses reset password.
+									We received a request to reset your account password. Click the button below to continue the reset process.
 								</p>
 	
 								<!-- CTA -->
@@ -234,7 +232,7 @@ func getPasswordResetEmailTemplate() string {
 								<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: 0 auto 28px;">
 									<tr>
 										<td style="padding: 6px 14px; background-color: #fffbeb; border-radius: 999px; color: #92400e; font-size: 13px; font-weight: 600;">
-											⏱️ Berlaku selama 5 menit
+											⏱️ Valid for 5 minutes
 										</td>
 									</tr>
 								</table>
@@ -244,10 +242,10 @@ func getPasswordResetEmailTemplate() string {
 									<tr>
 										<td style="padding: 18px 20px;">
 											<p style="margin: 0 0 6px; color: #3b3866; font-size: 14px; font-weight: 700;">
-												Tombol tidak berfungsi?
+												Button not working?
 											</p>
 											<p style="margin: 0; color: #64688a; font-size: 13px; line-height: 1.5;">
-												Salin dan tempel link ini ke browser Anda:
+												Copy and paste this link into your browser:
 											</p>
 											<p style="margin: 8px 0 0; word-break: break-all;">
 												<a href="{{.ResetLink}}" style="color: #6C5CE7; text-decoration: underline; font-size: 13px;">{{.ResetLink}}</a>
@@ -265,8 +263,8 @@ func getPasswordResetEmailTemplate() string {
 									<tr>
 										<td style="border-top: 1px solid #ebe9f7; padding-top: 22px; text-align: center;">
 											<p style="margin: 0; color: #64688a; font-size: 14px; line-height: 1.6;">
-												🔒 Link ini akan kedaluwarsa dalam 5 menit demi keamanan Anda.<br>
-												Jika Anda tidak meminta reset password, abaikan email ini &mdash; password Anda tidak akan berubah.
+												🔒 This link will expire in 5 minutes for your security.<br>
+												If you didn't request a password reset, you can ignore this email &mdash; your password will not change.
 											</p>
 										</td>
 									</tr>
@@ -278,11 +276,11 @@ func getPasswordResetEmailTemplate() string {
 						<tr>
 							<td align="center" style="background-color: #faf9ff; padding: 28px 40px; border-top: 1px solid #ebe9f7;">
 								<p style="margin: 0 0 8px; color: #64688a; font-size: 13px; font-weight: 600;">
-									© 2026 PingSpot. Hak cipta dilindungi undang-undang.
+									© 2026 PingSpot. All rights reserved.
 								</p>
 								<p style="margin: 0; color: #9498b3; font-size: 12px; line-height: 1.6;">
-									Pertanyaan? Hubungi kami di
-									<a href="andreanjabar18@gmail.com" style="color: #6C5CE7; text-decoration: none; font-weight: 600;">andreanjabar18@gmail.com</a>
+									Questions? Contact us at
+									<a href="mailto:andreanjabar18@gmail.com" style="color: #6C5CE7; text-decoration: none; font-weight: 600;">andreanjabar18@gmail.com</a>
 								</p>
 							</td>
 						</tr>
