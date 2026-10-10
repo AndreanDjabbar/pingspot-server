@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"pingspot/internal/domain/social_service/service"
 	"pingspot/internal/domain/social_service/dto"
+	"pingspot/internal/domain/social_service/service"
 	"pingspot/internal/domain/user_service/validation"
 	apperror "pingspot/pkg/app_error"
 	"pingspot/pkg/logger"
@@ -27,7 +27,7 @@ func (h *SocialHandler) FollowHandler(c *fiber.Ctx) error {
 	claims, err := tokenutils.GetJWTClaims(c)
 	if err != nil {
 		logger.Error("Failed to get JWT claims", zap.Error(err))
-		return response.ResponseError(c, 401, "Token tidak valid", "", "Anda harus login terlebih dahulu")
+		return response.ResponseError(c, 401, "Invalid token", "", "You must log in first")
 	}
 
 	userId := uint(claims["user_id"].(float64))
@@ -35,12 +35,12 @@ func (h *SocialHandler) FollowHandler(c *fiber.Ctx) error {
 	var req dto.FollowRequest
 	if err := c.BodyParser(&req); err != nil {
 		logger.Error("Failed to parse request body", zap.Error(err))
-		return response.ResponseError(c, 400, "Format body request tidak valid", "", err.Error())
+		return response.ResponseError(c, 400, "Invalid request body format", "", err.Error())
 	}
 	if err := validation.Validate.Struct(req); err != nil {
 		errors := validation.FormatFollowValidationErrors(err)
 		logger.Error("Validation failed", zap.Error(err))
-		return response.ResponseError(c, 400, "Validasi gagal", "errors", errors)
+		return response.ResponseError(c, 400, "Validation failed", "errors", errors)
 	}
 
 	followingResult, err := h.socialService.Follow(ctx, userId, req)
@@ -49,11 +49,11 @@ func (h *SocialHandler) FollowHandler(c *fiber.Ctx) error {
 		if appErr, ok := err.(*apperror.AppError); ok {
 			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Gagal mengikuti pengguna", "", err.Error())
+		return response.ResponseError(c, 500, "Failed to follow user", "", err.Error())
 	}
-	var successMessage string = "Berhasil mengikuti pengguna"
+	var successMessage string = "Followed user successfully"
 	if followingResult.FollowProcess == "unfollow" {
-		successMessage = "Berhasil berhenti mengikuti pengguna"
+		successMessage = "Unfollowed user successfully"
 	}
 	return response.ResponseSuccess(c, 200, successMessage, "data", followingResult)
 }
@@ -64,7 +64,7 @@ func (h *SocialHandler) GetFollowDataHandler(c *fiber.Ctx) error {
 	claims, err := tokenutils.GetJWTClaims(c)
 	if err != nil {
 		logger.Error("Failed to get JWT claims", zap.Error(err))
-		return response.ResponseError(c, 401, "Token tidak valid", "", "Anda harus login terlebih dahulu")
+		return response.ResponseError(c, 401, "Invalid token", "", "You must log in first")
 	}
 
 	userID := uint(claims["user_id"].(float64))
@@ -75,7 +75,7 @@ func (h *SocialHandler) GetFollowDataHandler(c *fiber.Ctx) error {
 	followingID, err := mainutils.StringToUint(followingIDParam)
 	if err != nil {
 		logger.Error("Invalid followingID format", zap.String("followingID", followingIDParam), zap.Error(err))
-		return response.ResponseError(c, 400, "Format followingID tidak valid", "", "followingID harus berupa angka")
+		return response.ResponseError(c, 400, "Invalid followingID format", "", "followingID must be a number")
 	}
 
 	var req dto.GetFollowDataRequest
@@ -84,7 +84,7 @@ func (h *SocialHandler) GetFollowDataHandler(c *fiber.Ctx) error {
 	if err := validation.Validate.Struct(req); err != nil {
 		errors := validation.FormatGetFollowDataValidationErrors(err)
 		logger.Error("Validation failed", zap.Error(err))
-		return response.ResponseError(c, 400, "Validasi gagal", "errors", errors)
+		return response.ResponseError(c, 400, "Validation failed", "errors", errors)
 	}
 
 	followingData, err := h.socialService.GetFollowing(ctx, followingID, followingType, userID)
@@ -93,10 +93,10 @@ func (h *SocialHandler) GetFollowDataHandler(c *fiber.Ctx) error {
 		if appErr, ok := err.(*apperror.AppError); ok {
 			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Gagal mendapatkan data following", "", err.Error())
+		return response.ResponseError(c, 500, "Failed to retrieve following data", "", err.Error())
 	}
 
-	return response.ResponseSuccess(c, 200, "Berhasil mendapatkan data following", "data", followingData)
+	return response.ResponseSuccess(c, 200, "Following data retrieved successfully", "data", followingData)
 }
 
 func (h *SocialHandler) GetUserConnectionsFollowersHandler(c *fiber.Ctx) error {
@@ -108,7 +108,7 @@ func (h *SocialHandler) GetUserConnectionsFollowersHandler(c *fiber.Ctx) error {
 	userID, err := mainutils.StringToUint(userIDParam)
 	if err != nil {
 		logger.Error("Invalid userID format", zap.String("userID", userIDParam), zap.Error(err))
-		return response.ResponseError(c, 400, "Format userID tidak valid", "", "userID harus berupa angka")
+		return response.ResponseError(c, 400, "Invalid userID format", "", "userID must be a number")
 	}
 
 	userConnectionsFollowers, err := h.socialService.GetUserConnectionsFollowers(ctx, userID, mainutils.StrPtrOrNil(cursorID))
@@ -117,7 +117,7 @@ func (h *SocialHandler) GetUserConnectionsFollowersHandler(c *fiber.Ctx) error {
 		if appErr, ok := err.(*apperror.AppError); ok {
 			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Gagal mendapatkan data koneksi pengguna", "", err.Error())
+		return response.ResponseError(c, 500, "Failed to retrieve user connection data", "", err.Error())
 	}
 
 	var nextCursorID *string
@@ -131,7 +131,7 @@ func (h *SocialHandler) GetUserConnectionsFollowersHandler(c *fiber.Ctx) error {
 		"nextCursor": nextCursorID,
 	}
 
-	return response.ResponseSuccess(c, 200, "Berhasil mendapatkan data koneksi pengguna", "data", mappedData)
+	return response.ResponseSuccess(c, 200, "User connection data retrieved successfully", "data", mappedData)
 }
 
 func (h *SocialHandler) GetUserConnectionsFollowingHandler(c *fiber.Ctx) error {
@@ -143,7 +143,7 @@ func (h *SocialHandler) GetUserConnectionsFollowingHandler(c *fiber.Ctx) error {
 	userID, err := mainutils.StringToUint(userIDParam)
 	if err != nil {
 		logger.Error("Invalid userID format", zap.String("userID", userIDParam), zap.Error(err))
-		return response.ResponseError(c, 400, "Format userID tidak valid", "", "userID harus berupa angka")
+		return response.ResponseError(c, 400, "Invalid userID format", "", "userID must be a number")
 	}
 
 	userConnections, err := h.socialService.GetUserConnectionsFollowing(ctx, userID, mainutils.StrPtrOrNil(cursorID))
@@ -152,7 +152,7 @@ func (h *SocialHandler) GetUserConnectionsFollowingHandler(c *fiber.Ctx) error {
 		if appErr, ok := err.(*apperror.AppError); ok {
 			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Gagal mendapatkan data koneksi pengguna", "", err.Error())
+		return response.ResponseError(c, 500, "Failed to retrieve user connection data", "", err.Error())
 	}
 
 	var nextCursorID *string
@@ -166,5 +166,5 @@ func (h *SocialHandler) GetUserConnectionsFollowingHandler(c *fiber.Ctx) error {
 		"nextCursor": nextCursorID,
 	}
 
-	return response.ResponseSuccess(c, 200, "Berhasil mendapatkan data koneksi pengguna", "data", mappedData)
+	return response.ResponseSuccess(c, 200, "User connection data retrieved successfully", "data", mappedData)
 }

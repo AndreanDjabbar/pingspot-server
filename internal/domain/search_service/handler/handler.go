@@ -30,21 +30,21 @@ func (h *SearchHandler) HandleSearch(c *fiber.Ctx) error {
 			zap.String("request_id", requestID),
 			zap.String("search_query", searchQuery),
 		)
-		return response.ResponseError(c, 400, "Panjang search query minimal 3 karakter", "", nil)
+		return response.ResponseError(c, 400, "Search query must be at least 3 characters long", "", nil)
 	}
 
 	usersDataCursorID := c.Query("usersDataCursorID", "")
 	usersDatacursorIDUint, err := mainutils.StringToUint(usersDataCursorID)
 	if err != nil && usersDataCursorID != "" {
 		logger.Error("Invalid afterID format", zap.String("afterID", usersDataCursorID), zap.Error(err))
-		return response.ResponseError(c, 400, "Format afterID tidak valid", "", "afterID harus berupa angka")
+		return response.ResponseError(c, 400, "Invalid afterID format", "", "afterID must be a number")
 	}
 
 	reportsDataCursorID := c.Query("reportsDataCursorID", "")
 	reportsDatacursorIDUint, err := mainutils.StringToUint(reportsDataCursorID)
 	if err != nil && reportsDataCursorID != "" {
 		logger.Error("Invalid afterID format", zap.String("afterID", reportsDataCursorID), zap.Error(err))
-		return response.ResponseError(c, 400, "Format afterID tidak valid", "", "afterID harus berupa angka")
+		return response.ResponseError(c, 400, "Invalid afterID format", "", "afterID must be a number")
 	}
 
 	searchData, err := h.searchService.SearchData(ctx, searchQuery, usersDatacursorIDUint, reportsDatacursorIDUint, defaultLimit)
@@ -54,7 +54,7 @@ func (h *SearchHandler) HandleSearch(c *fiber.Ctx) error {
 			zap.String("search_query", searchQuery),
 			zap.Error(err),
 		)
-		return response.ResponseError(c, 500, "Gagal melakukan pencarian", err.Error(), nil)
+		return response.ResponseError(c, 500, "Search failed", err.Error(), nil)
 	}
 
 	logger.Info("Search request completed successfully",
@@ -66,7 +66,7 @@ func (h *SearchHandler) HandleSearch(c *fiber.Ctx) error {
 	if len(searchData.UsersData.Users) > 0 {
 		lastUser := searchData.UsersData.Users[len(searchData.UsersData.Users)-1]
 		nextCursorUsersData = &lastUser.UserID
-	} 
+	}
 
 	var nextCursorReportsData *uint = nil
 	if len(searchData.ReportsData.Reports) > 0 {
@@ -75,11 +75,11 @@ func (h *SearchHandler) HandleSearch(c *fiber.Ctx) error {
 	}
 
 	finalResults := fiber.Map{
-		"usersData":   searchData.UsersData,
+		"usersData":             searchData.UsersData,
 		"nextCursorUsersData":   nextCursorUsersData,
-		"reportsData": searchData.ReportsData,
+		"reportsData":           searchData.ReportsData,
 		"nextCursorReportsData": nextCursorReportsData,
 	}
 
-	return response.ResponseSuccess(c, 200, "Pencarian berhasil", "data", finalResults)
+	return response.ResponseSuccess(c, 200, "Search completed successfully", "data", finalResults)
 }

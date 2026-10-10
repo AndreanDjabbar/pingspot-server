@@ -37,7 +37,7 @@ func NewRateLimiter(config RateLimiterConfig) *RateLimiter {
 }
 
 func (rl *RateLimiter) Allow(ctx context.Context, identifier string) (bool, int, error) {
-	key := fmt.Sprintf("%s:%s", identifier, rl.config.KeyPrefix,)
+	key := fmt.Sprintf("%s:%s", identifier, rl.config.KeyPrefix)
 	now := time.Now().UnixNano()
 	windowStart := now - int64(rl.config.Window.Nanoseconds())
 
@@ -137,12 +137,8 @@ func GlobalRateLimiterMiddleware() fiber.Handler {
 			return response.ResponseError(
 				c,
 				429,
-				"Terlalu banyak permintaan. Silakan coba lagi nanti.",
-				fmt.Sprintf(
-					"Batas permintaan telah tercapai. Maksimal %d permintaan dalam %s.",
-					limiter.config.MaxRequests,
-					limiter.config.Window,
-				),
+				"Too many requests. Please try again later.",
+				fmt.Sprintf("Request limit reached. Maximum %d requests in %s.", limiter.config.MaxRequests, limiter.config.Window),
 				nil,
 			)
 		}
@@ -173,9 +169,9 @@ func UserRateLimiterMiddleware(limiter *RateLimiter) fiber.Handler {
 			return response.ResponseError(
 				c,
 				429,
-				"Terlalu banyak permintaan. Silakan coba lagi nanti.",
+				"Too many requests. Please try again later.",
 				fmt.Sprintf(
-					"Batas permintaan telah tercapai. Maksimal %d permintaan dalam %s.",
+					"Request limit reached. Maximum %d requests in %s.",
 					limiter.config.MaxRequests,
 					limiter.config.Window,
 				),

@@ -5,7 +5,7 @@ import mainutils "pingspot/pkg/utils/main_util"
 func SendVerificationEmail(to, username, verificationLink string) error {
 	return mainutils.SendEmail(mainutils.EmailData{
 		To:            to,
-		Subject:       "Verifikasi Akun PingSpot",
+		Subject:       "Pingspot Account Verification",
 		RecipientName: username,
 		BodyTempate: getVerificationEmailTemplate(),
 		EmailType:     mainutils.EmailTypeVerification,
@@ -152,7 +152,7 @@ func getVerificationEmailTemplate() string {
 func SendPasswordResetEmail(to, username, resetLink string, isDisabled bool) error {
 	return mainutils.SendEmail(mainutils.EmailData{
 		To:            to,
-		Subject:       "Reset Password PingSpot",
+		Subject:       "Pingspot Password Reset",
 		RecipientName: username,
 		BodyTempate: getPasswordResetEmailTemplate(),
 		EmailType:     mainutils.EmailTypePasswordReset,

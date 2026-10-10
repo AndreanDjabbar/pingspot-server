@@ -23,7 +23,7 @@ func (h *NotificationHandler) GetNotifications(c *fiber.Ctx) error {
 	claims, err := tokenutils.GetJWTClaims(c)
 	if err != nil {
 		logger.Error("Failed to get JWT claims", zap.Error(err))
-		return response.ResponseError(c, 401, "Token tidak valid", "", "Anda harus login terlebih dahulu")
+		return response.ResponseError(c, 401, "Invalid token", "", "You must log in first")
 	}
 	userId := uint(claims["user_id"].(float64))
 
@@ -33,9 +33,9 @@ func (h *NotificationHandler) GetNotifications(c *fiber.Ctx) error {
 		if appErr, ok := err.(*apperror.AppError); ok {
 			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Gagal mendapatkan notifikasi", "", err.Error())
+		return response.ResponseError(c, 500, "Failed to retrieve notifications", "", err.Error())
 	}
-	return response.ResponseSuccess(c, 200, "Berhasil mendapatkan notifikasi", "data", notifications)
+	return response.ResponseSuccess(c, 200, "Notifications retrieved successfully", "data", notifications)
 }
 
 func (h *NotificationHandler) MarkNotificationAsRead(c *fiber.Ctx) error {
@@ -43,13 +43,13 @@ func (h *NotificationHandler) MarkNotificationAsRead(c *fiber.Ctx) error {
 	claims, err := tokenutils.GetJWTClaims(c)
 	if err != nil {
 		logger.Error("Failed to get JWT claims", zap.Error(err))
-		return response.ResponseError(c, 401, "Token tidak valid", "", "Anda harus login terlebih dahulu")
+		return response.ResponseError(c, 401, "Invalid token", "", "You must log in first")
 	}
 	userId := uint(claims["user_id"].(float64))
 	notificationID, err := c.ParamsInt("notificationID")
 	if err != nil {
 		logger.Error("Failed to parse notification ID", zap.Error(err))
-		return response.ResponseError(c, 400, "ID notifikasi tidak valid", "", "ID notifikasi harus berupa angka")
+		return response.ResponseError(c, 400, "Invalid notification ID", "", "Notification ID must be a number")
 	}
 	err = h.notificationService.MarkNotificationAsRead(ctx, userId, uint(notificationID))
 	if err != nil {
@@ -57,9 +57,9 @@ func (h *NotificationHandler) MarkNotificationAsRead(c *fiber.Ctx) error {
 		if appErr, ok := err.(*apperror.AppError); ok {
 			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Gagal menandai notifikasi sebagai dibaca", "", err.Error())
+		return response.ResponseError(c, 500, "Failed to mark notification as read", "", err.Error())
 	}
-	return response.ResponseSuccess(c, 200, "Berhasil menandai notifikasi sebagai dibaca", "data", nil)
+	return response.ResponseSuccess(c, 200, "Notification marked as read successfully", "data", nil)
 }
 
 func (h *NotificationHandler) MarkAllNotificationsAsRead(c *fiber.Ctx) error {
@@ -67,7 +67,7 @@ func (h *NotificationHandler) MarkAllNotificationsAsRead(c *fiber.Ctx) error {
 	claims, err := tokenutils.GetJWTClaims(c)
 	if err != nil {
 		logger.Error("Failed to get JWT claims", zap.Error(err))
-		return response.ResponseError(c, 401, "Token tidak valid", "", "Anda harus login terlebih dahulu")
+		return response.ResponseError(c, 401, "Invalid token", "", "You must log in first")
 	}
 	userId := uint(claims["user_id"].(float64))
 	err = h.notificationService.MarkAllNotificationsAsRead(ctx, userId)
@@ -76,9 +76,9 @@ func (h *NotificationHandler) MarkAllNotificationsAsRead(c *fiber.Ctx) error {
 		if appErr, ok := err.(*apperror.AppError); ok {
 			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Gagal menandai semua notifikasi sebagai dibaca", "", err.Error())
+		return response.ResponseError(c, 500, "Failed to mark all notifications as read", "", err.Error())
 	}
-	return response.ResponseSuccess(c, 200, "Berhasil menandai semua notifikasi sebagai dibaca", "data", nil)
+	return response.ResponseSuccess(c, 200, "All notifications marked as read successfully", "data", nil)
 }
 
 func (h *NotificationHandler) DeleteNotification(c *fiber.Ctx) error {
@@ -86,13 +86,13 @@ func (h *NotificationHandler) DeleteNotification(c *fiber.Ctx) error {
 	claims, err := tokenutils.GetJWTClaims(c)
 	if err != nil {
 		logger.Error("Failed to get JWT claims", zap.Error(err))
-		return response.ResponseError(c, 401, "Token tidak valid", "", "Anda harus login terlebih dahulu")
+		return response.ResponseError(c, 401, "Invalid token", "", "You must log in first")
 	}
 	userId := uint(claims["user_id"].(float64))
 	notificationID, err := c.ParamsInt("notificationID")
 	if err != nil {
 		logger.Error("Failed to parse notification ID", zap.Error(err))
-		return response.ResponseError(c, 400, "ID notifikasi tidak valid", "", "ID notifikasi harus berupa angka")
+		return response.ResponseError(c, 400, "Invalid notification ID", "", "Notification ID must be a number")
 	}
 	err = h.notificationService.DeleteNotification(ctx, userId, uint(notificationID))
 	if err != nil {
@@ -100,9 +100,9 @@ func (h *NotificationHandler) DeleteNotification(c *fiber.Ctx) error {
 		if appErr, ok := err.(*apperror.AppError); ok {
 			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Gagal menghapus notifikasi", "", err.Error())
+		return response.ResponseError(c, 500, "Failed to delete notification", "", err.Error())
 	}
-	return response.ResponseSuccess(c, 200, "Berhasil menghapus notifikasi", "data", nil)
+	return response.ResponseSuccess(c, 200, "Notification deleted successfully", "data", nil)
 }
 
 func (h *NotificationHandler) DeleteAllNotifications(c *fiber.Ctx) error {
@@ -110,7 +110,7 @@ func (h *NotificationHandler) DeleteAllNotifications(c *fiber.Ctx) error {
 	claims, err := tokenutils.GetJWTClaims(c)
 	if err != nil {
 		logger.Error("Failed to get JWT claims", zap.Error(err))
-		return response.ResponseError(c, 401, "Token tidak valid", "", "Anda harus login terlebih dahulu")
+		return response.ResponseError(c, 401, "Invalid token", "", "You must log in first")
 	}
 
 	userId := uint(claims["user_id"].(float64))
@@ -120,7 +120,7 @@ func (h *NotificationHandler) DeleteAllNotifications(c *fiber.Ctx) error {
 		if appErr, ok := err.(*apperror.AppError); ok {
 			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Gagal menghapus semua notifikasi", "", err.Error())
+		return response.ResponseError(c, 500, "Failed to delete all notifications", "", err.Error())
 	}
-	return response.ResponseSuccess(c, 200, "Berhasil menghapus semua notifikasi", "data", nil)
+	return response.ResponseSuccess(c, 200, "All notifications deleted successfully", "data", nil)
 }

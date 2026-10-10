@@ -19,26 +19,26 @@ func FormatSaveUserProfileValidationErrors(err error) map[string]string {
 		switch e.Field() {
 		case "FullName":
 			if e.Tag() == "required" {
-				errors["fullName"] = "Full name wajib diisi"
+				errors["fullName"] = "Full name is required"
 			}
 		case "Bio":
 			if e.Tag() == "max" {
-				errors["bio"] = "Bio maksimal 255 karakter"
+				errors["bio"] = "Bio must be at most 255 characters"
 			}
 		case "ProfilePicture":
 			if e.Tag() == "max" {
-				errors["avatar"] = "Avatar maksimal 255 karakter"
+				errors["avatar"] = "Avatar must be at most 255 characters"
 			}
 		case "Gender":
 			if e.Tag() == "max" {
-				errors["gender"] = "Gender maksimal 20 karakter"
+				errors["gender"] = "Gender must be at most 20 characters"
 			}
 			if e.Tag() == "oneof" {
-				errors["gender"] = "Gender harus salah satu antara male atau female"
+				errors["gender"] = "Gender must be one of male or female"
 			}
 		case "Birthday":
 			if e.Tag() == "datetime" {
-				errors["birthday"] = "Birthday harus dalam format YYYY-MM-DD"
+				errors["birthday"] = "Birthday must be in YYYY-MM-DD format"
 			}
 		}
 	}
@@ -54,31 +54,31 @@ func FormatSaveUserSecurityValidationErrors(err error) map[string]string {
 		switch e.Field() {
 		case "CurrentPassword":
 			if e.Tag() == "required" {
-				errors["currentPassword"] = "Kata Sandi saat ini wajib diisi"
+				errors["currentPassword"] = "Current password is required"
 			}
 			if e.Tag() == "min" {
-				errors["currentPassword"] = "Kata Sandi saat ini minimal 6 karakter"
+				errors["currentPassword"] = "Current password must be at least 6 characters"
 			}
 		case "CurrentPasswordConfirmation":
 			if e.Tag() == "required" {
-				errors["currentPasswordConfirmation"] = "Konfirmasi Kata Sandi saat ini wajib diisi"
+				errors["currentPasswordConfirmation"] = "Current password confirmation is required"
 			}
 			if e.Tag() == "eqfield" {
-				errors["currentPasswordConfirmation"] = "Konfirmasi kata sandi saat ini harus sama dengan kata sandi saat ini"
+				errors["currentPasswordConfirmation"] = "Current password confirmation must match the current password"
 			}
 		case "NewPassword":
 			if e.Tag() == "required" {
-				errors["newPassword"] = "Kata sandi baru wajib diisi"
+				errors["newPassword"] = "New password is required"
 			}
 			if e.Tag() == "min" {
-				errors["newPassword"] = "Kata sandi baru minimal 6 karakter"
+				errors["newPassword"] = "New password must be at least 6 characters"
 			}
 		case "NewPasswordConfirmation":
 			if e.Tag() == "required" {
-				errors["newPasswordConfirmation"] = "Konfirmasi kata sandi baru wajib diisi"
+				errors["newPasswordConfirmation"] = "New password confirmation is required"
 			}
 			if e.Tag() == "eqfield" {
-				errors["newPasswordConfirmation"] = "Konfirmasi kata sandi baru harus sama dengan kata sandi baru"
+				errors["newPasswordConfirmation"] = "New password confirmation must match the new password"
 			}
 		}
 	}
@@ -94,14 +94,14 @@ func FormatFollowValidationErrors(err error) map[string]string {
 		switch e.Field() {
 		case "FollowingID":
 			if e.Tag() == "required" {
-				errors["followingID"] = "ID yang diikuti wajib diisi"
+				errors["followingID"] = "Following ID is required"
 			}
 		case "FollowingType":
 			if e.Tag() == "required" {
-				errors["followingType"] = "Tipe yang diikuti wajib diisi"
+				errors["followingType"] = "Following type is required"
 			}
 			if e.Tag() == "oneof" {
-				errors["followingType"] = "Tipe yang diikuti harus salah satu antara pengguna atau komunitas"
+				errors["followingType"] = "Following type must be one of user or community"
 			}
 		}
 	}
@@ -117,14 +117,14 @@ func FormatGetFollowDataValidationErrors(err error) map[string]string {
 		switch e.Field() {
 		case "FollowingID":
 			if e.Tag() == "required" {
-				errors["followingID"] = "ID yang diikuti wajib diisi"
+				errors["followingID"] = "Following ID is required"
 			}
 		case "FollowingType":
 			if e.Tag() == "required" {
-				errors["followingType"] = "Tipe yang diikuti wajib diisi"
+				errors["followingType"] = "Following type is required"
 			}
 			if e.Tag() == "oneof" {
-				errors["followingType"] = "Tipe yang diikuti harus salah satu antara pengguna atau komunitas"
+				errors["followingType"] = "Following type must be one of user or community"
 			}
 		}
 	}
@@ -140,7 +140,7 @@ func FormatUpdateEmailNotificationPreferenceValidationErrors(err error) map[stri
 		switch e.Field() {
 		case "IsDisableEmailNotification":
 			if e.Tag() == "required" {
-				errors["isDisableEmailNotification"] = "Preferensi notifikasi email wajib diisi"
+				errors["isDisableEmailNotification"] = "Email notification preference is required"
 			}
 		}
 	}

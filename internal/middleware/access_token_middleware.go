@@ -29,13 +29,13 @@ func ValidateAccessToken() fiber.Handler {
 		}
 
 		if token == "" {
-			return response.ResponseError(c, 401, "Token tidak ditemukan", "", "Anda harus login terlebih dahulu")
+			return response.ResponseError(c, 401, "Token not found", "", "You must log in first")
 		}
 
 		publicKeyPath := mainutils.GetKeyPath("public.pem")
 		publicKey, err := tokenutils.LoadPublicKey(publicKeyPath)
 		if err != nil {
-			return response.ResponseError(c, 500, "Gagal memuat kunci publik", "", err.Error())
+			return response.ResponseError(c, 500, "Failed to load public key", "", err.Error())
 		}
 
 		parsedToken, err := jwt.Parse(token, func(t *jwt.Token) (any, error) {
@@ -45,28 +45,28 @@ func ValidateAccessToken() fiber.Handler {
 			return publicKey, nil
 		})
 		if err != nil || !parsedToken.Valid {
-			return response.ResponseError(c, 401, "Token tidak valid", "", "Token tidak dapat diverifikasi")
+			return response.ResponseError(c, 401, "Invalid token", "", "Token could not be verified")
 		}
 
 		claims, ok := parsedToken.Claims.(jwt.MapClaims)
 		if !ok {
-			return response.ResponseError(c, 401, "Token tidak valid", "", "Claims tidak dapat dibaca")
+			return response.ResponseError(c, 401, "Invalid token", "", "Claims could not be read")
 		}
 
 		tokenType, _ := claims["token_type"].(string)
 		if tokenType != "access" {
-			return response.ResponseError(c, 401, "Token tidak valid", "", "Tipe token tidak sesuai")
+			return response.ResponseError(c, 401, "Invalid token", "", "Token type does not match")
 		}
 
 		sessionIDFloat, ok := claims["session_id"].(float64)
 		if !ok {
-			return response.ResponseError(c, 401, "Token tidak valid", "", "Session ID tidak ditemukan pada token")
+			return response.ResponseError(c, 401, "Invalid token", "", "Session ID not found in token")
 		}
 		sessionID := uint(sessionIDFloat)
 
 		userIDFloat, ok := claims["user_id"].(float64)
 		if !ok {
-			return response.ResponseError(c, 401, "Token tidak valid", "", "User ID tidak ditemukan pada token")
+			return response.ResponseError(c, 401, "Invalid token", "", "User ID not found in token")
 		}
 		userID := uint(userIDFloat)
 
@@ -78,7 +78,7 @@ func ValidateAccessToken() fiber.Handler {
 		if err == nil {
 			if storedUserID != fmt.Sprintf("%d", userID) {
 				tokenutils.ClearAuthCookies(c)
-				return response.ResponseError(c, 401, "Sesi tidak valid", "", "Sesi tidak sesuai dengan user")
+				return response.ResponseError(c, 401, "Invalid session", "", "Session does not match the user")
 			}
 
 			c.Locals("token", parsedToken)
@@ -92,22 +92,22 @@ func ValidateAccessToken() fiber.Handler {
 		userSession, err := userSessionRepo.GetByID(ctx, sessionID)
 		if err != nil {
 			tokenutils.ClearAuthCookies(c)
-			return response.ResponseError(c, 401, "Sesi tidak valid", "", "Sesi pengguna tidak ditemukan atau sudah tidak berlaku")
+			return response.ResponseError(c, 401, "Invalid session", "", "User session not found or no longer valid")
 		}
 
 		if !userSession.IsActive {
 			tokenutils.ClearAuthCookies(c)
-			return response.ResponseError(c, 401, "Sesi tidak valid", "", "Sesi pengguna sudah tidak aktif")
+			return response.ResponseError(c, 401, "Invalid session", "", "User session is inactive")
 		}
 
 		if userSession.ExpiresAt < time.Now().Unix() {
 			tokenutils.ClearAuthCookies(c)
-			return response.ResponseError(c, 401, "Sesi kedaluwarsa", "", "Sesi pengguna sudah kedaluwarsa")
+			return response.ResponseError(c, 401, "Session expired", "", "User session has expired")
 		}
 
 		if userSession.UserID != userID {
 			tokenutils.ClearAuthCookies(c)
-			return response.ResponseError(c, 401, "Sesi tidak valid", "", "Sesi tidak sesuai dengan user")
+			return response.ResponseError(c, 401, "Invalid session", "", "Session does not match the user")
 		}
 
 		ttl := time.Until(time.Unix(userSession.ExpiresAt, 0))

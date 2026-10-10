@@ -45,7 +45,7 @@ func (s *SearchService) SearchData(ctx context.Context, searchQuery string, user
 			zap.String("search_query", searchQuery),
 			zap.Error(err),
 		)
-		return nil, apperror.New(500, "USER_SEARCH_FAILED", "Gagal mencari data pengguna", err.Error(), nil)
+		return nil, apperror.New(500, "USER_SEARCH_FAILED", "Failed to search user data", err.Error(), nil)
 	}
 
 	reportsData, err := s.reportRepo.FullTextSearchReportPaginated(ctx, strings.ToLower(searchQuery), limit, reportsDataNextCursor)
@@ -55,7 +55,7 @@ func (s *SearchService) SearchData(ctx context.Context, searchQuery string, user
 			zap.String("search_query", searchQuery),
 			zap.Error(err),
 		)
-		return nil, apperror.New(500, "REPORT_SEARCH_FAILED", "Gagal mencari data laporan", err.Error(), nil)
+		return nil, apperror.New(500, "REPORT_SEARCH_FAILED", "Failed to search report data", err.Error(), nil)
 	}
 
 	resultUsers := make([]dto.UsersSearch, 0, len(*usersData))
@@ -63,12 +63,12 @@ func (s *SearchService) SearchData(ctx context.Context, searchQuery string, user
 		userDTO := dto.UsersSearch{
 			UserID:         user.ID,
 			FullName:       user.FullName,
-			Email: 			user.Email,
+			Email:          user.Email,
 			Bio:            user.Profile.Bio,
 			ProfilePicture: user.Profile.ProfilePicture,
-			Username:	   user.Username,
-			Birthday:   	   user.Profile.Birthday,
-			Gender: user.Profile.Gender,	
+			Username:       user.Username,
+			Birthday:       user.Profile.Birthday,
+			Gender:         user.Profile.Gender,
 		}
 		resultUsers = append(resultUsers, userDTO)
 	}
@@ -76,7 +76,7 @@ func (s *SearchService) SearchData(ctx context.Context, searchQuery string, user
 	resultReports := make([]dto.ReportsSearch, 0, len(*reportsData))
 	for _, report := range *reportsData {
 		reportDTO := dto.ReportsSearch{
-			ID:                 report.ID,
+			ID:                report.ID,
 			ReportTitle:       report.ReportTitle,
 			ReportType:        string(report.ReportType),
 			ReportDescription: report.ReportDescription,

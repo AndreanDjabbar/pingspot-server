@@ -26,7 +26,7 @@ func TimeoutMiddleware(d time.Duration) fiber.Handler {
 			return err
 		case <-ctx.Done():
 			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-				return response.ResponseError(c, 408, "Request timeout exceeded", "error", "Permintaan memakan waktu terlalu lama untuk diproses")
+				return response.ResponseError(c, 408, "Request timeout exceeded", "error", "The request took too long to process")
 			}
 			return ctx.Err()
 		}

@@ -51,13 +51,13 @@ func (h *AuthHandler) RegisterHandler(c *fiber.Ctx) error {
 	var req dto.RegisterRequest
 	if err := c.BodyParser(&req); err != nil {
 		logger.Error("Failed to parse request body", zap.Error(err))
-		return response.ResponseError(c, 400, "Format body request tidak valid", "", err.Error())
+		return response.ResponseError(c, 400, "Invalid request body format", "", err.Error())
 	}
 
 	if err := validation.Validate.Struct(req); err != nil {
 		errors := validation.FormatRegisterValidationErrors(err)
 		logger.Error("Validation failed", zap.Error(err))
-		return response.ResponseError(c, 400, "Validasi gagal", "errors", errors)
+		return response.ResponseError(c, 400, "Validation failed", "errors", errors)
 	}
 	user, err := h.authService.Register(ctx, req, false)
 	if err != nil {
@@ -65,7 +65,7 @@ func (h *AuthHandler) RegisterHandler(c *fiber.Ctx) error {
 		if appErr, ok := err.(*apperror.AppError); ok {
 			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Registrasi gagal", "", err.Error())
+		return response.ResponseError(c, 500, "Registration failed", "", err.Error())
 	}
 
 	if err := h.authService.SendRegistrationVerificationEmail(ctx, user); err != nil {
@@ -73,12 +73,12 @@ func (h *AuthHandler) RegisterHandler(c *fiber.Ctx) error {
 		if appErr, ok := err.(*apperror.AppError); ok {
 			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Gagal mengirim email verifikasi", "", err.Error())
+		return response.ResponseError(c, 500, "Failed to send verification email", "", err.Error())
 	}
 
 	logger.Info("User registered successfully", zap.String("user_id", fmt.Sprintf("%d", user.ID)))
 
-	return response.ResponseSuccess(c, 200, "Registrasi berhasil. Silahkan cek email anda untuk verifikasi akun", "data", nil)
+	return response.ResponseSuccess(c, 200, "Registration successful. Please check your email to verify your account", "data", nil)
 }
 
 func (h *AuthHandler) VerificationHandler(c *fiber.Ctx) error {
@@ -88,13 +88,13 @@ func (h *AuthHandler) VerificationHandler(c *fiber.Ctx) error {
 	code2 := c.Query("code2")
 
 	if code1 == "" || userId == "" || code2 == "" {
-		return response.ResponseError(c, 400, "Parameter tidak lengkap", "", nil)
+		return response.ResponseError(c, 400, "Incomplete parameters", "", nil)
 	}
 
 	userIdUint, err := strconv.ParseUint(userId, 10, 32)
 	if err != nil {
 		logger.Error("Invalid user ID format", zap.Error(err))
-		return response.ResponseError(c, 400, "ID pengguna tidak valid", "", err.Error())
+		return response.ResponseError(c, 400, "Invalid user ID", "", err.Error())
 	}
 
 	user, err := h.authService.VerifyRegistrationCode(ctx, code1, code2, uint(userIdUint))
@@ -103,10 +103,10 @@ func (h *AuthHandler) VerificationHandler(c *fiber.Ctx) error {
 		if appErr, ok := err.(*apperror.AppError); ok {
 			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Verifikasi gagal", "", err.Error())
+		return response.ResponseError(c, 500, "Verification failed", "", err.Error())
 	}
 
-	return response.ResponseSuccess(c, 200, "Akun berhasil diverifikasi", "data", dto.VerificationResponse{
+	return response.ResponseSuccess(c, 200, "Account verified successfully", "data", dto.VerificationResponse{
 		Username: user.Username,
 		Email:    user.Email,
 		FullName: user.FullName,
@@ -118,13 +118,13 @@ func (h *AuthHandler) LoginHandler(c *fiber.Ctx) error {
 	var req dto.LoginRequest
 	if err := c.BodyParser(&req); err != nil {
 		logger.Error("Failed to parse request body", zap.Error(err))
-		return response.ResponseError(c, 400, "Format body request tidak valid", "", err.Error())
+		return response.ResponseError(c, 400, "Invalid request body format", "", err.Error())
 	}
 
 	if err := validation.Validate.Struct(req); err != nil {
 		errors := validation.FormatLoginValidationErrors(err)
 		logger.Error("Validation failed", zap.Error(err))
-		return response.ResponseError(c, 400, "Validasi gagal", "errors", errors)
+		return response.ResponseError(c, 400, "Validation failed", "errors", errors)
 	}
 
 	userIP := mainutils.GetClientIP(c)
@@ -139,7 +139,7 @@ func (h *AuthHandler) LoginHandler(c *fiber.Ctx) error {
 		if appErr, ok := err.(*apperror.AppError); ok {
 			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 401, "Login gagal", "", err.Error())
+		return response.ResponseError(c, 401, "Login failed", "", err.Error())
 	}
 
 	c.Cookie(&fiber.Cookie{
@@ -164,7 +164,7 @@ func (h *AuthHandler) LoginHandler(c *fiber.Ctx) error {
 		MaxAge:   getRefreshTokenAge(),
 	})
 
-	return response.ResponseSuccess(c, 200, "Login berhasil", "data", dto.LoginResponse{
+	return response.ResponseSuccess(c, 200, "Login successful", "data", dto.LoginResponse{
 		AccessToken: accessToken,
 		ExpiresIn:   int64(getAccessTokenAge()),
 	})
@@ -211,7 +211,7 @@ func (h *AuthHandler) OAuthCallbackHandler(provider string) http.HandlerFunc {
 			if appErr, ok := err.(*apperror.AppError); ok {
 				http.Error(w, appErr.Message, appErr.StatusCode)
 			} else {
-				http.Error(w, "Terdapat masalah", http.StatusInternalServerError)
+				http.Error(w, "An error occurred", http.StatusInternalServerError)
 			}
 			return
 		}
@@ -249,12 +249,12 @@ func (h *AuthHandler) ForgotPasswordEmailVerificationHandler(c *fiber.Ctx) error
 	var req dto.ForgotPasswordEmailVerificationRequest
 	if err := c.BodyParser(&req); err != nil {
 		logger.Error("Failed to parse request body", zap.Error(err))
-		return response.ResponseError(c, 400, "Format body request tidak valid", "", err.Error())
+		return response.ResponseError(c, 400, "Invalid request body format", "", err.Error())
 	}
 	if err := validation.Validate.Struct(req); err != nil {
 		errors := validation.FormatForgotPasswordEmailVerificationValidationErrors(err)
 		logger.Error("Validation failed", zap.Error(err))
-		return response.ResponseError(c, 400, "Validasi gagal", "errors", errors)
+		return response.ResponseError(c, 400, "Validation failed", "errors", errors)
 	}
 
 	err := h.authService.ForgotPasswordEmailVerification(ctx, req)
@@ -263,10 +263,10 @@ func (h *AuthHandler) ForgotPasswordEmailVerificationHandler(c *fiber.Ctx) error
 		if appErr, ok := err.(*apperror.AppError); ok {
 			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "errors", appErr.ErrorData)
 		}
-		return response.ResponseError(c, 500, "Gagal memproses permintaan", "", err.Error())
+		return response.ResponseError(c, 500, "Failed to process request", "", err.Error())
 	}
 
-	return response.ResponseSuccess(c, 200, "Silahkan cek email anda untuk verifikasi pengaturan ulang kata sandi", "data", nil)
+	return response.ResponseSuccess(c, 200, "Please check your email to verify the password reset", "data", nil)
 }
 
 func (h *AuthHandler) ForgotPasswordLinkVerificationHandler(c *fiber.Ctx) error {
@@ -275,7 +275,7 @@ func (h *AuthHandler) ForgotPasswordLinkVerificationHandler(c *fiber.Ctx) error 
 	email := c.Query("email")
 
 	if code == "" || email == "" {
-		return response.ResponseError(c, 400, "Parameter tidak lengkap", "", nil)
+		return response.ResponseError(c, 400, "Incomplete parameters", "", nil)
 	}
 
 	if err := h.authService.VerifyForgotPasswordCode(ctx, code, email); err != nil {
@@ -283,10 +283,10 @@ func (h *AuthHandler) ForgotPasswordLinkVerificationHandler(c *fiber.Ctx) error 
 		if appErr, ok := err.(*apperror.AppError); ok {
 			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Gagal memverifikasi kode", "", err.Error())
+		return response.ResponseError(c, 500, "Failed to verify code", "", err.Error())
 	}
 
-	return response.ResponseSuccess(c, 200, "Link verifikasi berhasil", "data", dto.ForgotPasswordLinkVerificationResponse{
+	return response.ResponseSuccess(c, 200, "Verification link processed successfully", "data", dto.ForgotPasswordLinkVerificationResponse{
 		Email: email,
 	})
 }
@@ -295,7 +295,7 @@ func (h *AuthHandler) RefreshTokenHandler(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 	refreshToken := c.Cookies("refresh_token")
 	if refreshToken == "" {
-		return response.ResponseError(c, 401, "Refresh token tidak ditemukan", "", "Anda harus login terlebih dahulu")
+		return response.ResponseError(c, 401, "Refresh token not found", "", "You must log in first")
 	}
 
 	newAccessToken, newRefreshToken, err := h.authService.RefreshToken(ctx, refreshToken)
@@ -307,7 +307,7 @@ func (h *AuthHandler) RefreshTokenHandler(c *fiber.Ctx) error {
 			}
 			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Gagal memperbarui token", "", err.Error())
+		return response.ResponseError(c, 500, "Failed to refresh token", "", err.Error())
 	}
 
 	c.Cookie(&fiber.Cookie{
@@ -332,7 +332,7 @@ func (h *AuthHandler) RefreshTokenHandler(c *fiber.Ctx) error {
 		MaxAge:   getRefreshTokenAge(),
 	})
 
-	return response.ResponseSuccess(c, 200, "Token berhasil diperbarui", "data", dto.RefreshTokenResponse{
+	return response.ResponseSuccess(c, 200, "Token refreshed successfully", "data", dto.RefreshTokenResponse{
 		AccessToken: newAccessToken,
 		ExpiresIn:   int64(getAccessTokenAge()),
 	})
@@ -343,12 +343,12 @@ func (h *AuthHandler) ForgotPasswordResetPasswordHandler(c *fiber.Ctx) error {
 	var req dto.ForgotPasswordResetPasswordRequest
 	if err := c.BodyParser(&req); err != nil {
 		logger.Error("Failed to parse request body", zap.Error(err))
-		return response.ResponseError(c, 400, "Format body request tidak valid", "", err.Error())
+		return response.ResponseError(c, 400, "Invalid request body format", "", err.Error())
 	}
 	if err := validation.Validate.Struct(req); err != nil {
 		errors := validation.FormatForgotPasswordResetPasswordValidationErrors(err)
 		logger.Error("Validation failed", zap.Error(err))
-		return response.ResponseError(c, 400, "Validasi gagal", "errors", errors)
+		return response.ResponseError(c, 400, "Validation failed", "errors", errors)
 	}
 
 	if err := h.authService.ResetPassword(ctx, req.Email, req.Password); err != nil {
@@ -356,17 +356,17 @@ func (h *AuthHandler) ForgotPasswordResetPasswordHandler(c *fiber.Ctx) error {
 		if appErr, ok := err.(*apperror.AppError); ok {
 			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Gagal memperbarui kata sandi", "", err.Error())
+		return response.ResponseError(c, 500, "Failed to update password", "", err.Error())
 	}
 
-	return response.ResponseSuccess(c, 200, "Kata sandi berhasil diperbarui. Silahkan masuk dengan identitas terbaru anda", "data", nil)
+	return response.ResponseSuccess(c, 200, "Password updated successfully. Please log in with your updated credentials", "data", nil)
 }
 
 func (h *AuthHandler) LogoutHandler(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 	refreshToken := c.Cookies("refresh_token")
 	if refreshToken == "" {
-		return response.ResponseError(c, 401, "Refresh token tidak ditemukan", "", "Anda harus login terlebih dahulu")
+		return response.ResponseError(c, 401, "Refresh token not found", "", "You must log in first")
 	}
 
 	if err := h.authService.Logout(ctx, refreshToken); err != nil {
@@ -374,7 +374,7 @@ func (h *AuthHandler) LogoutHandler(c *fiber.Ctx) error {
 		if appErr, ok := err.(*apperror.AppError); ok {
 			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Gagal logout", "", err.Error())
+		return response.ResponseError(c, 500, "Logout failed", "", err.Error())
 	}
 
 	c.Cookie(&fiber.Cookie{
@@ -399,5 +399,5 @@ func (h *AuthHandler) LogoutHandler(c *fiber.Ctx) error {
 		Path:     "/",
 	})
 
-	return response.ResponseSuccess(c, 200, "Logout berhasil", "data", nil)
+	return response.ResponseSuccess(c, 200, "Logout successful", "data", nil)
 }

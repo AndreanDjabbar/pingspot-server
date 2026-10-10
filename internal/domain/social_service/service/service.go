@@ -17,17 +17,17 @@ import (
 )
 
 type SocialService struct {
-	followRepo      socialRepository.FollowRepository
-	userRepo        userRepository.UserRepository
-	db              *gorm.DB
-	tasksService    tasksService.TaskService
+	followRepo   socialRepository.FollowRepository
+	userRepo     userRepository.UserRepository
+	db           *gorm.DB
+	tasksService tasksService.TaskService
 }
 
 func NewSocialService(db *gorm.DB, followRepo socialRepository.FollowRepository, userRepo userRepository.UserRepository, tasksService tasksService.TaskService) *SocialService {
 	return &SocialService{
 		db:           db,
-		followRepo: followRepo,
-		userRepo:    userRepo,
+		followRepo:   followRepo,
+		userRepo:     userRepo,
 		tasksService: tasksService,
 	}
 }
@@ -36,58 +36,58 @@ func (s *SocialService) Follow(ctx context.Context, userID uint, req dto.FollowR
 	currentUser, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "USER_NOT_FOUND", "pengguna tidak ditemukan", "", nil)
+			return nil, apperror.New(404, "USER_NOT_FOUND", "User not found", "", nil)
 		}
-		return nil, apperror.New(500, "USER_FETCH_FAILED", "gagal mengambil data pengguna", err.Error(), nil)
+		return nil, apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
 	}
 
 	if currentUser.ID == req.FollowingID {
-		return nil, apperror.New(400, "FOLLOW_SELF_NOT_ALLOWED", "tidak dapat mengikuti diri sendiri", "", nil)
+		return nil, apperror.New(400, "FOLLOW_SELF_NOT_ALLOWED", "Cannot follow yourself", "", nil)
 	}
 
 	var followProcess string
-	
+
 	follow := model.Follow{
-		FollowingID:   req.FollowingID,
-		FollowingType: model.FollowingType(req.FollowingType),
-		FollowerUserID:  currentUser.ID,
+		FollowingID:    req.FollowingID,
+		FollowingType:  model.FollowingType(req.FollowingType),
+		FollowerUserID: currentUser.ID,
 	}
 
 	existingFollow, err := s.followRepo.GetByFollowerAndFollowing(ctx, currentUser.ID, req.FollowingID, follow.FollowingType)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, apperror.New(500, "FOLLOW_CHECK_FAILED", "gagal memeriksa status mengikuti", err.Error(), nil)
+		return nil, apperror.New(500, "FOLLOW_CHECK_FAILED", "Failed to check follow status", err.Error(), nil)
 	}
 
 	if existingFollow != nil {
 		unfollowErr := s.followRepo.DeleteTX(ctx, s.db, existingFollow)
 		if unfollowErr != nil {
-			return nil, apperror.New(500, "UNFOLLOW_FAILED", "gagal berhenti mengikuti pengguna", unfollowErr.Error(), nil)
+			return nil, apperror.New(500, "UNFOLLOW_FAILED", "Failed to unfollow user", unfollowErr.Error(), nil)
 		}
 		followProcess = "unfollow"
 	} else {
 		if err := s.followRepo.CreateTX(ctx, s.db, &follow); err != nil {
-			return nil, apperror.New(500, "FOLLOW_FAILED", "gagal mengikuti pengguna", err.Error(), nil)
+			return nil, apperror.New(500, "FOLLOW_FAILED", "Failed to follow user", err.Error(), nil)
 		}
 		followProcess = "follow"
 
 		if err := s.tasksService.CreateNotificationTask(
 			req.FollowingID,
-			"Seseorang mulai mengikuti Anda",
-			fmt.Sprintf("Pengguna %s mulai mengikuti Anda", currentUser.Username),
+			"Someone started following you",
+			fmt.Sprintf("User %s started following you", currentUser.Username),
 			mainutils.StrPtrOrNil(strconv.FormatUint(uint64(currentUser.ID), 10)),
 			model.EntityTypeUser,
 			model.UserNotificationCategory,
 			model.NotificationTypeInfo,
 		); err != nil {
-			return nil, apperror.New(500, "NOTIFICATION_TASK_FAILED", "gagal membuat tugas notifikasi", err.Error(), nil)
+			return nil, apperror.New(500, "NOTIFICATION_TASK_FAILED", "Failed to create notification task", err.Error(), nil)
 		}
 	}
 
 	return &dto.FollowResponse{
-		FollowingID:   follow.FollowingID,
-		FollowingType: string(follow.FollowingType),
-		FollowerUserID:  follow.FollowerUserID,
-		FollowProcess: followProcess,
+		FollowingID:    follow.FollowingID,
+		FollowingType:  string(follow.FollowingType),
+		FollowerUserID: follow.FollowerUserID,
+		FollowProcess:  followProcess,
 	}, nil
 }
 
@@ -95,15 +95,15 @@ func (s *SocialService) GetFollowing(ctx context.Context, followingID uint, foll
 	followingTypeEnum := model.FollowingType(followingType)
 	followersCount, err := s.followRepo.GetFollowersCount(ctx, followingID, followingTypeEnum)
 	if err != nil {
-		return nil, apperror.New(500, "FOLLOWERS_COUNT_FETCH_FAILED", "gagal mendapatkan jumlah pengikut", err.Error(), nil)
+		return nil, apperror.New(500, "FOLLOWERS_COUNT_FETCH_FAILED", "Failed to retrieve follower count", err.Error(), nil)
 	}
 	followingCount, err := s.followRepo.GetFollowingCount(ctx, followingID, followingTypeEnum)
 	if err != nil {
-		return nil, apperror.New(500, "FOLLOWING_COUNT_FETCH_FAILED", "gagal mendapatkan jumlah yang diikuti", err.Error(), nil)
+		return nil, apperror.New(500, "FOLLOWING_COUNT_FETCH_FAILED", "Failed to retrieve following count", err.Error(), nil)
 	}
 	myFollowData, err := s.followRepo.GetByFollowerAndFollowing(ctx, currentUserID, followingID, followingTypeEnum)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, apperror.New(500, "MY_FOLLOW_DATA_FETCH_FAILED", "gagal mendapatkan data mengikuti saya", err.Error(), nil)
+		return nil, apperror.New(500, "MY_FOLLOW_DATA_FETCH_FAILED", "Failed to retrieve my follow data", err.Error(), nil)
 	}
 	var myFollowDataDTO *dto.Follow
 	if myFollowData != nil {
@@ -116,7 +116,7 @@ func (s *SocialService) GetFollowing(ctx context.Context, followingID uint, foll
 		}
 	}
 	return &dto.GetFollowDataResponse{
-		FollowingID:   followingID,
+		FollowingID:    followingID,
 		FollowersCount: followersCount,
 		FollowingCount: followingCount,
 		MyFollowData:   myFollowDataDTO,
@@ -129,26 +129,26 @@ func (s *SocialService) GetUserConnectionsFollowers(ctx context.Context, userID 
 	userData, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "USER_NOT_FOUND", "pengguna tidak ditemukan", "", nil)
+			return nil, apperror.New(404, "USER_NOT_FOUND", "User not found", "", nil)
 		}
-		return nil, apperror.New(500, "USER_FETCH_FAILED", "gagal mengambil data pengguna", err.Error(), nil)
+		return nil, apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
 	}
 
 	userFollowers, err := s.followRepo.GetFollowersByUserIDPaginated(ctx, userData.ID, limit, cursorID)
 	if err != nil {
-		return nil, apperror.New(500, "USER_CONNECTIONS_FETCH_FAILED", "gagal mendapatkan koneksi pengguna", err.Error(), nil)
+		return nil, apperror.New(500, "USER_CONNECTIONS_FETCH_FAILED", "Failed to retrieve user connections", err.Error(), nil)
 	}
 
 	var followersDTO []*dto.UserConnection
 	for _, itemFollower := range userFollowers {
 		followersDTO = append(followersDTO, &dto.UserConnection{
-			UserID:   itemFollower.User.ID,
-			Username: itemFollower.User.Username,
-			FullName: itemFollower.User.FullName,
+			UserID:         itemFollower.User.ID,
+			Username:       itemFollower.User.Username,
+			FullName:       itemFollower.User.FullName,
 			ProfilePicture: itemFollower.User.Profile.ProfilePicture,
-			Status:   "offline",
-			Relation: "follower",
-			FollowID: itemFollower.Follow.ID,
+			Status:         "offline",
+			Relation:       "follower",
+			FollowID:       itemFollower.Follow.ID,
 		})
 	}
 	return &dto.GetUserConnectionsFollowersResponse{
@@ -162,26 +162,26 @@ func (s *SocialService) GetUserConnectionsFollowing(ctx context.Context, userID 
 	userData, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "USER_NOT_FOUND", "pengguna tidak ditemukan", "", nil)
+			return nil, apperror.New(404, "USER_NOT_FOUND", "User not found", "", nil)
 		}
-		return nil, apperror.New(500, "USER_FETCH_FAILED", "gagal mengambil data pengguna", err.Error(), nil)
+		return nil, apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
 	}
 
 	userFollowing, err := s.followRepo.GetFollowingByUserIDPaginated(ctx, userData.ID, limit, cursorID)
 	if err != nil {
-		return nil, apperror.New(500, "USER_CONNECTIONS_FETCH_FAILED", "gagal mendapatkan koneksi pengguna", err.Error(), nil)
+		return nil, apperror.New(500, "USER_CONNECTIONS_FETCH_FAILED", "Failed to retrieve user connections", err.Error(), nil)
 	}
 
 	var followingDTO []*dto.UserConnection
 	for _, itemFollowing := range userFollowing {
 		followingDTO = append(followingDTO, &dto.UserConnection{
-			UserID:   itemFollowing.User.ID,
-			Username: itemFollowing.User.Username,
-			FullName: itemFollowing.User.FullName,
+			UserID:         itemFollowing.User.ID,
+			Username:       itemFollowing.User.Username,
+			FullName:       itemFollowing.User.FullName,
 			ProfilePicture: itemFollowing.User.Profile.ProfilePicture,
-			FollowID: itemFollowing.Follow.ID,
-			Status:   "offline",
-			Relation: "following",
+			FollowID:       itemFollowing.Follow.ID,
+			Status:         "offline",
+			Relation:       "following",
 		})
 	}
 	return &dto.GetUserConnectionsFollowingResponse{

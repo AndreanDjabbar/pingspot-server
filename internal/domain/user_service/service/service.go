@@ -43,16 +43,16 @@ func (s *UserService) SaveProfile(ctx context.Context, userID uint, req dto.Save
 			zap.String("request_id", requestID),
 			zap.Error(tx.Error),
 		)
-		return nil, apperror.New(500, "TRANSACTION_START_FAILED", "gagal memulai transaksi", tx.Error.Error(), nil)
+		return nil, apperror.New(500, "TRANSACTION_START_FAILED", "Failed to start transaction", tx.Error.Error(), nil)
 	}
 
 	currentUser, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		tx.Rollback()
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "USER_NOT_FOUND", "pengguna tidak ditemukan", "", nil)
+			return nil, apperror.New(404, "USER_NOT_FOUND", "User not found", "", nil)
 		}
-		return nil, apperror.New(500, "USER_FETCH_FAILED", "gagal mengambil data pengguna", err.Error(), nil)
+		return nil, apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
 	}
 
 	if req.Username != nil && *req.Username != currentUser.Username {
@@ -60,11 +60,11 @@ func (s *UserService) SaveProfile(ctx context.Context, userID uint, req dto.Save
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				tx.Rollback()
-				return nil, apperror.New(500, "USERNAME_CHECK_FAILED", "gagal memeriksa keberadaan username", err.Error(), nil)
+				return nil, apperror.New(500, "USERNAME_CHECK_FAILED", "Failed to check username availability", err.Error(), nil)
 			}
 		} else {
 			tx.Rollback()
-			return nil, apperror.New(409, "USERNAME_EXISTS", "username sudah digunakan. Silakan pilih username lain.", "", nil)
+			return nil, apperror.New(409, "USERNAME_EXISTS", "Username is already in use. Please choose another username", "", nil)
 		}
 		currentUser.IsDefaultUsername = false
 	}
@@ -75,7 +75,7 @@ func (s *UserService) SaveProfile(ctx context.Context, userID uint, req dto.Save
 	updatedUser, err := s.userRepo.UpdateTX(ctx, tx, currentUser)
 	if err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "USER_UPDATE_FAILED", "gagal memperbarui data pengguna", err.Error(), nil)
+		return nil, apperror.New(500, "USER_UPDATE_FAILED", "Failed to update user data", err.Error(), nil)
 	}
 
 	profile, err := s.userProfileRepo.GetByIDTX(ctx, tx, userID)
@@ -90,10 +90,10 @@ func (s *UserService) SaveProfile(ctx context.Context, userID uint, req dto.Save
 			}
 			if _, err := s.userProfileRepo.CreateTX(ctx, tx, &newProfile); err != nil {
 				tx.Rollback()
-				return nil, apperror.New(500, "PROFILE_CREATE_FAILED", "gagal membuat profil", err.Error(), nil)
+				return nil, apperror.New(500, "PROFILE_CREATE_FAILED", "Failed to create profile", err.Error(), nil)
 			}
 			if err := tx.Commit().Error; err != nil {
-				return nil, apperror.New(500, "TRANSACTION_COMMIT_FAILED", "gagal menyimpan perubahan", err.Error(), nil)
+				return nil, apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to save changes", err.Error(), nil)
 			}
 			newProfileResponse := dto.SaveUserProfileResponse{
 				UserID:         userID,
@@ -111,7 +111,7 @@ func (s *UserService) SaveProfile(ctx context.Context, userID uint, req dto.Save
 			return &newProfileResponse, nil
 		} else {
 			tx.Rollback()
-			return nil, apperror.New(500, "PROFILE_FETCH_FAILED", "gagal mengambil profil", err.Error(), nil)
+			return nil, apperror.New(500, "PROFILE_FETCH_FAILED", "Failed to retrieve profile", err.Error(), nil)
 		}
 	}
 
@@ -122,11 +122,11 @@ func (s *UserService) SaveProfile(ctx context.Context, userID uint, req dto.Save
 
 	if _, err := s.userProfileRepo.UpdateTX(ctx, tx, profile); err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "PROFILE_UPDATE_FAILED", "gagal memperbarui profil", err.Error(), nil)
+		return nil, apperror.New(500, "PROFILE_UPDATE_FAILED", "Failed to update profile", err.Error(), nil)
 	}
 
 	if err := tx.Commit().Error; err != nil {
-		return nil, apperror.New(500, "TRANSACTION_COMMIT_FAILED", "gagal menyimpan perubahan", err.Error(), nil)
+		return nil, apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to save changes", err.Error(), nil)
 	}
 
 	profileResponse := dto.SaveUserProfileResponse{
@@ -148,12 +148,12 @@ func (s *UserService) SaveProfile(ctx context.Context, userID uint, req dto.Save
 func (s *UserService) GetUserStatistics(ctx context.Context) (*dto.GetUserStatisticsResponse, error) {
 	totalUsers, err := s.userRepo.GetUsersCount(ctx)
 	if err != nil {
-		return nil, apperror.New(500, "USER_COUNT_FETCH_FAILED", "gagal mendapatkan jumlah pengguna", err.Error(), nil)
+		return nil, apperror.New(500, "USER_COUNT_FETCH_FAILED", "Failed to retrieve user count", err.Error(), nil)
 	}
 
 	usersByGender, err := s.userRepo.GetByUserGenderCount(ctx)
 	if err != nil {
-		return nil, apperror.New(500, "USER_GENDER_COUNT_FETCH_FAILED", "gagal mendapatkan jumlah pengguna berdasarkan gender", err.Error(), nil)
+		return nil, apperror.New(500, "USER_GENDER_COUNT_FETCH_FAILED", "Failed to retrieve user count by gender", err.Error(), nil)
 	}
 	totalKnownGender := usersByGender["male"] + usersByGender["female"]
 
@@ -163,7 +163,7 @@ func (s *UserService) GetUserStatistics(ctx context.Context) (*dto.GetUserStatis
 
 	monthlyUserCounts, err := s.userRepo.GetMonthlyUserCounts(ctx)
 	if err != nil {
-		return nil, apperror.New(500, "MONTHLY_USER_COUNT_FETCH_FAILED", "gagal mendapatkan jumlah pengguna bulanan", err.Error(), nil)
+		return nil, apperror.New(500, "MONTHLY_USER_COUNT_FETCH_FAILED", "Failed to retrieve monthly user count", err.Error(), nil)
 	}
 
 	return &dto.GetUserStatisticsResponse{
@@ -188,7 +188,7 @@ func (s *UserService) SearchUsers(ctx context.Context, searchQuery string, users
 			zap.String("search_query", searchQuery),
 			zap.Error(err),
 		)
-		return nil, apperror.New(500, "USER_SEARCH_FAILED", "Gagal mencari data pengguna", err.Error(), nil)
+		return nil, apperror.New(500, "USER_SEARCH_FAILED", "Failed to search user data", err.Error(), nil)
 	}
 
 	resultUsers := make([]dto.SearchUsers, 0, len(*usersData))
@@ -199,8 +199,8 @@ func (s *UserService) SearchUsers(ctx context.Context, searchQuery string, users
 			FullName:       user.FullName,
 			Bio:            user.Profile.Bio,
 			ProfilePicture: user.Profile.ProfilePicture,
-			Username:	   user.Username,
-			Birthday:   	   user.Profile.Birthday,
+			Username:       user.Username,
+			Birthday:       user.Profile.Birthday,
 		}
 		resultUsers = append(resultUsers, userDTO)
 	}
@@ -215,14 +215,13 @@ func (s *UserService) SearchUsers(ctx context.Context, searchQuery string, users
 	}, nil
 }
 
-
 func (s *UserService) GetProfileByUsername(ctx context.Context, username string) (*dto.GetProfileResponse, error) {
 	user, err := s.userRepo.GetByUsername(ctx, username)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "USER_NOT_FOUND", "pengguna tidak ditemukan", "", nil)
+			return nil, apperror.New(404, "USER_NOT_FOUND", "User not found", "", nil)
 		}
-		return nil, apperror.New(500, "USER_FETCH_FAILED", "gagal mendapatkan profil user", err.Error(), nil)
+		return nil, apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user profile", err.Error(), nil)
 	}
 	return &dto.GetProfileResponse{
 		UserID:         user.ID,
@@ -240,9 +239,9 @@ func (s *UserService) GetProfile(ctx context.Context, userID uint) (*dto.GetProf
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "USER_NOT_FOUND", "pengguna tidak ditemukan", "", nil)
+			return nil, apperror.New(404, "USER_NOT_FOUND", "User not found", "", nil)
 		}
-		return nil, apperror.New(500, "USER_FETCH_FAILED", "gagal mendapatkan profil user", err.Error(), nil)
+		return nil, apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user profile", err.Error(), nil)
 	}
 
 	missingFields := []string{}
@@ -269,18 +268,18 @@ func (s *UserService) GetProfile(ctx context.Context, userID uint) (*dto.GetProf
 	isCompleteProfile := len(missingFields) == 0
 
 	return &dto.GetProfileResponse{
-		UserID:         user.ID,
-		FullName:       user.FullName,
-		Bio:            user.Profile.Bio,
-		ProfilePicture: user.Profile.ProfilePicture,
-		Username:       user.Username,
-		Birthday:       user.Profile.Birthday,
-		Gender:         user.Profile.Gender,
-		Email:          user.Email,
-		IsCompleteProfile: isCompleteProfile,
+		UserID:                     user.ID,
+		FullName:                   user.FullName,
+		Bio:                        user.Profile.Bio,
+		ProfilePicture:             user.Profile.ProfilePicture,
+		Username:                   user.Username,
+		Birthday:                   user.Profile.Birthday,
+		Gender:                     user.Profile.Gender,
+		Email:                      user.Email,
+		IsCompleteProfile:          isCompleteProfile,
 		IsDisableEmailNotification: user.IsDisableEmailNotification,
-		MissingFields:     missingFields,
-		IsDefaultUsername: user.IsDefaultUsername,
+		MissingFields:              missingFields,
+		IsDefaultUsername:          user.IsDefaultUsername,
 	}, nil
 }
 
@@ -288,9 +287,9 @@ func (s *UserService) SaveSecurity(ctx context.Context, userID uint, req dto.Sav
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return apperror.New(404, "USER_NOT_FOUND", "pengguna tidak ditemukan", "", nil)
+			return apperror.New(404, "USER_NOT_FOUND", "User not found", "", nil)
 		}
-		return apperror.New(500, "USER_FETCH_FAILED", "gagal mengambil data pengguna", err.Error(), nil)
+		return apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
 	}
 
 	isValidPassword := false
@@ -299,17 +298,17 @@ func (s *UserService) SaveSecurity(ctx context.Context, userID uint, req dto.Sav
 	}
 
 	if !isValidPassword {
-		return apperror.New(400, "INVALID_PASSWORD", "Kata sandi lama anda salah", "", nil)
+		return apperror.New(400, "INVALID_PASSWORD", "Your old password is incorrect", "", nil)
 	}
 
 	hashedPassword, err := tokenutils.HashString(req.NewPassword)
 	if err != nil {
-		return apperror.New(500, "PASSWORD_HASH_FAILED", "Gagal mengenkripsi kata sandi", "", nil)
+		return apperror.New(500, "PASSWORD_HASH_FAILED", "Failed to hash password", "", nil)
 	}
 
 	user.Password = &hashedPassword
 	if err := s.userRepo.Save(ctx, user); err != nil {
-		return apperror.New(500, "PASSWORD_UPDATE_FAILED", "Gagal memperbarui kata sandi", err.Error(), nil)
+		return apperror.New(500, "PASSWORD_UPDATE_FAILED", "Failed to update password", err.Error(), nil)
 	}
 
 	return nil
@@ -319,15 +318,15 @@ func (s *UserService) UpdateEmailNotificationPreference(ctx context.Context, use
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return apperror.New(404, "USER_NOT_FOUND", "pengguna tidak ditemukan", "", nil)
+			return apperror.New(404, "USER_NOT_FOUND", "User not found", "", nil)
 		}
-		return apperror.New(500, "USER_FETCH_FAILED", "gagal mengambil data pengguna", err.Error(), nil)
+		return apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
 	}
 
 	user.IsDisableEmailNotification = *req.IsDisableEmailNotification
 
 	if err := s.userRepo.Save(ctx, user); err != nil {
-		return apperror.New(500, "EMAIL_NOTIFICATION_UPDATE_FAILED", "Gagal memperbarui preferensi notifikasi email", err.Error(), nil)
+		return apperror.New(500, "EMAIL_NOTIFICATION_UPDATE_FAILED", "Failed to update email notification preferences", err.Error(), nil)
 	}
 
 	return nil
