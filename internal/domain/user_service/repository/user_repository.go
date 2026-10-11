@@ -22,7 +22,7 @@ type UserRepository interface {
 	CreateTX(ctx context.Context, tx *gorm.DB, user *model.User) (*model.User, error)
 	UpdateTX(ctx context.Context, tx *gorm.DB, user *model.User) (*model.User, error)
 	FullTextSearchUsers(ctx context.Context, query string, limit int) (*[]model.User, error)
-	FullTextSearchUsersPaginated(ctx context.Context, searchQuery string, limit int, cursorID uint) (*[]model.User, error)
+	FullTextSearchUsersPaginated(ctx context.Context, searchQuery string, limit int, cursorID uint, verified bool) (*[]model.User, error)
 	UpdateFullNameTX(ctx context.Context, tx *gorm.DB, userID uint, fullName string) error
 	Get(ctx context.Context) (*[]model.User, error)
 	GetByUserGenderCount(ctx context.Context) (map[string]int64, error)
@@ -129,7 +129,7 @@ func (r *userRepository) FullTextSearchUsers(ctx context.Context, searchQuery st
 	return &users, err
 }
 
-func (r *userRepository) FullTextSearchUsersPaginated(ctx context.Context, searchQuery string, limit int, cursorID uint) (*[]model.User, error) {
+func (r *userRepository) FullTextSearchUsersPaginated(ctx context.Context, searchQuery string, limit int, cursorID uint, verified bool) (*[]model.User, error) {
 	var users []model.User
 
 	searchQuery = strings.TrimSpace(searchQuery)
@@ -137,7 +137,7 @@ func (r *userRepository) FullTextSearchUsersPaginated(ctx context.Context, searc
 	if searchQuery == "" {
 		if err := r.db.WithContext(ctx).
 			Preload("Profile").
-			Where("id > ?", cursorID).
+			Where("id > ? AND is_verified = ?", cursorID, verified).
 			Order("id ASC").
 			Limit(limit).
 			Find(&users).Error; err != nil {
@@ -154,7 +154,8 @@ func (r *userRepository) FullTextSearchUsersPaginated(ctx context.Context, searc
 
 	tx := r.db.WithContext(ctx).
 		Preload("Profile").
-		Where("search_vector @@ to_tsquery('simple', ?)", searchQuery)
+		Where("search_vector @@ to_tsquery('simple', ?)", searchQuery).
+		Where("is_verified = ?", verified)
 
 	if cursorID != 0 {
 		tx = tx.Where(`id > ?`, cursorID)

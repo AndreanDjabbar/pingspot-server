@@ -12,7 +12,6 @@ type MockUserRepository struct {
 	mock.Mock
 }
 
-
 func (m *MockUserRepository) GetByEmailOrUsername(ctx context.Context, emailOrUsername string) (*model.User, error) {
 	panic("unimplemented")
 }
@@ -120,8 +119,8 @@ func (m *MockUserRepository) FullTextSearchUsers(ctx context.Context, query stri
 	return args.Get(0).(*[]model.User), args.Error(1)
 }
 
-func (m *MockUserRepository) FullTextSearchUsersPaginated(ctx context.Context, searchQuery string, limit int, cursorID uint) (*[]model.User, error) {
-	args := m.Called(ctx, searchQuery, limit, cursorID)
+func (m *MockUserRepository) FullTextSearchUsersPaginated(ctx context.Context, searchQuery string, limit int, cursorID uint, verified bool) (*[]model.User, error) {
+	args := m.Called(ctx, searchQuery, limit, cursorID, verified)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

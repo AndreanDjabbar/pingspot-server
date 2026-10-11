@@ -71,7 +71,7 @@ func TestSearchService_SearchData(t *testing.T) {
 
 		hasProgress := true
 
-		mockUserRepo.On("FullTextSearchUsersPaginated", ctx, searchQuery, limit+1, usersDataNextCursor).
+		mockUserRepo.On("FullTextSearchUsersPaginated", ctx, searchQuery, limit+1, usersDataNextCursor, true).
 			Return(&[]model.User{
 				{
 					ID:       1,
@@ -132,7 +132,7 @@ func TestSearchService_SearchData(t *testing.T) {
 		limit := 10
 		var usersDataNextCursor uint = 0
 		var reportsDataNextCursor uint = 0
-		mockUserRepo.On("FullTextSearchUsersPaginated", ctx, searchQuery, limit+1, usersDataNextCursor).
+		mockUserRepo.On("FullTextSearchUsersPaginated", ctx, searchQuery, limit+1, usersDataNextCursor, true).
 			Return(nil, gorm.ErrInvalidData)
 		_, err := service.SearchData(ctx, searchQuery, usersDataNextCursor, reportsDataNextCursor, limit+1)
 		require.Error(t, err)

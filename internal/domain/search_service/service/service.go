@@ -38,7 +38,7 @@ func (s *SearchService) SearchData(ctx context.Context, searchQuery string, user
 		zap.Int("limit", limit),
 	)
 
-	usersData, err := s.userRepo.FullTextSearchUsersPaginated(ctx, strings.ToLower(searchQuery), limit, usersDataNextCursor)
+	usersData, err := s.userRepo.FullTextSearchUsersPaginated(ctx, strings.ToLower(searchQuery), limit, usersDataNextCursor, true)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logger.Error("Failed to search users",
 			zap.String("request_id", requestID),
