@@ -801,6 +801,11 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 		return nil, apperror.New(400, "REPORT_ALREADY_RESOLVED", "You cannot vote on a completed report", "", nil)
 	}
 
+	if report.ReportStatus == model.WAITING_CONFIRMATION {
+		tx.Rollback()
+		return nil, apperror.New(400, "REPORT_WAITING_CONFIRMATION", "You cannot vote on a report that is waiting for confirmation", "", nil)
+	}
+
 	if report.ReportStatus == model.EXPIRED {
 		tx.Rollback()
 		return nil, apperror.New(400, "REPORT_EXPIRED", "You cannot vote on an expired report", "", nil)
@@ -846,7 +851,6 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 		}
 		resultVote = updatedReportVote
 	}
-
 	if resultVote != nil {
 		reportVoteCounts, err := s.reportVoteRepo.GetReportVoteCountsTX(ctx, tx, reportID)
 		if err != nil {
@@ -855,7 +859,6 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 		}
 
 		voteTypeCountsOrder := util.GetVoteTypeOrder(reportVoteCounts)
-
 		totalVote, err := s.reportVoteRepo.GetTotalVoteCountTX(ctx, tx, reportID)
 		if err != nil {
 			tx.Rollback()
@@ -867,7 +870,7 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 		marginVote := float64(topVote.Count-secondVote.Count) / float64(totalVote) * 100
 
 		limitTopVote := 2
-		if marginVote >= 20.0 && topVote.Count >= limitTopVote && report.ReportStatus != model.WAITING_CONFIRMATION {
+		if marginVote >= 20.0 && topVote.Count >= limitTopVote && report.ReportStatus != model.WAITING_CONFIRMATION && topVote.Type != report.ReportStatus {
 			report.ReportStatus = model.WAITING_CONFIRMATION
 			report.LastUpdatedBy = model.System
 			report.LastUpdatedProgressAt = mainutils.Int64PtrOrNil(time.Now().Unix())
