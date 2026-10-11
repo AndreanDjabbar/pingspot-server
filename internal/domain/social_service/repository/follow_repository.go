@@ -99,6 +99,7 @@ func (r *followRepository) GetFollowingByUserID(ctx context.Context, userID uint
 func (r *followRepository) GetFollowersByUserIDPaginated(ctx context.Context, userID uint, limit int, cursorID *string) ([]*dto.GetConnectionsRepositoryResponse, error) {
 	type row struct {
 		model.User
+		ProfilePicture  *string
 		FollowID       uint
 		FollowerUserID uint
 		FollowingID    uint
@@ -111,12 +112,14 @@ func (r *followRepository) GetFollowersByUserIDPaginated(ctx context.Context, us
 	query := r.db.WithContext(ctx).
 		Table("follows").
 		Select(`users.*, 
+			user_profiles.profile_picture,
 			follows.id as follow_id, 
 			follows.follower_user_id, 
 			follows.following_id, 
 			follows.following_type, 
 			follows.created_at as follow_created_at`).
 		Joins("JOIN users ON follows.follower_user_id = users.id").
+		Joins("LEFT JOIN user_profiles ON users.id = user_profiles.user_id").
 		Where("follows.following_id = ? AND follows.following_type = ?", userID, model.FollowingTypeUser).
 		Order("follows.id DESC").
 		Limit(limit)
@@ -132,6 +135,7 @@ func (r *followRepository) GetFollowersByUserIDPaginated(ctx context.Context, us
 	items := make([]*dto.GetConnectionsRepositoryResponse, 0, len(rows))
 	for _, rr := range rows {
 		u := rr.User
+		u.Profile.ProfilePicture = rr.ProfilePicture
 		items = append(items, &dto.GetConnectionsRepositoryResponse{
 			User: &u,
 			Follow: &model.Follow{
@@ -150,6 +154,7 @@ func (r *followRepository) GetFollowersByUserIDPaginated(ctx context.Context, us
 func (r *followRepository) GetFollowingByUserIDPaginated(ctx context.Context, userID uint, limit int, cursorID *string) ([]*dto.GetConnectionsRepositoryResponse, error) {
 	type row struct {
 		model.User
+		ProfilePicture  *string
 		FollowID       uint
 		FollowerUserID uint
 		FollowingID    uint
@@ -162,12 +167,14 @@ func (r *followRepository) GetFollowingByUserIDPaginated(ctx context.Context, us
 	query := r.db.WithContext(ctx).
 		Table("follows").
 		Select(`users.*, 
+			user_profiles.profile_picture,
 			follows.id as follow_id, 
 			follows.follower_user_id, 
 			follows.following_id, 
 			follows.following_type, 
 			follows.created_at as follow_created_at`).
 		Joins("JOIN users ON follows.following_id = users.id").
+		Joins("LEFT JOIN user_profiles ON users.id = user_profiles.user_id").
 		Where("follows.follower_user_id = ? AND follows.following_type = ?", userID, model.FollowingTypeUser).
 		Order("follows.id DESC").
 		Limit(limit)
@@ -183,6 +190,7 @@ func (r *followRepository) GetFollowingByUserIDPaginated(ctx context.Context, us
 	items := make([]*dto.GetConnectionsRepositoryResponse, 0, len(rows))
 	for _, rr := range rows {
 		u := rr.User
+		u.Profile.ProfilePicture = rr.ProfilePicture
 		items = append(items, &dto.GetConnectionsRepositoryResponse{
 			User: &u,
 			Follow: &model.Follow{
