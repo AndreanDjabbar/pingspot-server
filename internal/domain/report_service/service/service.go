@@ -983,6 +983,43 @@ func (s *ReportService) GetReportByID(ctx context.Context, userID, reportID uint
 	return &result, nil
 }
 
+func (s *ReportService) SearchReports(ctx context.Context, searchQuery string, reportsDataNextCursor uint, limit int) (*dto.SearchResponse, error) {
+	requestID := util.GetRequestID(ctx)
+	logger.Info("Searching reports",
+		zap.String("request_id", requestID),
+		zap.String("search_query", searchQuery),
+		zap.Uint("next_cursor", reportsDataNextCursor),
+		zap.Int("limit", limit),
+	)
+
+	reportsData, err := s.reportRepo.FullTextSearchReportPaginated(ctx, searchQuery, limit, reportsDataNextCursor)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, util.New(404, "REPORT_NOT_FOUND", "Report not found", "", nil)
+		}
+		return nil, util.New(500, "REPORT_SEARCH_FAILED", "Failed to search report", err.Error(), nil)
+	}
+
+	resultReports := make([]dto.ReportsSearch, 0, len(*reportsData))
+	for _, report := range *reportsData {
+		reportDTO := dto.ReportsSearch{
+			ID:                report.ID,
+			ReportTitle:       report.ReportTitle,
+			ReportType:        string(report.ReportType),
+			ReportDescription: report.ReportDescription,
+			ReportHasProgress: *report.HasProgress,
+			ReportStatus:      string(report.ReportStatus),
+			CreatedAt:         report.CreatedAt,
+			UpdatedAt:         report.UpdatedAt,
+		}
+		resultReports = append(resultReports, reportDTO)
+	}
+	result := &dto.SearchResponse{
+		ReportsData: resultReports,
+	}
+	return result, nil
+}
+
 func (s *ReportService) ReactToReport(ctx context.Context, userID uint, reportID uint, reactionType string) (*dto.ReactReportResponse, error) {
 	tx := s.postgreDB.Begin()
 	if tx.Error != nil {

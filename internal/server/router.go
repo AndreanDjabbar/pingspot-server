@@ -3,7 +3,6 @@ package server
 import (
 	authRouter "pingspot/internal/domain/auth_service/router"
 	mainRouter "pingspot/internal/domain/report_service/router"
-	searchRouter "pingspot/internal/domain/search_service/router"
 	userRouter "pingspot/internal/domain/user_service/router"
 	socialRouter "pingspot/internal/domain/social_service/router"
 	notificationRouter "pingspot/internal/domain/notification_service/router"
@@ -14,7 +13,6 @@ import (
 func RegisterRoutes(app *fiber.App) {
 	userRouter.RegisterUserRoutes(app)
 	authRouter.RegisterAuthRoutes(app)
-	searchRouter.RegisterSearchRoutes(app)
 	mainRouter.RegisterReportRoutes(app)
 	socialRouter.RegisterSocialRoutes(app)
 	notificationRouter.RegisterNotificationRoutes(app)

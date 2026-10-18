@@ -210,6 +210,39 @@ func (h *ReportHandler) CreateReportHandler(c *fiber.Ctx) error {
 	return util.ResponseSuccess(c, 200, "Report created successfully", "data", result)
 }
 
+func (h *ReportHandler) GetReportSearch(c *fiber.Ctx) error {
+	ctx := c.UserContext()
+	const defaultLimit = 10
+	requestID := util.GetRequestID(ctx)
+
+	reportsDataCursorID := c.Query("reportsDataCursorID", "")
+	reportsDatacursorIDUint, err := util.StringToUint(reportsDataCursorID)
+	if err != nil && reportsDataCursorID != "" {
+		logger.Error("Invalid afterID format", zap.String("afterID", reportsDataCursorID), zap.Error(err))
+		return util.ResponseError(c, 400, "Invalid afterID format", "", "afterID must be a number")
+	}
+
+	searchQuery := c.Query("searchQuery", "")
+
+	searchData, err := h.reportService.SearchReports(ctx, searchQuery, reportsDatacursorIDUint, defaultLimit)
+	if err != nil {
+		logger.Error("Search failed", zap.String("requestID", requestID), zap.Error(err))
+		return util.ResponseError(c, 500, "Search failed", "", err.Error())
+	}
+	
+	var nextCursorReportsData *uint = nil
+	if len(searchData.ReportsData) > 0 && len(searchData.ReportsData) == defaultLimit {
+		lastReport := searchData.ReportsData[len(searchData.ReportsData)-1]
+		nextCursorReportsData = &lastReport.ID
+	}
+
+	finalResult := fiber.Map{
+		"reportsData":           searchData.ReportsData,
+		"nextCursorReportsData": nextCursorReportsData,
+	}
+	return util.ResponseSuccess(c, 200, "Report search results retrieved successfully", "data", finalResult)
+}
+
 func (h *ReportHandler) EditReportHandler(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 	reportIDParam := c.Params("reportID")

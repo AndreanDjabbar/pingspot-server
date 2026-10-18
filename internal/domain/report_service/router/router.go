@@ -84,6 +84,16 @@ func RegisterReportRoutes(app *fiber.App) {
 	reportHandler.GetReportHandler,
 	)
 
+	reportRoute.Get("/search", 
+	middleware.TimeoutMiddleware(10*time.Second),
+	middleware.UserRateLimiterMiddleware(middleware.NewRateLimiter(middleware.RateLimiterConfig{
+		Window:      1 * time.Minute,
+		MaxRequests: 100,
+		KeyPrefix: "report_search",
+	})),  
+	reportHandler.GetReportSearch,
+	)
+
 	reportRoute.Post("/:reportID/reaction", middleware.TimeoutMiddleware(5*time.Second),
 	middleware.UserRateLimiterMiddleware(middleware.NewRateLimiter(middleware.RateLimiterConfig{
 		Window:      1 * time.Minute,

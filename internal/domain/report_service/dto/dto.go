@@ -144,3 +144,14 @@ type ReportSaved struct {
 	UserID   uint `json:"userID"`
 	Save     bool `json:"save"`
 }
+
+type ReportsSearch struct {
+	ID		  uint    `json:"id"`
+	ReportTitle   string  `json:"reportTitle"`
+	ReportType    string  `json:"reportType"`
+	ReportDescription   string  `json:"reportDescription"`
+	ReportHasProgress	bool	`json:"hasProgress"`
+	ReportStatus  string  `json:"reportStatus"`
+	CreatedAt     int64  `json:"reportCreatedAt"`
+	UpdatedAt     int64  `json:"reportUpdatedAt"`
+}

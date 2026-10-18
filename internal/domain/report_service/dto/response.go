@@ -105,3 +105,7 @@ type GetReportStatisticsResponse struct {
 type GetSavedReportsResponse struct {
 	SavedReports *[]GetSavedReports `json:"savedReports"`
 }
+
+type SearchResponse struct {
+	ReportsData []ReportsSearch `json:"reportsData"`
+}
