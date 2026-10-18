@@ -6,11 +6,10 @@ import (
 	"fmt"
 	"pingspot/internal/domain/social_service/dto"
 	socialRepository "pingspot/internal/domain/social_service/repository"
-	tasksService "pingspot/internal/domain/task_service/service"
 	userRepository "pingspot/internal/domain/user_service/repository"
 	"pingspot/internal/model"
-	apperror "pingspot/pkg/app_error"
-	mainutils "pingspot/pkg/utils/main_util"
+	"pingspot/internal/task"
+	"pingspot/internal/util"
 	"strconv"
 
 	"gorm.io/gorm"
@@ -20,10 +19,10 @@ type SocialService struct {
 	followRepo   socialRepository.FollowRepository
 	userRepo     userRepository.UserRepository
 	db           *gorm.DB
-	tasksService tasksService.TaskService
+	tasksService task.TaskService
 }
 
-func NewSocialService(db *gorm.DB, followRepo socialRepository.FollowRepository, userRepo userRepository.UserRepository, tasksService tasksService.TaskService) *SocialService {
+func NewSocialService(db *gorm.DB, followRepo socialRepository.FollowRepository, userRepo userRepository.UserRepository, tasksService task.TaskService) *SocialService {
 	return &SocialService{
 		db:           db,
 		followRepo:   followRepo,
@@ -36,13 +35,13 @@ func (s *SocialService) Follow(ctx context.Context, userID uint, req dto.FollowR
 	currentUser, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "USER_NOT_FOUND", "User not found", "", nil)
+			return nil, util.New(404, "USER_NOT_FOUND", "User not found", "", nil)
 		}
-		return nil, apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
+		return nil, util.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
 	}
 
 	if currentUser.ID == req.FollowingID {
-		return nil, apperror.New(400, "FOLLOW_SELF_NOT_ALLOWED", "Cannot follow yourself", "", nil)
+		return nil, util.New(400, "FOLLOW_SELF_NOT_ALLOWED", "Cannot follow yourself", "", nil)
 	}
 
 	var followProcess string
@@ -55,18 +54,18 @@ func (s *SocialService) Follow(ctx context.Context, userID uint, req dto.FollowR
 
 	existingFollow, err := s.followRepo.GetByFollowerAndFollowing(ctx, currentUser.ID, req.FollowingID, follow.FollowingType)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, apperror.New(500, "FOLLOW_CHECK_FAILED", "Failed to check follow status", err.Error(), nil)
+		return nil, util.New(500, "FOLLOW_CHECK_FAILED", "Failed to check follow status", err.Error(), nil)
 	}
 
 	if existingFollow != nil {
 		unfollowErr := s.followRepo.DeleteTX(ctx, s.db, existingFollow)
 		if unfollowErr != nil {
-			return nil, apperror.New(500, "UNFOLLOW_FAILED", "Failed to unfollow user", unfollowErr.Error(), nil)
+			return nil, util.New(500, "UNFOLLOW_FAILED", "Failed to unfollow user", unfollowErr.Error(), nil)
 		}
 		followProcess = "unfollow"
 	} else {
 		if err := s.followRepo.CreateTX(ctx, s.db, &follow); err != nil {
-			return nil, apperror.New(500, "FOLLOW_FAILED", "Failed to follow user", err.Error(), nil)
+			return nil, util.New(500, "FOLLOW_FAILED", "Failed to follow user", err.Error(), nil)
 		}
 		followProcess = "follow"
 
@@ -74,12 +73,12 @@ func (s *SocialService) Follow(ctx context.Context, userID uint, req dto.FollowR
 			req.FollowingID,
 			"Someone started following you",
 			fmt.Sprintf("User %s started following you", currentUser.Username),
-			mainutils.StrPtrOrNil(strconv.FormatUint(uint64(currentUser.ID), 10)),
+			util.StrPtrOrNil(strconv.FormatUint(uint64(currentUser.ID), 10)),
 			model.EntityTypeUser,
 			model.UserNotificationCategory,
 			model.NotificationTypeInfo,
 		); err != nil {
-			return nil, apperror.New(500, "NOTIFICATION_TASK_FAILED", "Failed to create notification task", err.Error(), nil)
+			return nil, util.New(500, "NOTIFICATION_TASK_FAILED", "Failed to create notification task", err.Error(), nil)
 		}
 	}
 
@@ -95,15 +94,15 @@ func (s *SocialService) GetFollowing(ctx context.Context, followingID uint, foll
 	followingTypeEnum := model.FollowingType(followingType)
 	followersCount, err := s.followRepo.GetFollowersCount(ctx, followingID, followingTypeEnum)
 	if err != nil {
-		return nil, apperror.New(500, "FOLLOWERS_COUNT_FETCH_FAILED", "Failed to retrieve follower count", err.Error(), nil)
+		return nil, util.New(500, "FOLLOWERS_COUNT_FETCH_FAILED", "Failed to retrieve follower count", err.Error(), nil)
 	}
 	followingCount, err := s.followRepo.GetFollowingCount(ctx, followingID, followingTypeEnum)
 	if err != nil {
-		return nil, apperror.New(500, "FOLLOWING_COUNT_FETCH_FAILED", "Failed to retrieve following count", err.Error(), nil)
+		return nil, util.New(500, "FOLLOWING_COUNT_FETCH_FAILED", "Failed to retrieve following count", err.Error(), nil)
 	}
 	myFollowData, err := s.followRepo.GetByFollowerAndFollowing(ctx, currentUserID, followingID, followingTypeEnum)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, apperror.New(500, "MY_FOLLOW_DATA_FETCH_FAILED", "Failed to retrieve my follow data", err.Error(), nil)
+		return nil, util.New(500, "MY_FOLLOW_DATA_FETCH_FAILED", "Failed to retrieve my follow data", err.Error(), nil)
 	}
 	var myFollowDataDTO *dto.Follow
 	if myFollowData != nil {
@@ -129,14 +128,14 @@ func (s *SocialService) GetUserConnectionsFollowers(ctx context.Context, userID 
 	userData, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "USER_NOT_FOUND", "User not found", "", nil)
+			return nil, util.New(404, "USER_NOT_FOUND", "User not found", "", nil)
 		}
-		return nil, apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
+		return nil, util.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
 	}
 
 	userFollowers, err := s.followRepo.GetFollowersByUserIDPaginated(ctx, userData.ID, limit, cursorID)
 	if err != nil {
-		return nil, apperror.New(500, "USER_CONNECTIONS_FETCH_FAILED", "Failed to retrieve user connections", err.Error(), nil)
+		return nil, util.New(500, "USER_CONNECTIONS_FETCH_FAILED", "Failed to retrieve user connections", err.Error(), nil)
 	}
 
 	var followersDTO []*dto.UserConnection
@@ -162,14 +161,14 @@ func (s *SocialService) GetUserConnectionsFollowing(ctx context.Context, userID 
 	userData, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "USER_NOT_FOUND", "User not found", "", nil)
+			return nil, util.New(404, "USER_NOT_FOUND", "User not found", "", nil)
 		}
-		return nil, apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
+		return nil, util.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
 	}
 
 	userFollowing, err := s.followRepo.GetFollowingByUserIDPaginated(ctx, userData.ID, limit, cursorID)
 	if err != nil {
-		return nil, apperror.New(500, "USER_CONNECTIONS_FETCH_FAILED", "Failed to retrieve user connections", err.Error(), nil)
+		return nil, util.New(500, "USER_CONNECTIONS_FETCH_FAILED", "Failed to retrieve user connections", err.Error(), nil)
 	}
 
 	var followingDTO []*dto.UserConnection

@@ -41,3 +41,4 @@ main
 uploads/**
 
 /keys
+/certs

@@ -6,12 +6,8 @@ import (
 	"pingspot/internal/domain/user_service/dto"
 	"pingspot/internal/domain/user_service/service"
 	"pingspot/internal/domain/user_service/validation"
-	apperror "pingspot/pkg/app_error"
-	"pingspot/pkg/logger"
-	contextutils "pingspot/pkg/utils/context_util"
-	mainutils "pingspot/pkg/utils/main_util"
-	response "pingspot/pkg/utils/response_util"
-	tokenutils "pingspot/pkg/utils/token_util"
+	"pingspot/internal/logger"
+	"pingspot/internal/util"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -31,34 +27,34 @@ func (h *UserHandler) SaveUserSecurityHandler(c *fiber.Ctx) error {
 	var req dto.SaveUserSecurityRequest
 	if err := c.BodyParser(&req); err != nil {
 		logger.Error("Failed to parse request body", zap.Error(err))
-		return response.ResponseError(c, 400, "Invalid request body format", "", err.Error())
+		return util.ResponseError(c, 400, "Invalid request body format", "", err.Error())
 	}
 	if err := validation.Validate.Struct(req); err != nil {
 		errors := validation.FormatSaveUserSecurityValidationErrors(err)
 		logger.Error("Validation failed", zap.Error(err))
-		return response.ResponseError(c, 400, "Validation failed", "errors", errors)
+		return util.ResponseError(c, 400, "Validation failed", "errors", errors)
 	}
-	claims, err := tokenutils.GetJWTClaims(c)
+	claims, err := util.GetJWTClaims(c)
 	if err != nil {
 		logger.Error("Failed to get JWT claims", zap.Error(err))
-		return response.ResponseError(c, 401, "Invalid token", "", "You must log in first")
+		return util.ResponseError(c, 401, "Invalid token", "", "You must log in first")
 	}
 	userId := uint(claims["user_id"].(float64))
 	if err := h.userService.SaveSecurity(ctx, userId, req); err != nil {
 		logger.Error("Failed to update user password", zap.Error(err))
-		if appErr, ok := err.(*apperror.AppError); ok {
-			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+		if appErr, ok := err.(*util.AppError); ok {
+			return util.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Failed to update password", "", err.Error())
+		return util.ResponseError(c, 500, "Failed to update password", "", err.Error())
 	}
-	return response.ResponseSuccess(c, 200, "Password updated successfully. Please log in again with your new password", "data", nil)
+	return util.ResponseSuccess(c, 200, "Password updated successfully. Please log in again with your new password", "data", nil)
 }
 
 func (h *UserHandler) SaveUserProfileHandler(c *fiber.Ctx) error {
 	_, err := c.MultipartForm()
 	if err != nil {
 		logger.Error("Failed to parse multipart form", zap.Error(err))
-		return response.ResponseError(c, 400, "Invalid request body format", "", err.Error())
+		return util.ResponseError(c, 400, "Invalid request body format", "", err.Error())
 	}
 	fullName := c.FormValue("fullName")
 	gender := c.FormValue("gender")
@@ -70,13 +66,13 @@ func (h *UserHandler) SaveUserProfileHandler(c *fiber.Ctx) error {
 	if err == nil && file != nil {
 		if file.Size > 5*1024*1024 {
 			logger.Error("Profile picture file size too large", zap.Int64("size", file.Size))
-			return response.ResponseError(c, 400, "Image is too large", "", "Maximum image size is 5MB")
+			return util.ResponseError(c, 400, "Image is too large", "", "Maximum image size is 5MB")
 		}
 
 		ext := filepath.Ext(file.Filename)
 		if ext != ".jpg" && ext != ".jpeg" && ext != ".png" {
 			logger.Error("Unsupported profile picture file format", zap.String("extension", ext))
-			return response.ResponseError(c, 400, "Unsupported file format", "", "Use JPG or PNG")
+			return util.ResponseError(c, 400, "Unsupported file format", "", "Use JPG or PNG")
 		}
 
 		fileName := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
@@ -84,7 +80,7 @@ func (h *UserHandler) SaveUserProfileHandler(c *fiber.Ctx) error {
 
 		if err := c.SaveFile(file, savePath); err != nil {
 			logger.Error("Failed to save profile picture", zap.Error(err))
-			return response.ResponseError(c, 500, "Failed to save image", "", err.Error())
+			return util.ResponseError(c, 500, "Failed to save image", "", err.Error())
 		}
 		profilePicture = fileName
 	} else {
@@ -100,54 +96,54 @@ func (h *UserHandler) SaveUserProfileHandler(c *fiber.Ctx) error {
 
 	req := dto.SaveUserProfileRequest{
 		FullName:       fullName,
-		Gender:         mainutils.StrPtrOrNil(gender),
-		Bio:            mainutils.StrPtrOrNil(bio),
-		ProfilePicture: mainutils.StrPtrOrNil(profilePicture),
-		Birthday:       mainutils.StrPtrOrNil(birthday),
-		Username:       mainutils.StrPtrOrNil(username),
+		Gender:         util.StrPtrOrNil(gender),
+		Bio:            util.StrPtrOrNil(bio),
+		ProfilePicture: util.StrPtrOrNil(profilePicture),
+		Birthday:       util.StrPtrOrNil(birthday),
+		Username:       util.StrPtrOrNil(username),
 	}
 
 	if err := validation.Validate.Struct(req); err != nil {
 		errors := validation.FormatSaveUserProfileValidationErrors(err)
 		logger.Error("Validation failed", zap.Error(err))
-		return response.ResponseError(c, 400, "Validation failed", "errors", errors)
+		return util.ResponseError(c, 400, "Validation failed", "errors", errors)
 	}
 
-	claims, err := tokenutils.GetJWTClaims(c)
+	claims, err := util.GetJWTClaims(c)
 	if err != nil {
 		logger.Error("Failed to get JWT claims", zap.Error(err))
-		return response.ResponseError(c, 401, "Invalid token", "", "You must log in first")
+		return util.ResponseError(c, 401, "Invalid token", "", "You must log in first")
 	}
 	userId := uint(claims["user_id"].(float64))
 	ctx := c.UserContext()
 	newProfile, err := h.userService.SaveProfile(ctx, userId, req)
 	if err != nil {
 		logger.Error("Failed to save user profile", zap.Error(err))
-		if appErr, ok := err.(*apperror.AppError); ok {
-			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+		if appErr, ok := err.(*util.AppError); ok {
+			return util.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Failed to update user profile", "", err.Error())
+		return util.ResponseError(c, 500, "Failed to update user profile", "", err.Error())
 	}
-	return response.ResponseSuccess(c, 200, "User profile updated successfully", "data", newProfile)
+	return util.ResponseSuccess(c, 200, "User profile updated successfully", "data", newProfile)
 }
 
 func (h *UserHandler) GetProfileHandler(c *fiber.Ctx) error {
 	ctx := c.UserContext()
-	claims, err := tokenutils.GetJWTClaims(c)
+	claims, err := util.GetJWTClaims(c)
 	if err != nil {
 		logger.Error("Failed to get JWT claims", zap.Error(err))
-		return response.ResponseError(c, 401, "Invalid token", "", "You must log in first")
+		return util.ResponseError(c, 401, "Invalid token", "", "You must log in first")
 	}
 	userId := uint(claims["user_id"].(float64))
 	userProfile, err := h.userService.GetProfile(ctx, userId)
 	if err != nil {
 		logger.Error("Failed to get my profile", zap.Error(err))
-		if appErr, ok := err.(*apperror.AppError); ok {
-			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+		if appErr, ok := err.(*util.AppError); ok {
+			return util.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Failed to retrieve user profile", "", err.Error())
+		return util.ResponseError(c, 500, "Failed to retrieve user profile", "", err.Error())
 	}
-	return response.ResponseSuccess(c, 200, "User profile retrieved successfully", "data", userProfile)
+	return util.ResponseSuccess(c, 200, "User profile retrieved successfully", "data", userProfile)
 }
 
 func (h *UserHandler) GetUserStatistics(c *fiber.Ctx) error {
@@ -155,24 +151,24 @@ func (h *UserHandler) GetUserStatistics(c *fiber.Ctx) error {
 	userStatistics, err := h.userService.GetUserStatistics(ctx)
 	if err != nil {
 		logger.Error("Failed to get user statistics", zap.Error(err))
-		if appErr, ok := err.(*apperror.AppError); ok {
-			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+		if appErr, ok := err.(*util.AppError); ok {
+			return util.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Failed to retrieve user statistics", "", err.Error())
+		return util.ResponseError(c, 500, "Failed to retrieve user statistics", "", err.Error())
 	}
-	return response.ResponseSuccess(c, 200, "User statistics retrieved successfully", "data", userStatistics)
+	return util.ResponseSuccess(c, 200, "User statistics retrieved successfully", "data", userStatistics)
 }
 
 func (h *UserHandler) GetUserSearch(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 	const defaultLimit = 10
-	requestID := contextutils.GetRequestID(ctx)
+	requestID := util.GetRequestID(ctx)
 
 	usersDataCursorID := c.Query("usersDataCursorID", "")
-	usersDatacursorIDUint, err := mainutils.StringToUint(usersDataCursorID)
+	usersDatacursorIDUint, err := util.StringToUint(usersDataCursorID)
 	if err != nil && usersDataCursorID != "" {
 		logger.Error("Invalid afterID format", zap.String("afterID", usersDataCursorID), zap.Error(err))
-		return response.ResponseError(c, 400, "Invalid afterID format", "", "afterID must be a number")
+		return util.ResponseError(c, 400, "Invalid afterID format", "", "afterID must be a number")
 	}
 
 	searchQuery := c.Query("searchQuery", "")
@@ -184,7 +180,7 @@ func (h *UserHandler) GetUserSearch(c *fiber.Ctx) error {
 			zap.String("search_query", searchQuery),
 			zap.Error(err),
 		)
-		return response.ResponseError(c, 500, "Search failed", err.Error(), nil)
+		return util.ResponseError(c, 500, "Search failed", err.Error(), nil)
 	}
 
 	var nextCursorUsersData *uint = nil
@@ -198,7 +194,7 @@ func (h *UserHandler) GetUserSearch(c *fiber.Ctx) error {
 		"nextCursorUsersData": nextCursorUsersData,
 	}
 
-	return response.ResponseSuccess(c, 200, "User search results retrieved successfully", "data", finalResult)
+	return util.ResponseSuccess(c, 200, "User search results retrieved successfully", "data", finalResult)
 }
 
 func (h *UserHandler) GetProfileByUsernameHandler(c *fiber.Ctx) error {
@@ -207,12 +203,12 @@ func (h *UserHandler) GetProfileByUsernameHandler(c *fiber.Ctx) error {
 	userProfile, err := h.userService.GetProfileByUsername(ctx, username)
 	if err != nil {
 		logger.Error("Failed to get user profile by username", zap.Error(err))
-		if appErr, ok := err.(*apperror.AppError); ok {
-			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+		if appErr, ok := err.(*util.AppError); ok {
+			return util.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Failed to retrieve user profile", "", err.Error())
+		return util.ResponseError(c, 500, "Failed to retrieve user profile", "", err.Error())
 	}
-	return response.ResponseSuccess(c, 200, "User profile retrieved successfully", "data", userProfile)
+	return util.ResponseSuccess(c, 200, "User profile retrieved successfully", "data", userProfile)
 }
 
 func (h *UserHandler) UpdateEmailNotificationPreference(c *fiber.Ctx) error {
@@ -220,25 +216,25 @@ func (h *UserHandler) UpdateEmailNotificationPreference(c *fiber.Ctx) error {
 	var req dto.UpdateEmailNotificationPreferenceRequest
 	if err := c.BodyParser(&req); err != nil {
 		logger.Error("Failed to parse request body", zap.Error(err))
-		return response.ResponseError(c, 400, "Invalid request body format", "", err.Error())
+		return util.ResponseError(c, 400, "Invalid request body format", "", err.Error())
 	}
 	if err := validation.Validate.Struct(req); err != nil {
 		errors := validation.FormatUpdateEmailNotificationPreferenceValidationErrors(err)
 		logger.Error("Validation failed", zap.Error(err))
-		return response.ResponseError(c, 400, "Validation failed", "errors", errors)
+		return util.ResponseError(c, 400, "Validation failed", "errors", errors)
 	}
-	claims, err := tokenutils.GetJWTClaims(c)
+	claims, err := util.GetJWTClaims(c)
 	if err != nil {
 		logger.Error("Failed to get JWT claims", zap.Error(err))
-		return response.ResponseError(c, 401, "Invalid token", "", "You must log in first")
+		return util.ResponseError(c, 401, "Invalid token", "", "You must log in first")
 	}
 	userId := uint(claims["user_id"].(float64))
 	if err := h.userService.UpdateEmailNotificationPreference(ctx, userId, req); err != nil {
 		logger.Error("Failed to update email notification preference", zap.Error(err))
-		if appErr, ok := err.(*apperror.AppError); ok {
-			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+		if appErr, ok := err.(*util.AppError); ok {
+			return util.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Failed to update email notification preferences", "", err.Error())
+		return util.ResponseError(c, 500, "Failed to update email notification preferences", "", err.Error())
 	}
-	return response.ResponseSuccess(c, 200, "Email notification preferences updated successfully", "data", nil)
+	return util.ResponseSuccess(c, 200, "Email notification preferences updated successfully", "data", nil)
 }

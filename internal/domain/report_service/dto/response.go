@@ -1,7 +1,6 @@
 package dto
 
 import (
-	userDTO "pingspot/internal/domain/user_service/dto"
 	"pingspot/internal/model"
 )
 
@@ -79,7 +78,7 @@ type CreateReportCommentResponse struct {
 	UserID          uint                 `json:"userID"`
 	Content         *string              `json:"content,omitempty"`
 	CreatedAt       int64                `json:"createdAt"`
-	ReplyTo         *userDTO.UserProfile `json:"replyTo,omitempty"`
+	ReplyTo         *model.User          `json:"replyTo,omitempty"`
 	Media           *model.CommentMedia        `json:"media,omitempty"`
 	ThreadRootID    *string              `json:"threadRootID,omitempty"`
 	ParentCommentID *string              `json:"parentCommentID,omitempty"`

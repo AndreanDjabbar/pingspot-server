@@ -5,11 +5,11 @@ import (
 	"pingspot/internal/domain/report_service/handler"
 	reportRepository "pingspot/internal/domain/report_service/repository"
 	reportService "pingspot/internal/domain/report_service/service"
-	"pingspot/internal/domain/task_service/service"
 	userRepository "pingspot/internal/domain/user_service/repository"
 	"pingspot/internal/infrastructure/database"
 	"pingspot/internal/middleware"
-	env "pingspot/pkg/utils/env_util"
+	"pingspot/internal/task"
+	"pingspot/internal/util"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -31,9 +31,9 @@ func RegisterReportRoutes(app *fiber.App) {
 	userRepo := userRepository.NewUserRepository(postgreDB)
 	reportCommentRepository := reportRepository.NewReportCommentRepository(mongoDB)
 
-	redisAddress := fmt.Sprintf("%s:%s", env.RedisHost(), env.RedisPort())
+	redisAddress := fmt.Sprintf("%s:%s", util.RedisHost(), util.RedisPort())
 	client := asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddress})
-	tasksService := service.NewTaskService(client)
+	tasksService := task.NewTaskService(client)
 
 	reportService := reportService.NewreportService(
 		postgreDB,

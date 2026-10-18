@@ -1,7 +1,6 @@
 package dto
 
 import (
-	userDTO "pingspot/internal/domain/user_service/dto"
 	"pingspot/internal/model"
 )
 
@@ -95,11 +94,11 @@ type ReportImage struct {
 type Comment struct {
 	CommentID       string                `json:"commentID"`
 	ReportID        uint                  `json:"reportID"`
-	UserInformation userDTO.UserProfile   `json:"userInformation"`
+	UserInformation *model.User   `json:"userInformation"`
 	Content         *string               `json:"content,omitempty"`
 	Media           *model.CommentMedia       `json:"media,omitempty"`
 	Mentions        []model.Mention             `json:"mentions,omitempty"`
-	ReplyTo         *userDTO.UserProfile  `json:"replyTo,omitempty"`
+	ReplyTo         *model.User   `json:"replyTo,omitempty"`
 	ThreadRootID    *string               `json:"threadRootID,omitempty"`
 	ParentCommentID *string               `json:"parentCommentID,omitempty"`
 	TotalReplies    int64                 `json:"totalReplies"`
@@ -110,11 +109,11 @@ type Comment struct {
 type CommentReply struct {
 	CommentID       string                `json:"commentID"`
 	ReportID        uint                  `json:"reportID"`
-	UserInformation userDTO.UserProfile   `json:"userInformation"`
+	UserInformation *model.User   `json:"userInformation"`
 	Content         *string               `json:"content,omitempty"`
 	Media           *model.CommentMedia       `json:"media,omitempty"`
 	Mentions        []model.Mention             `json:"mentions,omitempty"`
-	ReplyTo         *userDTO.UserProfile  `json:"replyTo,omitempty"`
+	ReplyTo         *model.User   `json:"replyTo,omitempty"`
 	ThreadRootID    *string               `json:"threadRootID"`
 	ParentCommentID *string               `json:"parentCommentID"`
 	CreatedAt       int64                 `json:"createdAt"`

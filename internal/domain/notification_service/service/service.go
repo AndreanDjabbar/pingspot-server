@@ -5,9 +5,8 @@ import (
 	"pingspot/internal/domain/notification_service/dto"
 	notificationRepo "pingspot/internal/domain/notification_service/repository"
 	userRepo "pingspot/internal/domain/user_service/repository"
-	apperror "pingspot/pkg/app_error"
-	"pingspot/pkg/logger"
-	"pingspot/pkg/utils/main_util"
+	"pingspot/internal/logger"
+	"pingspot/internal/util"
 	"time"
 
 	"go.uber.org/zap"
@@ -32,15 +31,15 @@ func (s *NotificationService) GetNotifications(ctx context.Context, userID uint)
 	existingUser, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		logger.Error("Failed to get user by ID", zap.Error(err))
-		return nil, apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user", err.Error(), nil)
+		return nil, util.New(500, "USER_FETCH_FAILED", "Failed to retrieve user", err.Error(), nil)
 	}
 	if existingUser == nil {
-		return nil, apperror.New(404, "USER_NOT_FOUND", "User not found", "No user exists with that ID", nil)
+		return nil, util.New(404, "USER_NOT_FOUND", "User not found", "No user exists with that ID", nil)
 	}
 	notifications, err := s.notificationRepo.GetByUserID(ctx, userID)
 	if err != nil {
 		logger.Error("Failed to get notifications", zap.Error(err))
-		return nil, apperror.New(500, "NOTIFICATION_FETCH_FAILED", "Failed to retrieve notifications", err.Error(), nil)
+		return nil, util.New(500, "NOTIFICATION_FETCH_FAILED", "Failed to retrieve notifications", err.Error(), nil)
 	}
 	var notificationsDTO []*dto.Notification
 	for _, notification := range *notifications {
@@ -67,27 +66,27 @@ func (s *NotificationService) MarkNotificationAsRead(ctx context.Context, userID
 	existingUser, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		logger.Error("Failed to get user by ID", zap.Error(err))
-		return apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user", err.Error(), nil)
+		return util.New(500, "USER_FETCH_FAILED", "Failed to retrieve user", err.Error(), nil)
 	}
 	if existingUser == nil {
-		return apperror.New(404, "USER_NOT_FOUND", "User not found", "No user exists with that ID", nil)
+		return util.New(404, "USER_NOT_FOUND", "User not found", "No user exists with that ID", nil)
 	}
 	notification, err := s.notificationRepo.GetByID(ctx, notificationID)
 	if err != nil {
 		logger.Error("Failed to get notifications", zap.Error(err))
-		return apperror.New(500, "NOTIFICATION_FETCH_FAILED", "Failed to retrieve notifications", err.Error(), nil)
+		return util.New(500, "NOTIFICATION_FETCH_FAILED", "Failed to retrieve notifications", err.Error(), nil)
 	}
 
 	if notification == nil {
-		return apperror.New(404, "NOTIFICATION_NOT_FOUND", "Notification not found", "The notification with this ID does not belong to this user", nil)
+		return util.New(404, "NOTIFICATION_NOT_FOUND", "Notification not found", "The notification with this ID does not belong to this user", nil)
 	}
 
 	if notification.UserID != userID {
-		return apperror.New(403, "NOTIFICATION_FORBIDDEN", "Notification does not belong to this user", "You do not have permission to mark this notification as read", nil)
+		return util.New(403, "NOTIFICATION_FORBIDDEN", "Notification does not belong to this user", "You do not have permission to mark this notification as read", nil)
 	}
 	
-	notification.IsRead = main_util.BoolPtrOrNil(true)
-	notification.ReadAt = main_util.Int64PtrOrNil(time.Now().Unix())
+	notification.IsRead = util.BoolPtrOrNil(true)
+	notification.ReadAt = util.Int64PtrOrNil(time.Now().Unix())
 
 	tx := s.db.Begin()
 	defer func() {
@@ -99,11 +98,11 @@ func (s *NotificationService) MarkNotificationAsRead(ctx context.Context, userID
 	if err != nil {
 		tx.Rollback()
 		logger.Error("Failed to update notification", zap.Error(err))
-		return apperror.New(500, "NOTIFICATION_UPDATE_FAILED", "Failed to update notification", err.Error(), nil)
+		return util.New(500, "NOTIFICATION_UPDATE_FAILED", "Failed to update notification", err.Error(), nil)
 	}
 	if err := tx.Commit().Error; err != nil {
 		logger.Error("Failed to commit transaction", zap.Error(err))
-		return apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to complete transaction", err.Error(), nil)
+		return util.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to complete transaction", err.Error(), nil)
 	}
 	return nil
 }
@@ -112,10 +111,10 @@ func (s *NotificationService) MarkAllNotificationsAsRead(ctx context.Context, us
 	existingUser, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		logger.Error("Failed to get user by ID", zap.Error(err))
-		return apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user", err.Error(), nil)
+		return util.New(500, "USER_FETCH_FAILED", "Failed to retrieve user", err.Error(), nil)
 	}
 	if existingUser == nil {
-		return apperror.New(404, "USER_NOT_FOUND", "User not found", "No user exists with that ID", nil)
+		return util.New(404, "USER_NOT_FOUND", "User not found", "No user exists with that ID", nil)
 	}
 
 	tx := s.db.Begin()
@@ -128,11 +127,11 @@ func (s *NotificationService) MarkAllNotificationsAsRead(ctx context.Context, us
 	if err != nil {
 		tx.Rollback()
 		logger.Error("Failed to mark all notifications as read", zap.Error(err))
-		return apperror.New(500, "NOTIFICATION_MARK_ALL_AS_READ_FAILED", "Failed to mark all notifications as read", err.Error(), nil)
+		return util.New(500, "NOTIFICATION_MARK_ALL_AS_READ_FAILED", "Failed to mark all notifications as read", err.Error(), nil)
 	}
 	if err := tx.Commit().Error; err != nil {
 		logger.Error("Failed to commit transaction", zap.Error(err))
-		return apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to complete transaction", err.Error(), nil)
+		return util.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to complete transaction", err.Error(), nil)
 	}
 	return nil
 }
@@ -141,22 +140,22 @@ func (s *NotificationService) DeleteNotification(ctx context.Context, userID uin
 	existingUser, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		logger.Error("Failed to get user by ID", zap.Error(err))
-		return apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user", err.Error(), nil)
+		return util.New(500, "USER_FETCH_FAILED", "Failed to retrieve user", err.Error(), nil)
 	}
 	if existingUser == nil {
-		return apperror.New(404, "USER_NOT_FOUND", "User not found", "No user exists with that ID", nil)
+		return util.New(404, "USER_NOT_FOUND", "User not found", "No user exists with that ID", nil)
 	}
 
 	notification, err := s.notificationRepo.GetByID(ctx, notificationID)
 	if err != nil {
 		logger.Error("Failed to get notifications", zap.Error(err))
-		return apperror.New(500, "NOTIFICATION_FETCH_FAILED", "Failed to retrieve notifications", err.Error(), nil)
+		return util.New(500, "NOTIFICATION_FETCH_FAILED", "Failed to retrieve notifications", err.Error(), nil)
 	}
 	if notification == nil {
-		return apperror.New(404, "NOTIFICATION_NOT_FOUND", "Notification not found", "The notification with this ID does not belong to this user", nil)
+		return util.New(404, "NOTIFICATION_NOT_FOUND", "Notification not found", "The notification with this ID does not belong to this user", nil)
 	}
 	if notification.UserID != userID {
-		return apperror.New(403, "NOTIFICATION_FORBIDDEN", "Notification does not belong to this user", "You do not have permission to delete this notification", nil)
+		return util.New(403, "NOTIFICATION_FORBIDDEN", "Notification does not belong to this user", "You do not have permission to delete this notification", nil)
 	}
 
 	tx := s.db.Begin()
@@ -170,11 +169,11 @@ func (s *NotificationService) DeleteNotification(ctx context.Context, userID uin
 	if err != nil {
 		tx.Rollback()
 		logger.Error("Failed to delete notification", zap.Error(err))
-		return apperror.New(500, "NOTIFICATION_DELETE_FAILED", "Failed to delete notification", err.Error(), nil)
+		return util.New(500, "NOTIFICATION_DELETE_FAILED", "Failed to delete notification", err.Error(), nil)
 	}
 	if err := tx.Commit().Error; err != nil {
 		logger.Error("Failed to commit transaction", zap.Error(err))
-		return apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to complete transaction", err.Error(), nil)
+		return util.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to complete transaction", err.Error(), nil)
 	}
 	return nil
 }
@@ -183,10 +182,10 @@ func (s *NotificationService) DeleteAllNotifications(ctx context.Context, userID
 	existingUser, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		logger.Error("Failed to get user by ID", zap.Error(err))
-		return apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user", err.Error(), nil)
+		return util.New(500, "USER_FETCH_FAILED", "Failed to retrieve user", err.Error(), nil)
 	}
 	if existingUser == nil {
-		return apperror.New(404, "USER_NOT_FOUND", "User not found", "No user exists with that ID", nil)
+		return util.New(404, "USER_NOT_FOUND", "User not found", "No user exists with that ID", nil)
 	}
 
 	tx := s.db.Begin()
@@ -200,11 +199,11 @@ func (s *NotificationService) DeleteAllNotifications(ctx context.Context, userID
 	if err != nil {
 		tx.Rollback()
 		logger.Error("Failed to delete all notifications", zap.Error(err))
-		return apperror.New(500, "NOTIFICATION_DELETE_ALL_FAILED", "Failed to delete all notifications", err.Error(), nil)
+		return util.New(500, "NOTIFICATION_DELETE_ALL_FAILED", "Failed to delete all notifications", err.Error(), nil)
 	}
 	if err := tx.Commit().Error; err != nil {
 		logger.Error("Failed to commit transaction", zap.Error(err))
-		return apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to complete transaction", err.Error(), nil)
+		return util.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to complete transaction", err.Error(), nil)
 	}
 	return nil
 }

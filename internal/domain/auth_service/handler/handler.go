@@ -7,13 +7,10 @@ import (
 	"pingspot/internal/domain/auth_service/dto"
 	"pingspot/internal/domain/auth_service/service"
 	"pingspot/internal/domain/auth_service/validation"
-	apperror "pingspot/pkg/app_error"
-	"pingspot/pkg/logger"
-	env "pingspot/pkg/utils/env_util"
-	mainutils "pingspot/pkg/utils/main_util"
-	response "pingspot/pkg/utils/response_util"
-	tokenutils "pingspot/pkg/utils/token_util"
+	"pingspot/internal/logger"
+	"pingspot/internal/util"
 	"strconv"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/markbates/goth/gothic"
 	"go.uber.org/zap"
@@ -28,7 +25,7 @@ func NewAuthHandler(authService *service.AuthService) *AuthHandler {
 }
 
 func getAccessTokenAge() int {
-	ageStr := env.AccessTokenAge()
+	ageStr := util.AccessTokenAge()
 	age, err := strconv.Atoi(ageStr)
 	if err != nil || age <= 0 {
 		return 1200
@@ -37,7 +34,7 @@ func getAccessTokenAge() int {
 }
 
 func getRefreshTokenAge() int {
-	ageStr := env.RefreshTokenAge()
+	ageStr := util.RefreshTokenAge()
 	age, err := strconv.Atoi(ageStr)
 	if err != nil || age <= 0 {
 		return 604800
@@ -51,34 +48,34 @@ func (h *AuthHandler) RegisterHandler(c *fiber.Ctx) error {
 	var req dto.RegisterRequest
 	if err := c.BodyParser(&req); err != nil {
 		logger.Error("Failed to parse request body", zap.Error(err))
-		return response.ResponseError(c, 400, "Invalid request body format", "", err.Error())
+		return util.ResponseError(c, 400, "Invalid request body format", "", err.Error())
 	}
 
 	if err := validation.Validate.Struct(req); err != nil {
 		errors := validation.FormatRegisterValidationErrors(err)
 		logger.Error("Validation failed", zap.Error(err))
-		return response.ResponseError(c, 400, "Validation failed", "errors", errors)
+		return util.ResponseError(c, 400, "Validation failed", "errors", errors)
 	}
 	user, err := h.authService.Register(ctx, req, false)
 	if err != nil {
 		logger.Error("Registration failed", zap.Error(err))
-		if appErr, ok := err.(*apperror.AppError); ok {
-			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+		if appErr, ok := err.(*util.AppError); ok {
+			return util.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Registration failed", "", err.Error())
+		return util.ResponseError(c, 500, "Registration failed", "", err.Error())
 	}
 
 	if err := h.authService.SendRegistrationVerificationEmail(ctx, user); err != nil {
 		logger.Error("Failed to send verification email", zap.Error(err))
-		if appErr, ok := err.(*apperror.AppError); ok {
-			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+		if appErr, ok := err.(*util.AppError); ok {
+			return util.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Failed to send verification email", "", err.Error())
+		return util.ResponseError(c, 500, "Failed to send verification email", "", err.Error())
 	}
 
 	logger.Info("User registered successfully", zap.String("user_id", fmt.Sprintf("%d", user.ID)))
 
-	return response.ResponseSuccess(c, 200, "Registration successful. Please check your email to verify your account", "data", nil)
+	return util.ResponseSuccess(c, 200, "Registration successful. Please check your email to verify your account", "data", nil)
 }
 
 func (h *AuthHandler) VerificationHandler(c *fiber.Ctx) error {
@@ -88,25 +85,25 @@ func (h *AuthHandler) VerificationHandler(c *fiber.Ctx) error {
 	code2 := c.Query("code2")
 
 	if code1 == "" || userId == "" || code2 == "" {
-		return response.ResponseError(c, 400, "Incomplete parameters", "", nil)
+		return util.ResponseError(c, 400, "Incomplete parameters", "", nil)
 	}
 
 	userIdUint, err := strconv.ParseUint(userId, 10, 32)
 	if err != nil {
 		logger.Error("Invalid user ID format", zap.Error(err))
-		return response.ResponseError(c, 400, "Invalid user ID", "", err.Error())
+		return util.ResponseError(c, 400, "Invalid user ID", "", err.Error())
 	}
 
 	user, err := h.authService.VerifyRegistrationCode(ctx, code1, code2, uint(userIdUint))
 	if err != nil {
 		logger.Error("Verification failed", zap.Error(err))
-		if appErr, ok := err.(*apperror.AppError); ok {
-			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+		if appErr, ok := err.(*util.AppError); ok {
+			return util.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Verification failed", "", err.Error())
+		return util.ResponseError(c, 500, "Verification failed", "", err.Error())
 	}
 
-	return response.ResponseSuccess(c, 200, "Account verified successfully", "data", dto.VerificationResponse{
+	return util.ResponseSuccess(c, 200, "Account verified successfully", "data", dto.VerificationResponse{
 		Username: user.Username,
 		Email:    user.Email,
 		FullName: user.FullName,
@@ -118,17 +115,17 @@ func (h *AuthHandler) LoginHandler(c *fiber.Ctx) error {
 	var req dto.LoginRequest
 	if err := c.BodyParser(&req); err != nil {
 		logger.Error("Failed to parse request body", zap.Error(err))
-		return response.ResponseError(c, 400, "Invalid request body format", "", err.Error())
+		return util.ResponseError(c, 400, "Invalid request body format", "", err.Error())
 	}
 
 	if err := validation.Validate.Struct(req); err != nil {
 		errors := validation.FormatLoginValidationErrors(err)
 		logger.Error("Validation failed", zap.Error(err))
-		return response.ResponseError(c, 400, "Validation failed", "errors", errors)
+		return util.ResponseError(c, 400, "Validation failed", "errors", errors)
 	}
 
-	userIP := mainutils.GetClientIP(c)
-	userAgent := mainutils.GetUserAgent(c)
+	userIP := util.GetClientIP(c)
+	userAgent := util.GetUserAgent(c)
 
 	req.IPAddress = userIP
 	req.UserAgent = userAgent
@@ -136,10 +133,10 @@ func (h *AuthHandler) LoginHandler(c *fiber.Ctx) error {
 	_, accessToken, refreshToken, err := h.authService.Login(ctx, req)
 	if err != nil {
 		logger.Error("Login failed", zap.Error(err))
-		if appErr, ok := err.(*apperror.AppError); ok {
-			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+		if appErr, ok := err.(*util.AppError); ok {
+			return util.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 401, "Login failed", "", err.Error())
+		return util.ResponseError(c, 401, "Login failed", "", err.Error())
 	}
 
 	c.Cookie(&fiber.Cookie{
@@ -164,7 +161,7 @@ func (h *AuthHandler) LoginHandler(c *fiber.Ctx) error {
 		MaxAge:   getRefreshTokenAge(),
 	})
 
-	return response.ResponseSuccess(c, 200, "Login successful", "data", dto.LoginResponse{
+	return util.ResponseSuccess(c, 200, "Login successful", "data", dto.LoginResponse{
 		AccessToken: accessToken,
 		ExpiresIn:   int64(getAccessTokenAge()),
 	})
@@ -201,14 +198,14 @@ func (h *AuthHandler) OAuthCallbackHandler(provider string) http.HandlerFunc {
 		}
 		providerId := user.RawData["id"].(string)
 
-		userIP := mainutils.GetHTTPClientIP(r)
-		userAgent := mainutils.GetHTTPUserAgent(r)
+		userIP := util.GetHTTPClientIP(r)
+		userAgent := util.GetHTTPUserAgent(r)
 
 		ctx := r.Context()
 		accessToken, refreshToken, err := h.authService.HandleOAuthCallback(ctx, email, fullName, nickName, user.Name, providerId, provider, userIP, userAgent)
 		if err != nil {
 			logger.Error("OAuth callback handler failed", zap.String("provider", provider), zap.Error(err))
-			if appErr, ok := err.(*apperror.AppError); ok {
+			if appErr, ok := err.(*util.AppError); ok {
 				http.Error(w, appErr.Message, appErr.StatusCode)
 			} else {
 				http.Error(w, "An error occurred", http.StatusInternalServerError)
@@ -236,7 +233,7 @@ func (h *AuthHandler) OAuthCallbackHandler(provider string) http.HandlerFunc {
 			MaxAge:   getRefreshTokenAge(),
 		})
 
-		http.Redirect(w, r, fmt.Sprintf("%s/auth/%s?status=%d", env.ClientURL(), provider, http.StatusAccepted), http.StatusFound)
+		http.Redirect(w, r, fmt.Sprintf("%s/auth/%s?status=%d", util.ClientURL(), provider, http.StatusAccepted), http.StatusFound)
 	}
 }
 
@@ -249,24 +246,24 @@ func (h *AuthHandler) ForgotPasswordEmailVerificationHandler(c *fiber.Ctx) error
 	var req dto.ForgotPasswordEmailVerificationRequest
 	if err := c.BodyParser(&req); err != nil {
 		logger.Error("Failed to parse request body", zap.Error(err))
-		return response.ResponseError(c, 400, "Invalid request body format", "", err.Error())
+		return util.ResponseError(c, 400, "Invalid request body format", "", err.Error())
 	}
 	if err := validation.Validate.Struct(req); err != nil {
 		errors := validation.FormatForgotPasswordEmailVerificationValidationErrors(err)
 		logger.Error("Validation failed", zap.Error(err))
-		return response.ResponseError(c, 400, "Validation failed", "errors", errors)
+		return util.ResponseError(c, 400, "Validation failed", "errors", errors)
 	}
 
 	err := h.authService.ForgotPasswordEmailVerification(ctx, req)
 	if err != nil {
 		logger.Error("Forgot password email verification failed", zap.Error(err))
-		if appErr, ok := err.(*apperror.AppError); ok {
-			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "errors", appErr.ErrorData)
+		if appErr, ok := err.(*util.AppError); ok {
+			return util.ResponseError(c, appErr.StatusCode, appErr.Message, "errors", appErr.ErrorData)
 		}
-		return response.ResponseError(c, 500, "Failed to process request", "", err.Error())
+		return util.ResponseError(c, 500, "Failed to process request", "", err.Error())
 	}
 
-	return response.ResponseSuccess(c, 200, "Please check your email to verify the password reset", "data", nil)
+	return util.ResponseSuccess(c, 200, "Please check your email to verify the password reset", "data", nil)
 }
 
 func (h *AuthHandler) ForgotPasswordLinkVerificationHandler(c *fiber.Ctx) error {
@@ -275,18 +272,18 @@ func (h *AuthHandler) ForgotPasswordLinkVerificationHandler(c *fiber.Ctx) error 
 	email := c.Query("email")
 
 	if code == "" || email == "" {
-		return response.ResponseError(c, 400, "Incomplete parameters", "", nil)
+		return util.ResponseError(c, 400, "Incomplete parameters", "", nil)
 	}
 
 	if err := h.authService.VerifyForgotPasswordCode(ctx, code, email); err != nil {
 		logger.Error("Forgot password code verification failed", zap.Error(err))
-		if appErr, ok := err.(*apperror.AppError); ok {
-			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+		if appErr, ok := err.(*util.AppError); ok {
+			return util.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Failed to verify code", "", err.Error())
+		return util.ResponseError(c, 500, "Failed to verify code", "", err.Error())
 	}
 
-	return response.ResponseSuccess(c, 200, "Verification link processed successfully", "data", dto.ForgotPasswordLinkVerificationResponse{
+	return util.ResponseSuccess(c, 200, "Verification link processed successfully", "data", dto.ForgotPasswordLinkVerificationResponse{
 		Email: email,
 	})
 }
@@ -295,19 +292,19 @@ func (h *AuthHandler) RefreshTokenHandler(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 	refreshToken := c.Cookies("refresh_token")
 	if refreshToken == "" {
-		return response.ResponseError(c, 401, "Refresh token not found", "", "You must log in first")
+		return util.ResponseError(c, 401, "Refresh token not found", "", "You must log in first")
 	}
 
 	newAccessToken, newRefreshToken, err := h.authService.RefreshToken(ctx, refreshToken)
 	if err != nil {
 		logger.Error("Failed to refresh tokens", zap.Error(err))
-		if appErr, ok := err.(*apperror.AppError); ok {
+		if appErr, ok := err.(*util.AppError); ok {
 			if appErr.StatusCode == 401 {
-				tokenutils.ClearAuthCookies(c)
+				util.ClearAuthCookies(c)
 			}
-			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+			return util.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Failed to refresh token", "", err.Error())
+		return util.ResponseError(c, 500, "Failed to refresh token", "", err.Error())
 	}
 
 	c.Cookie(&fiber.Cookie{
@@ -332,7 +329,7 @@ func (h *AuthHandler) RefreshTokenHandler(c *fiber.Ctx) error {
 		MaxAge:   getRefreshTokenAge(),
 	})
 
-	return response.ResponseSuccess(c, 200, "Token refreshed successfully", "data", dto.RefreshTokenResponse{
+	return util.ResponseSuccess(c, 200, "Token refreshed successfully", "data", dto.RefreshTokenResponse{
 		AccessToken: newAccessToken,
 		ExpiresIn:   int64(getAccessTokenAge()),
 	})
@@ -343,38 +340,38 @@ func (h *AuthHandler) ForgotPasswordResetPasswordHandler(c *fiber.Ctx) error {
 	var req dto.ForgotPasswordResetPasswordRequest
 	if err := c.BodyParser(&req); err != nil {
 		logger.Error("Failed to parse request body", zap.Error(err))
-		return response.ResponseError(c, 400, "Invalid request body format", "", err.Error())
+		return util.ResponseError(c, 400, "Invalid request body format", "", err.Error())
 	}
 	if err := validation.Validate.Struct(req); err != nil {
 		errors := validation.FormatForgotPasswordResetPasswordValidationErrors(err)
 		logger.Error("Validation failed", zap.Error(err))
-		return response.ResponseError(c, 400, "Validation failed", "errors", errors)
+		return util.ResponseError(c, 400, "Validation failed", "errors", errors)
 	}
 
 	if err := h.authService.ResetPassword(ctx, req.Email, req.Password); err != nil {
 		logger.Error("Failed to reset password", zap.Error(err))
-		if appErr, ok := err.(*apperror.AppError); ok {
-			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+		if appErr, ok := err.(*util.AppError); ok {
+			return util.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Failed to update password", "", err.Error())
+		return util.ResponseError(c, 500, "Failed to update password", "", err.Error())
 	}
 
-	return response.ResponseSuccess(c, 200, "Password updated successfully. Please log in with your updated credentials", "data", nil)
+	return util.ResponseSuccess(c, 200, "Password updated successfully. Please log in with your updated credentials", "data", nil)
 }
 
 func (h *AuthHandler) LogoutHandler(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 	refreshToken := c.Cookies("refresh_token")
 	if refreshToken == "" {
-		return response.ResponseError(c, 401, "Refresh token not found", "", "You must log in first")
+		return util.ResponseError(c, 401, "Refresh token not found", "", "You must log in first")
 	}
 
 	if err := h.authService.Logout(ctx, refreshToken); err != nil {
 		logger.Error("Failed to logout user", zap.Error(err))
-		if appErr, ok := err.(*apperror.AppError); ok {
-			return response.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
+		if appErr, ok := err.(*util.AppError); ok {
+			return util.ResponseError(c, appErr.StatusCode, appErr.Message, "error_code", appErr.Code)
 		}
-		return response.ResponseError(c, 500, "Logout failed", "", err.Error())
+		return util.ResponseError(c, 500, "Logout failed", "", err.Error())
 	}
 
 	c.Cookie(&fiber.Cookie{
@@ -399,5 +396,5 @@ func (h *AuthHandler) LogoutHandler(c *fiber.Ctx) error {
 		Path:     "/",
 	})
 
-	return response.ResponseSuccess(c, 200, "Logout successful", "data", nil)
+	return util.ResponseSuccess(c, 200, "Logout successful", "data", nil)
 }

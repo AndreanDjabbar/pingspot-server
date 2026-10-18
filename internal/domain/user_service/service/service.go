@@ -5,11 +5,9 @@ import (
 	"errors"
 	"pingspot/internal/domain/user_service/dto"
 	"pingspot/internal/domain/user_service/repository"
+	"pingspot/internal/logger"
 	"pingspot/internal/model"
-	apperror "pingspot/pkg/app_error"
-	"pingspot/pkg/logger"
-	contextutils "pingspot/pkg/utils/context_util"
-	tokenutils "pingspot/pkg/utils/token_util"
+	"pingspot/internal/util"
 	"strings"
 
 	"go.uber.org/zap"
@@ -31,7 +29,7 @@ func NewUserService(db *gorm.DB, userRepo repository.UserRepository, userProfile
 }
 
 func (s *UserService) SaveProfile(ctx context.Context, userID uint, req dto.SaveUserProfileRequest) (*dto.SaveUserProfileResponse, error) {
-	requestID := contextutils.GetRequestID(ctx)
+	requestID := util.GetRequestID(ctx)
 	logger.Info("Saving user profile",
 		zap.String("request_id", requestID),
 		zap.Uint("user_id", userID),
@@ -43,16 +41,16 @@ func (s *UserService) SaveProfile(ctx context.Context, userID uint, req dto.Save
 			zap.String("request_id", requestID),
 			zap.Error(tx.Error),
 		)
-		return nil, apperror.New(500, "TRANSACTION_START_FAILED", "Failed to start transaction", tx.Error.Error(), nil)
+		return nil, util.New(500, "TRANSACTION_START_FAILED", "Failed to start transaction", tx.Error.Error(), nil)
 	}
 
 	currentUser, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		tx.Rollback()
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "USER_NOT_FOUND", "User not found", "", nil)
+			return nil, util.New(404, "USER_NOT_FOUND", "User not found", "", nil)
 		}
-		return nil, apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
+		return nil, util.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
 	}
 
 	if req.Username != nil && *req.Username != currentUser.Username {
@@ -60,11 +58,11 @@ func (s *UserService) SaveProfile(ctx context.Context, userID uint, req dto.Save
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				tx.Rollback()
-				return nil, apperror.New(500, "USERNAME_CHECK_FAILED", "Failed to check username availability", err.Error(), nil)
+				return nil, util.New(500, "USERNAME_CHECK_FAILED", "Failed to check username availability", err.Error(), nil)
 			}
 		} else {
 			tx.Rollback()
-			return nil, apperror.New(409, "USERNAME_EXISTS", "Username is already in use. Please choose another username", "", nil)
+			return nil, util.New(409, "USERNAME_EXISTS", "Username is already in use. Please choose another username", "", nil)
 		}
 		currentUser.IsDefaultUsername = false
 	}
@@ -75,7 +73,7 @@ func (s *UserService) SaveProfile(ctx context.Context, userID uint, req dto.Save
 	updatedUser, err := s.userRepo.UpdateTX(ctx, tx, currentUser)
 	if err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "USER_UPDATE_FAILED", "Failed to update user data", err.Error(), nil)
+		return nil, util.New(500, "USER_UPDATE_FAILED", "Failed to update user data", err.Error(), nil)
 	}
 
 	profile, err := s.userProfileRepo.GetByIDTX(ctx, tx, userID)
@@ -90,10 +88,10 @@ func (s *UserService) SaveProfile(ctx context.Context, userID uint, req dto.Save
 			}
 			if _, err := s.userProfileRepo.CreateTX(ctx, tx, &newProfile); err != nil {
 				tx.Rollback()
-				return nil, apperror.New(500, "PROFILE_CREATE_FAILED", "Failed to create profile", err.Error(), nil)
+				return nil, util.New(500, "PROFILE_CREATE_FAILED", "Failed to create profile", err.Error(), nil)
 			}
 			if err := tx.Commit().Error; err != nil {
-				return nil, apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to save changes", err.Error(), nil)
+				return nil, util.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to save changes", err.Error(), nil)
 			}
 			newProfileResponse := dto.SaveUserProfileResponse{
 				UserID:         userID,
@@ -111,7 +109,7 @@ func (s *UserService) SaveProfile(ctx context.Context, userID uint, req dto.Save
 			return &newProfileResponse, nil
 		} else {
 			tx.Rollback()
-			return nil, apperror.New(500, "PROFILE_FETCH_FAILED", "Failed to retrieve profile", err.Error(), nil)
+			return nil, util.New(500, "PROFILE_FETCH_FAILED", "Failed to retrieve profile", err.Error(), nil)
 		}
 	}
 
@@ -122,11 +120,11 @@ func (s *UserService) SaveProfile(ctx context.Context, userID uint, req dto.Save
 
 	if _, err := s.userProfileRepo.UpdateTX(ctx, tx, profile); err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "PROFILE_UPDATE_FAILED", "Failed to update profile", err.Error(), nil)
+		return nil, util.New(500, "PROFILE_UPDATE_FAILED", "Failed to update profile", err.Error(), nil)
 	}
 
 	if err := tx.Commit().Error; err != nil {
-		return nil, apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to save changes", err.Error(), nil)
+		return nil, util.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to save changes", err.Error(), nil)
 	}
 
 	profileResponse := dto.SaveUserProfileResponse{
@@ -148,12 +146,12 @@ func (s *UserService) SaveProfile(ctx context.Context, userID uint, req dto.Save
 func (s *UserService) GetUserStatistics(ctx context.Context) (*dto.GetUserStatisticsResponse, error) {
 	totalUsers, err := s.userRepo.GetUsersCount(ctx)
 	if err != nil {
-		return nil, apperror.New(500, "USER_COUNT_FETCH_FAILED", "Failed to retrieve user count", err.Error(), nil)
+		return nil, util.New(500, "USER_COUNT_FETCH_FAILED", "Failed to retrieve user count", err.Error(), nil)
 	}
 
 	usersByGender, err := s.userRepo.GetByUserGenderCount(ctx)
 	if err != nil {
-		return nil, apperror.New(500, "USER_GENDER_COUNT_FETCH_FAILED", "Failed to retrieve user count by gender", err.Error(), nil)
+		return nil, util.New(500, "USER_GENDER_COUNT_FETCH_FAILED", "Failed to retrieve user count by gender", err.Error(), nil)
 	}
 	totalKnownGender := usersByGender["male"] + usersByGender["female"]
 
@@ -163,7 +161,7 @@ func (s *UserService) GetUserStatistics(ctx context.Context) (*dto.GetUserStatis
 
 	monthlyUserCounts, err := s.userRepo.GetMonthlyUserCounts(ctx)
 	if err != nil {
-		return nil, apperror.New(500, "MONTHLY_USER_COUNT_FETCH_FAILED", "Failed to retrieve monthly user count", err.Error(), nil)
+		return nil, util.New(500, "MONTHLY_USER_COUNT_FETCH_FAILED", "Failed to retrieve monthly user count", err.Error(), nil)
 	}
 
 	return &dto.GetUserStatisticsResponse{
@@ -174,7 +172,7 @@ func (s *UserService) GetUserStatistics(ctx context.Context) (*dto.GetUserStatis
 }
 
 func (s *UserService) SearchUsers(ctx context.Context, searchQuery string, usersDataNextCursor uint, limit int) (*dto.SearchResponse, error) {
-	requestID := contextutils.GetRequestID(ctx)
+	requestID := util.GetRequestID(ctx)
 	logger.Info("Performing search",
 		zap.String("request_id", requestID),
 		zap.String("search_query", searchQuery),
@@ -188,7 +186,7 @@ func (s *UserService) SearchUsers(ctx context.Context, searchQuery string, users
 			zap.String("search_query", searchQuery),
 			zap.Error(err),
 		)
-		return nil, apperror.New(500, "USER_SEARCH_FAILED", "Failed to search user data", err.Error(), nil)
+		return nil, util.New(500, "USER_SEARCH_FAILED", "Failed to search user data", err.Error(), nil)
 	}
 
 	resultUsers := make([]dto.SearchUsers, 0, len(*usersData))
@@ -219,9 +217,9 @@ func (s *UserService) GetProfileByUsername(ctx context.Context, username string)
 	user, err := s.userRepo.GetByUsername(ctx, username)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "USER_NOT_FOUND", "User not found", "", nil)
+			return nil, util.New(404, "USER_NOT_FOUND", "User not found", "", nil)
 		}
-		return nil, apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user profile", err.Error(), nil)
+		return nil, util.New(500, "USER_FETCH_FAILED", "Failed to retrieve user profile", err.Error(), nil)
 	}
 	return &dto.GetProfileResponse{
 		UserID:         user.ID,
@@ -239,9 +237,9 @@ func (s *UserService) GetProfile(ctx context.Context, userID uint) (*dto.GetProf
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "USER_NOT_FOUND", "User not found", "", nil)
+			return nil, util.New(404, "USER_NOT_FOUND", "User not found", "", nil)
 		}
-		return nil, apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user profile", err.Error(), nil)
+		return nil, util.New(500, "USER_FETCH_FAILED", "Failed to retrieve user profile", err.Error(), nil)
 	}
 
 	missingFields := []string{}
@@ -287,28 +285,28 @@ func (s *UserService) SaveSecurity(ctx context.Context, userID uint, req dto.Sav
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return apperror.New(404, "USER_NOT_FOUND", "User not found", "", nil)
+			return util.New(404, "USER_NOT_FOUND", "User not found", "", nil)
 		}
-		return apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
+		return util.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
 	}
 
 	isValidPassword := false
 	if user.Password != nil {
-		isValidPassword = tokenutils.CheckHashString(req.CurrentPassword, *user.Password)
+		isValidPassword = util.CheckHashString(req.CurrentPassword, *user.Password)
 	}
 
 	if !isValidPassword {
-		return apperror.New(400, "INVALID_PASSWORD", "Your old password is incorrect", "", nil)
+		return util.New(400, "INVALID_PASSWORD", "Your old password is incorrect", "", nil)
 	}
 
-	hashedPassword, err := tokenutils.HashString(req.NewPassword)
+	hashedPassword, err := util.HashString(req.NewPassword)
 	if err != nil {
-		return apperror.New(500, "PASSWORD_HASH_FAILED", "Failed to hash password", "", nil)
+		return util.New(500, "PASSWORD_HASH_FAILED", "Failed to hash password", "", nil)
 	}
 
 	user.Password = &hashedPassword
 	if err := s.userRepo.Save(ctx, user); err != nil {
-		return apperror.New(500, "PASSWORD_UPDATE_FAILED", "Failed to update password", err.Error(), nil)
+		return util.New(500, "PASSWORD_UPDATE_FAILED", "Failed to update password", err.Error(), nil)
 	}
 
 	return nil
@@ -318,15 +316,15 @@ func (s *UserService) UpdateEmailNotificationPreference(ctx context.Context, use
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return apperror.New(404, "USER_NOT_FOUND", "User not found", "", nil)
+			return util.New(404, "USER_NOT_FOUND", "User not found", "", nil)
 		}
-		return apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
+		return util.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
 	}
 
 	user.IsDisableEmailNotification = *req.IsDisableEmailNotification
 
 	if err := s.userRepo.Save(ctx, user); err != nil {
-		return apperror.New(500, "EMAIL_NOTIFICATION_UPDATE_FAILED", "Failed to update email notification preferences", err.Error(), nil)
+		return util.New(500, "EMAIL_NOTIFICATION_UPDATE_FAILED", "Failed to update email notification preferences", err.Error(), nil)
 	}
 
 	return nil

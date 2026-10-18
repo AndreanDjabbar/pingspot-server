@@ -1,15 +1,13 @@
 package server
 
 import (
+	"pingspot/internal/logger"
 	"pingspot/internal/middleware"
-	"pingspot/internal/router"
-	"pingspot/pkg/logger"
-	env "pingspot/pkg/utils/env_util"
-	response "pingspot/pkg/utils/response_util"
-	_ "pingspot/docs"
-	"github.com/gofiber/swagger"
+	"pingspot/internal/util"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/swagger"
 )
 
 type FiberServer struct {
@@ -27,7 +25,7 @@ func New() *FiberServer {
 	app.Static("/main", "./uploads/main")
 
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     env.AllowedOrigins(),
+		AllowOrigins:     util.AllowedOrigins(),
 		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS,PATCH",
 		AllowHeaders:     "Accept,Authorization,Content-Type,X-Requested-With",
 		ExposeHeaders:    "Set-Cookie",
@@ -41,11 +39,11 @@ func New() *FiberServer {
 
 	defaultRoute := app.Group("/pingspot/api")
 
-	if env.NodeEnv() == "development" {
+	if util.NodeEnv() == "development" {
 		defaultRoute.Get("/swagger/*", swagger.HandlerDefault)
 	}
 
-	router.RegisterRoutes(app)
+	RegisterRoutes(app)
 
 	return &FiberServer{
 		App: app,
@@ -56,7 +54,7 @@ func DefaultHandler(c *fiber.Ctx) error {
 	logger.Info("DEFAULT CONTROLLER")
 	data := map[string]any{
 		"message":    "Welcome to Pingspot API.. Please check the repository for more information.",
-		"repository": env.GithubRepoURL(),
+		"repository": util.GithubRepoURL(),
 	}
-	return response.ResponseSuccess(c, 200, "Welcome to Pingspot API", "data", data)
+	return util.ResponseSuccess(c, 200, "Welcome to Pingspot API", "data", data)
 }

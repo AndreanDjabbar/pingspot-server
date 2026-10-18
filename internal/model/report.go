@@ -31,26 +31,26 @@ const (
 )
 
 type Report struct {
-	ID                uint              `gorm:"primaryKey"`
-	UserID            uint              `gorm:"not null"`
-	User              User              `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	ReportTitle       string            `gorm:"size:255;not null"`
-	ReportType        ReportType        `gorm:"type:varchar(30);not null"`
-	ReportDescription string            `gorm:"type:text;not null"`
-	CreatedAt         int64             `gorm:"autoCreateTime"`
-	UpdatedAt int64 `gorm:"autoUpdateTime:false"`
-	PotentiallyResolvedAt *int64            `gorm:"default:null"`
-	ReportStatus      ReportStatus      `gorm:"type:varchar(50);default:'WAITING'"`
-	HasProgress       *bool             `gorm:"default:true"`
-	LastUpdatedBy 	LastUpdatedBy `gorm:"type:varchar(50);default:NULL"`
-	LastUpdatedProgressAt *int64            `gorm:"default:null"`
-	AdminOverride   *bool             `gorm:"default:false"`
-	IsDeleted         *bool             `gorm:"default:false"`
-	DeletedAt 		*int64            `gorm:"default:null"`
-	SearchVector string `gorm:"column:search_vector;->;-:migration"`
-	ReportLocation    *ReportLocation   `gorm:"foreignKey:ReportID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	ReportImages      *ReportImage      `gorm:"foreignKey:ReportID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	ReportReactions   *[]ReportReaction `gorm:"foreignKey:ReportID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	ReportProgress    *[]ReportProgress `gorm:"foreignKey:ReportID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	ReportVotes       *[]ReportVote     `gorm:"foreignKey:ReportID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+    ID                uint              `json:"id" gorm:"primaryKey"`
+    UserID            uint              `json:"userId" gorm:"not null"`
+    User              User              `json:"user,omitempty" gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+    ReportTitle       string            `json:"reportTitle" gorm:"size:255;not null"`
+    ReportType        ReportType        `json:"reportType" gorm:"type:varchar(30);not null"`
+    ReportDescription string            `json:"reportDescription" gorm:"type:text;not null"`
+    CreatedAt         int64             `json:"createdAt" gorm:"autoCreateTime"`
+    UpdatedAt         int64             `json:"updatedAt" gorm:"autoUpdateTime:false"`
+    PotentiallyResolvedAt *int64        `json:"potentiallyResolvedAt,omitempty" gorm:"default:null"`
+    ReportStatus      ReportStatus      `json:"reportStatus" gorm:"type:varchar(50);default:'WAITING'"`
+    HasProgress       *bool             `json:"hasProgress,omitempty" gorm:"default:true"`
+    LastUpdatedBy     LastUpdatedBy     `json:"lastUpdatedBy,omitempty" gorm:"type:varchar(50);default:NULL"`
+    LastUpdatedProgressAt *int64        `json:"lastUpdatedProgressAt,omitempty" gorm:"default:null"`
+    AdminOverride     *bool             `json:"adminOverride,omitempty" gorm:"default:false"`
+    IsDeleted         *bool             `json:"isDeleted,omitempty" gorm:"default:false"`
+    DeletedAt         *int64            `json:"deletedAt,omitempty" gorm:"default:null"`
+    SearchVector      string            `json:"-" gorm:"column:search_vector;->;-:migration"`
+    ReportLocation    *ReportLocation   `json:"reportLocation,omitempty" gorm:"foreignKey:ReportID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+    ReportImages      *ReportImage      `json:"reportImages,omitempty" gorm:"foreignKey:ReportID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+    ReportReactions   *[]ReportReaction `json:"reportReactions,omitempty" gorm:"foreignKey:ReportID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+    ReportProgress    *[]ReportProgress `json:"reportProgress,omitempty" gorm:"foreignKey:ReportID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+    ReportVotes       *[]ReportVote     `json:"reportVotes,omitempty" gorm:"foreignKey:ReportID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 }

@@ -10,7 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	contextutils "pingspot/pkg/utils/context_util"
+	"pingspot/internal/util"
 	"testing"
 	"time"
 
@@ -81,7 +81,7 @@ func TestRequestIDMiddleware_SetsHeaderLocalsAndContext(t *testing.T) {
 		require.True(t, ok)
 		_, err := uuid.Parse(requestID)
 		require.NoError(t, err)
-		assert.Equal(t, requestID, contextutils.GetRequestID(c.UserContext()))
+		assert.Equal(t, requestID, util.GetRequestID(c.UserContext()))
 		return c.SendStatus(fiber.StatusOK)
 	})
 

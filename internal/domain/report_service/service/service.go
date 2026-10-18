@@ -6,16 +6,13 @@ import (
 	"fmt"
 	"pingspot/internal/domain/report_service/dto"
 	reportRepository "pingspot/internal/domain/report_service/repository"
-	"pingspot/internal/domain/report_service/util"
-	tasksService "pingspot/internal/domain/task_service/service"
 	userRepository "pingspot/internal/domain/user_service/repository"
+	"pingspot/internal/logger"
 	"pingspot/internal/model"
-	apperror "pingspot/pkg/app_error"
-	"pingspot/pkg/logger"
-	contextutils "pingspot/pkg/utils/context_util"
-	env "pingspot/pkg/utils/env_util"
-	mainutils "pingspot/pkg/utils/main_util"
+	"pingspot/internal/task"
+	"pingspot/internal/util"
 	"regexp"
+	"sort"
 	"strconv"
 	"time"
 
@@ -24,6 +21,333 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
+
+
+func getMajorityVote(resolvedVote, onProgressVote int64) *string {
+	if resolvedVote >= onProgressVote {
+		vote := "RESOLVED"
+		return &vote
+	}
+	if onProgressVote >= resolvedVote {
+		vote := "ON_PROGRESS"
+		return &vote
+	}
+	return nil
+}
+
+func getVoteTypeOrder(voteCount map[model.ReportStatus]int64) []struct {
+	Type  model.ReportStatus
+	Count int
+} {
+	votes := []struct {
+		Type  model.ReportStatus
+		Count int
+	}{
+		{model.RESOLVED, int(voteCount[model.RESOLVED])},
+		{model.ON_PROGRESS, int(voteCount[model.ON_PROGRESS])},
+	}
+
+	sort.Slice(votes, func(i, j int) bool {
+		return votes[i].Count > votes[j].Count
+	})
+
+	return votes
+}
+
+func sendPotentiallyResolvedReportEmail(to, username, reportTitle, reportLink string, daysRemaining int, disabledNotifications bool) error {
+	return util.SendEmail(util.EmailData{
+		To:            to,
+		Subject:       "Reminder: Update Progress on Your Report",
+		RecipientName: username,
+		EmailType:     util.EmailTypeProgressReminder,
+		TemplateData: map[string]any{
+			"ReportTitle":   reportTitle,
+			"ReportLink":    reportLink,
+			"DaysRemaining": daysRemaining,
+		},
+		DisabledNotifications: disabledNotifications,
+		BodyTempate: getProgressReminderEmailTemplate(),
+	})
+}
+
+func getProgressReminderEmailTemplate() string {
+	return `<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<meta name="color-scheme" content="light">
+		<meta name="supported-color-schemes" content="light">
+		<title>Report Progress Reminder</title>
+	</head>
+	<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, Helvetica, Arial, sans-serif; background-color: #f4f3fb; line-height: 1.6; -webkit-text-size-adjust: 100%;">
+	
+		<!-- Preheader (preview text in inbox) -->
+		<div style="display: none; max-height: 0; overflow: hidden; opacity: 0; color: #f4f3fb; font-size: 1px; line-height: 1px;">
+			Your report "{{.ReportTitle}}" needs an update. Upload proof of progress before the period ends.
+		</div>
+	
+		<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f3fb;">
+			<tr>
+				<td align="center" style="padding: 40px 16px;">
+	
+					<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 20px; box-shadow: 0 12px 32px rgba(108, 92, 231, 0.12); overflow: hidden;">
+	
+						<!-- Header -->
+						<tr>
+							<td align="center" bgcolor="#6C5CE7" style="background-color: #6C5CE7; background-image: linear-gradient(135deg, #7B6CF0 0%, #6C5CE7 50%, #5B4BD5 100%); padding: 44px 40px 36px;">
+								<h1 style="margin: 0; color: #ffffff; font-size: 30px; font-weight: 800; letter-spacing: -0.5px;">
+									PingSpot
+								</h1>
+								<p style="margin: 10px 0 0; color: #e4e0ff; font-size: 15px; font-weight: 500; letter-spacing: 0.3px;">
+									Report Progress Reminder
+								</p>
+							</td>
+						</tr>
+	
+						<!-- Body -->
+						<tr>
+							<td style="padding: 44px 40px 20px;">
+								<h2 style="margin: 0 0 14px; color: #1e1b3a; font-size: 24px; font-weight: 700; text-align: center;">
+									Hello {{.UserName}}! 👋
+								</h2>
+								<p style="margin: 0 0 28px; color: #4b5068; font-size: 16px; text-align: center; line-height: 1.7;">
+									Your report is still marked as
+									<span style="display: inline-block; padding: 2px 10px; background-color: #fff4d6; color: #92400e; border-radius: 999px; font-size: 14px; font-weight: 600;">Under Review</span>
+									and is waiting for an update from you.
+								</p>
+	
+								<!-- Report card -->
+								<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f1effd; border: 1px solid #ddd9fa; border-radius: 14px;">
+									<tr>
+										<td style="padding: 22px 24px;">
+											<p style="margin: 0 0 6px; color: #6C5CE7; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">
+												Your Report
+											</p>
+											<p style="margin: 0; color: #1e1b3a; font-size: 18px; font-weight: 700; line-height: 1.4;">
+												📋 {{.ReportTitle}}
+											</p>
+										</td>
+									</tr>
+								</table>
+	
+								<!-- Deadline notice -->
+								<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-top: 18px; background-color: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 10px;">
+									<tr>
+										<td style="padding: 18px 20px;">
+											<p style="margin: 0 0 6px; color: #92400e; font-size: 15px; font-weight: 700;">
+												⏰ Time remaining: 7 weeks
+											</p>
+											<p style="margin: 0; color: #78350f; font-size: 14px; line-height: 1.6;">
+												Upload proof of progress before this period ends. If there is no update, the report will be
+												<strong>automatically marked as Resolved</strong>.
+											</p>
+										</td>
+									</tr>
+								</table>
+	
+								<!-- CTA -->
+								<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: 36px auto 14px;">
+									<tr>
+										<td align="center" bgcolor="#6C5CE7" style="background-color: #6C5CE7; border-radius: 12px; box-shadow: 0 6px 18px rgba(108, 92, 231, 0.35);">
+											<a href="{{.ReportLink}}" target="_blank"
+											style="display: inline-block; padding: 16px 36px; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 16px; border-radius: 12px;">
+												Update Progress Now &rarr;
+											</a>
+										</td>
+									</tr>
+								</table>
+							</td>
+						</tr>
+	
+						<!-- Help -->
+						<tr>
+							<td style="padding: 8px 40px 40px;">
+								<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+									<tr>
+										<td style="border-top: 1px solid #ebe9f7; padding-top: 22px; text-align: center;">
+											<p style="margin: 0; color: #64688a; font-size: 14px; line-height: 1.6;">
+												If you have any questions, feel free to contact us.
+											</p>
+										</td>
+									</tr>
+								</table>
+							</td>
+						</tr>
+	
+						<!-- Footer -->
+						<tr>
+							<td align="center" style="background-color: #faf9ff; padding: 28px 40px; border-top: 1px solid #ebe9f7;">
+								<p style="margin: 0 0 8px; color: #64688a; font-size: 13px; font-weight: 600;">
+									© 2026 PingSpot. All rights reserved.
+								</p>
+								<p style="margin: 0; color: #9498b3; font-size: 12px; line-height: 1.6;">
+									Questions? Contact us by email at
+									<a href="mailto:andreanjabar18@gmail.com" style="color: #6C5CE7; text-decoration: none; font-weight: 600;">andreanjabar18@gmail.com</a>
+								</p>
+							</td>
+						</tr>
+	
+					</table>
+				</td>
+			</tr>
+		</table>
+	</body>
+</html>`
+}
+
+func convertToDTO(c *model.ReportComment, u *model.User) *dto.Comment {
+	comment := &dto.Comment{
+		CommentID: c.ID.Hex(),
+		ReportID:  c.ReportID,
+		UserInformation: u,
+		Mentions: c.Mentions,
+		Content: c.Content,
+		ParentCommentID: func() *string {
+			if c.ParentCommentID != nil {
+				id := c.ParentCommentID.Hex()
+				return &id
+			}
+			return nil
+		}(),
+		ThreadRootID: func() *string {
+			if c.ThreadRootID != nil {
+				id := c.ThreadRootID.Hex()
+				return &id
+			}
+			return nil
+		}(),
+		CreatedAt: c.CreatedAt,
+		UpdatedAt: func() *int64 {
+			if c.UpdatedAt != nil {
+				t := c.UpdatedAt
+				return t
+			}
+			return nil
+		}(),
+		TotalReplies: 0,
+	}
+
+	if c.Media != nil {
+		comment.Media = &model.CommentMedia{
+			URL:    c.Media.URL,
+			Type:   model.CommentMediaType(c.Media.Type),
+			Width:  c.Media.Width,
+			Height: c.Media.Height,
+		}
+	}
+	return comment
+}
+
+func convertToReplyDTO(c *model.ReportComment, u *model.User, mentions []model.Mention) *dto.CommentReply {
+	reply := &dto.CommentReply{
+		CommentID: c.ID.Hex(),
+		ReportID:  c.ReportID,
+		UserInformation: u,
+		Mentions: mentions,
+		Content: c.Content,
+		ParentCommentID: func() *string {
+			if c.ParentCommentID != nil {
+				id := c.ParentCommentID.Hex()
+				return &id
+			}
+			return nil
+		}(),
+		ThreadRootID: func() *string {
+			if c.ThreadRootID != nil {
+				id := c.ThreadRootID.Hex()
+				return &id
+			}
+			return nil
+		}(),
+		CreatedAt: c.CreatedAt,
+		UpdatedAt: func() *int64 {
+			if c.UpdatedAt != nil {
+				t := c.UpdatedAt
+				return t
+			}
+			return nil
+		}(),
+	}
+
+	if c.Media != nil {
+		reply.Media = &model.CommentMedia{
+			URL:    c.Media.URL,
+			Type:   model.CommentMediaType(c.Media.Type),
+			Width:  c.Media.Width,
+			Height: c.Media.Height,
+		}
+	}
+	return reply
+}
+
+func convertRootCommentsToDTO(comments []*model.ReportComment, users map[uint]*model.User, replyCounts map[string]int64, mentionsMap map[string][]model.Mention) []*dto.Comment {
+	rootComments := make([]*dto.Comment, 0)
+
+	for _, comment := range comments {
+		user := users[comment.UserID]
+		if user == nil {
+			continue
+		}
+		comment.Mentions = mentionsMap[comment.ID.Hex()]
+		commentDTO := convertToDTO(comment, user)
+
+		commentID := comment.ID.Hex()
+		if count, exists := replyCounts[commentID]; exists {
+			commentDTO.TotalReplies = count
+		}
+
+		rootComments = append(rootComments, commentDTO)
+	}
+
+	sort.Slice(rootComments, func(i, j int) bool {
+		return rootComments[i].CreatedAt < rootComments[j].CreatedAt
+	})
+
+	return rootComments
+}
+
+func convertRepliesToDTO(comments []*model.ReportComment, users map[uint]*model.User, parentsComment map[string]*model.ReportComment, commentMentionsMap map[string][]uint) []*dto.CommentReply {
+	replies := make([]*dto.CommentReply, 0, len(comments))
+
+	for _, comment := range comments {
+		user := users[comment.UserID]
+		if user == nil {
+			continue
+		}
+
+		mentions := make([]model.Mention, 0)
+		for _, mentionID := range commentMentionsMap[comment.ID.Hex()] {
+			if user, exists := users[mentionID]; exists {
+				mentions = append(mentions, model.Mention{
+					UserID:   user.ID,
+					Username: user.Username,
+				})
+			}
+		}
+
+		replyDTO := convertToReplyDTO(comment, user, mentions)
+		if comment.ParentCommentID != nil {
+			parentID := comment.ParentCommentID.Hex()
+			if parentComment, exists := parentsComment[parentID]; exists {
+				if parentUser, userExists := users[parentComment.UserID]; userExists {
+					if replyDTO.UserInformation.ID != parentUser.ID {
+						replyDTO.ReplyTo = parentUser
+					}
+				}
+			}
+		}
+
+		replies = append(replies, replyDTO)
+	}
+
+	sort.Slice(replies, func(i, j int) bool {
+		return replies[i].CreatedAt < replies[j].CreatedAt
+	})
+
+	return replies
+}
+
 
 type ReportService struct {
 	postgreDB          *gorm.DB
@@ -34,7 +358,7 @@ type ReportService struct {
 	reportReactionRepo reportRepository.ReportReactionRepository
 	reportVoteRepo     reportRepository.ReportVoteRepository
 	reportProgressRepo reportRepository.ReportProgressRepository
-	tasksService       tasksService.TaskService
+	tasksService       task.TaskService
 	userRepo           userRepository.UserRepository
 	userProfileRepo    userRepository.UserProfileRepository
 	reportCommentRepo  reportRepository.ReportCommentRepository
@@ -52,7 +376,7 @@ func NewreportService(
 	userProfileRepo userRepository.UserProfileRepository,
 	reportProgressRepo reportRepository.ReportProgressRepository,
 	reportVoteRepo reportRepository.ReportVoteRepository,
-	tasksService tasksService.TaskService,
+	tasksService task.TaskService,
 	reportCommentRepo reportRepository.ReportCommentRepository,
 	reportSavedRepo reportRepository.ReportSavedRepository,
 ) *ReportService {
@@ -74,7 +398,7 @@ func NewreportService(
 }
 
 func (s *ReportService) CreateReport(ctx context.Context, userID uint, req dto.CreateReportRequest) (*dto.CreateReportResponse, error) {
-	requestID := contextutils.GetRequestID(ctx)
+	requestID := util.GetRequestID(ctx)
 	logger.Info("Creating report",
 		zap.String("request_id", requestID),
 		zap.Uint("user_id", userID),
@@ -87,7 +411,7 @@ func (s *ReportService) CreateReport(ctx context.Context, userID uint, req dto.C
 			zap.String("request_id", requestID),
 			zap.Error(tx.Error),
 		)
-		return nil, apperror.New(500, "TRANSACTION_START_FAILED", "Failed to start transaction", tx.Error.Error(), nil)
+		return nil, util.New(500, "TRANSACTION_START_FAILED", "Failed to start transaction", tx.Error.Error(), nil)
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -98,7 +422,7 @@ func (s *ReportService) CreateReport(ctx context.Context, userID uint, req dto.C
 	currentUser, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "USER_GET_FAILED", "Failed to retrieve user information", err.Error(), nil)
+		return nil, util.New(500, "USER_GET_FAILED", "Failed to retrieve user information", err.Error(), nil)
 	}
 
 	var reportStruct model.Report
@@ -114,7 +438,7 @@ func (s *ReportService) CreateReport(ctx context.Context, userID uint, req dto.C
 	}
 	if err := s.reportRepo.Create(ctx, &reportStruct, tx); err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "REPORT_CREATE_FAILED", "Failed to create report", err.Error(), nil)
+		return nil, util.New(500, "REPORT_CREATE_FAILED", "Failed to create report", err.Error(), nil)
 	}
 
 	reportID := reportStruct.ID
@@ -142,7 +466,7 @@ func (s *ReportService) CreateReport(ctx context.Context, userID uint, req dto.C
 
 	if err := s.reportLocationRepo.Create(ctx, &reportLocationStruct, tx); err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "REPORT_LOCATION_CREATE_FAILED", "Failed to save report location", err.Error(), nil)
+		return nil, util.New(500, "REPORT_LOCATION_CREATE_FAILED", "Failed to save report location", err.Error(), nil)
 	}
 
 	var reportImages model.ReportImage
@@ -156,17 +480,17 @@ func (s *ReportService) CreateReport(ctx context.Context, userID uint, req dto.C
 	}
 	if err := s.reportImageRepo.Create(ctx, &reportImages, tx); err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "REPORT_IMAGE_CREATE_FAILED", "Failed to save report images", err.Error(), nil)
+		return nil, util.New(500, "REPORT_IMAGE_CREATE_FAILED", "Failed to save report images", err.Error(), nil)
 	}
 
 	if err := s.tasksService.SendFollowerReportNotificationTask(reportStruct, *currentUser); err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "AUTO_RESOLVE_TASK_FAILED", "Failed to create automatic resolution task", err.Error(), nil)
+		return nil, util.New(500, "AUTO_RESOLVE_TASK_FAILED", "Failed to create automatic resolution task", err.Error(), nil)
 	}
 
 	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to save changes", err.Error(), nil)
+		return nil, util.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to save changes", err.Error(), nil)
 	}
 
 	reportResult := &dto.CreateReportResponse{
@@ -187,7 +511,7 @@ func (s *ReportService) CreateReport(ctx context.Context, userID uint, req dto.C
 func (s *ReportService) EditReport(ctx context.Context, userID, reportID uint, req dto.EditReportRequest) (*dto.EditReportResponse, error) {
 	tx := s.postgreDB.Begin()
 	if tx.Error != nil {
-		return nil, apperror.New(500, "TRANSACTION_START_FAILED", "Failed to start transaction", tx.Error.Error(), nil)
+		return nil, util.New(500, "TRANSACTION_START_FAILED", "Failed to start transaction", tx.Error.Error(), nil)
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -199,19 +523,19 @@ func (s *ReportService) EditReport(ctx context.Context, userID, reportID uint, r
 	if err != nil {
 		tx.Rollback()
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "REPORT_NOT_FOUND", "Report not found", "", nil)
+			return nil, util.New(404, "REPORT_NOT_FOUND", "Report not found", "", nil)
 		}
-		return nil, apperror.New(500, "REPORT_FETCH_FAILED", "Failed to retrieve report", err.Error(), nil)
+		return nil, util.New(500, "REPORT_FETCH_FAILED", "Failed to retrieve report", err.Error(), nil)
 	}
 
 	if existingReport.UserID != userID {
 		tx.Rollback()
-		return nil, apperror.New(403, "FORBIDDEN", "You do not have permission to upload progress for this report", "", nil)
+		return nil, util.New(403, "FORBIDDEN", "You do not have permission to upload progress for this report", "", nil)
 	}
 
 	if existingReport.ReportStatus == model.RESOLVED {
 		tx.Rollback()
-		return nil, apperror.New(400, "REPORT_ALREADY_RESOLVED", "The report is complete and can no longer be edited", "", nil)
+		return nil, util.New(400, "REPORT_ALREADY_RESOLVED", "The report is complete and can no longer be edited", "", nil)
 	}
 
 	existingReportLocation := existingReport.ReportLocation
@@ -262,22 +586,22 @@ func (s *ReportService) EditReport(ctx context.Context, userID, reportID uint, r
 
 	if _, err := s.reportRepo.UpdateTX(ctx, tx, existingReport); err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "REPORT_UPDATE_FAILED", "Failed to update report", err.Error(), nil)
+		return nil, util.New(500, "REPORT_UPDATE_FAILED", "Failed to update report", err.Error(), nil)
 	}
 
 	if _, err := s.reportLocationRepo.UpdateTX(ctx, tx, existingReportLocation); err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "REPORT_LOCATION_UPDATE_FAILED", "Failed to update report location", err.Error(), nil)
+		return nil, util.New(500, "REPORT_LOCATION_UPDATE_FAILED", "Failed to update report location", err.Error(), nil)
 	}
 
 	if _, err := s.reportImageRepo.UpdateTX(ctx, tx, existingReportImages); err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "REPORT_IMAGE_UPDATE_FAILED", "Failed to update report images", err.Error(), nil)
+		return nil, util.New(500, "REPORT_IMAGE_UPDATE_FAILED", "Failed to update report images", err.Error(), nil)
 	}
 
 	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to save changes", err.Error(), nil)
+		return nil, util.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to save changes", err.Error(), nil)
 	}
 
 	reportResult := &dto.EditReportResponse{
@@ -291,7 +615,7 @@ func (s *ReportService) EditReport(ctx context.Context, userID, reportID uint, r
 func (s *ReportService) DeleteReport(ctx context.Context, userID, reportID uint, deleteType string) error {
 	tx := s.postgreDB.Begin()
 	if tx.Error != nil {
-		return apperror.New(500, "TRANSACTION_START_FAILED", "Failed to start transaction", tx.Error.Error(), nil)
+		return util.New(500, "TRANSACTION_START_FAILED", "Failed to start transaction", tx.Error.Error(), nil)
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -303,13 +627,13 @@ func (s *ReportService) DeleteReport(ctx context.Context, userID, reportID uint,
 	if err != nil {
 		tx.Rollback()
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return apperror.New(404, "REPORT_NOT_FOUND", "Report not found", "", nil)
+			return util.New(404, "REPORT_NOT_FOUND", "Report not found", "", nil)
 		}
-		return apperror.New(500, "REPORT_FETCH_FAILED", "Failed to retrieve report", err.Error(), nil)
+		return util.New(500, "REPORT_FETCH_FAILED", "Failed to retrieve report", err.Error(), nil)
 	}
 	if existingReport.UserID != userID {
 		tx.Rollback()
-		return apperror.New(403, "FORBIDDEN", "You do not have permission to delete this report", "", nil)
+		return util.New(403, "FORBIDDEN", "You do not have permission to delete this report", "", nil)
 	}
 
 	currentTime := time.Now().Unix()
@@ -320,17 +644,17 @@ func (s *ReportService) DeleteReport(ctx context.Context, userID, reportID uint,
 		existingReport.DeletedAt = &currentTime
 		if _, err := s.reportRepo.UpdateTX(ctx, tx, existingReport); err != nil {
 			tx.Rollback()
-			return apperror.New(500, "REPORT_DELETE_FAILED", "Failed to delete report", err.Error(), nil)
+			return util.New(500, "REPORT_DELETE_FAILED", "Failed to delete report", err.Error(), nil)
 		}
 	case "hard":
 		if _, err := s.reportRepo.DeleteTX(ctx, tx, existingReport); err != nil {
 			tx.Rollback()
-			return apperror.New(500, "REPORT_DELETE_FAILED", "Failed to delete report", err.Error(), nil)
+			return util.New(500, "REPORT_DELETE_FAILED", "Failed to delete report", err.Error(), nil)
 		}
 	}
 	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
-		return apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to save changes", err.Error(), nil)
+		return util.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to save changes", err.Error(), nil)
 	}
 	return nil
 }
@@ -341,14 +665,14 @@ func (s *ReportService) GetAllReport(ctx context.Context, userID, cursorID, repo
 	reports, err := s.reportRepo.GetByIsDeletedPaginated(ctx, uint(limit), cursorID, reportOwnerID, reportType, status, sortBy, hasProgress, distance, isDeleted)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "REPORT_NOT_FOUND", "Report not found", "", nil)
+			return nil, util.New(404, "REPORT_NOT_FOUND", "Report not found", "", nil)
 		}
-		return nil, apperror.New(500, "REPORT_FETCH_FAILED", "Failed to retrieve report", err.Error(), nil)
+		return nil, util.New(500, "REPORT_FETCH_FAILED", "Failed to retrieve report", err.Error(), nil)
 	}
 
 	reportsCount, err := s.reportRepo.GetByReportTypeCount(ctx)
 	if err != nil {
-		return nil, apperror.New(500, "REPORT_COUNT_FAILED", "Failed to retrieve total report count", err.Error(), nil)
+		return nil, util.New(500, "REPORT_COUNT_FAILED", "Failed to retrieve total report count", err.Error(), nil)
 	}
 
 	var fullReports []dto.Report
@@ -356,28 +680,28 @@ func (s *ReportService) GetAllReport(ctx context.Context, userID, cursorID, repo
 	for _, report := range *reports {
 		likeReactionCount, err := s.reportReactionRepo.GetLikeReactionCount(ctx, report.ID)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(500, "REACTION_COUNT_FAILED", "Failed to retrieve like reactions", err.Error(), nil)
+			return nil, util.New(500, "REACTION_COUNT_FAILED", "Failed to retrieve like reactions", err.Error(), nil)
 		}
 		dislikeReactionCount, err := s.reportReactionRepo.GetDislikeReactionCount(ctx, report.ID)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(500, "REACTION_COUNT_FAILED", "Failed to retrieve dislike reactions", err.Error(), nil)
+			return nil, util.New(500, "REACTION_COUNT_FAILED", "Failed to retrieve dislike reactions", err.Error(), nil)
 		}
 
 		var isLikedByCurrentUser, isDislikedByCurrentUser, isResolvedByCurrentUser, isOnProgressByCurrentUser, isNotResolvedByCurrentUser bool
 
 		resolvedVoteCount, err := s.reportVoteRepo.GetResolvedVoteCount(ctx, report.ID)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(500, "VOTE_COUNT_FAILED", "Failed to retrieve 'RESOLVED' votes", err.Error(), nil)
+			return nil, util.New(500, "VOTE_COUNT_FAILED", "Failed to retrieve 'RESOLVED' votes", err.Error(), nil)
 		}
 
 		onProgressVoteCount, err := s.reportVoteRepo.GetOnProgressVoteCount(ctx, report.ID)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(500, "VOTE_COUNT_FAILED", "Failed to retrieve 'ON_PROGRESS' votes", err.Error(), nil)
+			return nil, util.New(500, "VOTE_COUNT_FAILED", "Failed to retrieve 'ON_PROGRESS' votes", err.Error(), nil)
 		}
 
 		reportSaved, err := s.reportSavedRepo.GetByUserIDAndReportID(ctx, userID, report.ID)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(500, "REPORT_SAVED_FETCH_FAILED", "Failed to retrieve report save status", err.Error(), nil)
+			return nil, util.New(500, "REPORT_SAVED_FETCH_FAILED", "Failed to retrieve report save status", err.Error(), nil)
 		}
 
 		fullReports = append(fullReports, dto.Report{
@@ -492,7 +816,7 @@ func (s *ReportService) GetAllReport(ctx context.Context, userID, cursorID, repo
 			IsResolvedByCurrentUser:    isResolvedByCurrentUser,
 			IsNotResolvedByCurrentUser: isNotResolvedByCurrentUser,
 			IsOnProgressByCurrentUser:  isOnProgressByCurrentUser,
-			MajorityVote:               util.GetMajorityVote(resolvedVoteCount, onProgressVoteCount),
+			MajorityVote:               getMajorityVote(resolvedVoteCount, onProgressVoteCount),
 			LastUpdatedBy:              (*string)(&report.LastUpdatedBy),
 			LastUpdatedProgressAt:      report.LastUpdatedProgressAt,
 			ReportUpdatedAt:            report.UpdatedAt,
@@ -510,31 +834,31 @@ func (s *ReportService) GetReportByID(ctx context.Context, userID, reportID uint
 	report, err := s.reportRepo.GetByIDIsDeleted(ctx, reportID, isDeleted)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "REPORT_NOT_FOUND", "Report not found", "", nil)
+			return nil, util.New(404, "REPORT_NOT_FOUND", "Report not found", "", nil)
 		}
-		return nil, apperror.New(500, "REPORT_FETCH_FAILED", "Failed to retrieve report", err.Error(), nil)
+		return nil, util.New(500, "REPORT_FETCH_FAILED", "Failed to retrieve report", err.Error(), nil)
 	}
 	var isLikedByCurrentUser, isDislikedByCurrentUser, isResolvedByCurrentUser, isOnProgressByCurrentUser bool
 	likeReactionCount, err := s.reportReactionRepo.GetLikeReactionCount(ctx, report.ID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, apperror.New(500, "REACTION_COUNT_FAILED", "Failed to retrieve like reactions", err.Error(), nil)
+		return nil, util.New(500, "REACTION_COUNT_FAILED", "Failed to retrieve like reactions", err.Error(), nil)
 	}
 	dislikeReactionCount, err := s.reportReactionRepo.GetDislikeReactionCount(ctx, report.ID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, apperror.New(500, "REACTION_COUNT_FAILED", "Failed to retrieve dislike reactions", err.Error(), nil)
+		return nil, util.New(500, "REACTION_COUNT_FAILED", "Failed to retrieve dislike reactions", err.Error(), nil)
 	}
 	resolvedVoteCount, err := s.reportVoteRepo.GetResolvedVoteCount(ctx, report.ID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, apperror.New(500, "VOTE_COUNT_FAILED", "Failed to retrieve 'RESOLVED' votes", err.Error(), nil)
+		return nil, util.New(500, "VOTE_COUNT_FAILED", "Failed to retrieve 'RESOLVED' votes", err.Error(), nil)
 	}
 	onProgressVoteCount, err := s.reportVoteRepo.GetOnProgressVoteCount(ctx, report.ID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, apperror.New(500, "VOTE_COUNT_FAILED", "Failed to retrieve 'ON_PROGRESS' votes", err.Error(), nil)
+		return nil, util.New(500, "VOTE_COUNT_FAILED", "Failed to retrieve 'ON_PROGRESS' votes", err.Error(), nil)
 	}
 
 	reportSaved, err := s.reportSavedRepo.GetByUserIDAndReportID(ctx, userID, report.ID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, apperror.New(500, "REPORT_SAVED_FETCH_FAILED", "Failed to retrieve report save status", err.Error(), nil)
+		return nil, util.New(500, "REPORT_SAVED_FETCH_FAILED", "Failed to retrieve report save status", err.Error(), nil)
 	}
 
 	fullReport := dto.Report{
@@ -648,7 +972,7 @@ func (s *ReportService) GetReportByID(ctx context.Context, userID, reportID uint
 		IsDislikedByCurrentUser:   isDislikedByCurrentUser,
 		IsResolvedByCurrentUser:   isResolvedByCurrentUser,
 		IsOnProgressByCurrentUser: isOnProgressByCurrentUser,
-		MajorityVote:              util.GetMajorityVote(resolvedVoteCount, onProgressVoteCount),
+		MajorityVote:              getMajorityVote(resolvedVoteCount, onProgressVoteCount),
 		LastUpdatedBy:             (*string)(&report.LastUpdatedBy),
 		LastUpdatedProgressAt:     report.LastUpdatedProgressAt,
 		ReportUpdatedAt:           report.UpdatedAt,
@@ -662,7 +986,7 @@ func (s *ReportService) GetReportByID(ctx context.Context, userID, reportID uint
 func (s *ReportService) ReactToReport(ctx context.Context, userID uint, reportID uint, reactionType string) (*dto.ReactReportResponse, error) {
 	tx := s.postgreDB.Begin()
 	if tx.Error != nil {
-		return nil, apperror.New(500, "TRANSACTION_START_FAILED", "Failed to start transaction", tx.Error.Error(), nil)
+		return nil, util.New(500, "TRANSACTION_START_FAILED", "Failed to start transaction", tx.Error.Error(), nil)
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -678,7 +1002,7 @@ func (s *ReportService) ReactToReport(ctx context.Context, userID uint, reportID
 	existingReaction, err := s.reportReactionRepo.GetByUserReportIDTX(ctx, tx, userID, reportID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		tx.Rollback()
-		return nil, apperror.New(500, "REACTION_FETCH_FAILED", "Failed to retrieve report reaction", err.Error(), nil)
+		return nil, util.New(500, "REACTION_FETCH_FAILED", "Failed to retrieve report reaction", err.Error(), nil)
 	}
 
 	switch {
@@ -691,14 +1015,14 @@ func (s *ReportService) ReactToReport(ctx context.Context, userID uint, reportID
 		newReportReaction, err := s.reportReactionRepo.CreateTX(ctx, tx, &newReaction)
 		if err != nil {
 			tx.Rollback()
-			return nil, apperror.New(500, "REACTION_CREATE_FAILED", "Failed to add reaction", err.Error(), nil)
+			return nil, util.New(500, "REACTION_CREATE_FAILED", "Failed to add reaction", err.Error(), nil)
 		}
 		resultReaction = newReportReaction
 
 	case existingReaction.Type == modelReactionType:
 		if err := s.reportReactionRepo.DeleteTX(ctx, tx, existingReaction); err != nil {
 			tx.Rollback()
-			return nil, apperror.New(500, "REACTION_DELETE_FAILED", "Failed to delete reaction", err.Error(), nil)
+			return nil, util.New(500, "REACTION_DELETE_FAILED", "Failed to delete reaction", err.Error(), nil)
 		}
 		resultReaction = nil
 		isDelete = true
@@ -709,14 +1033,14 @@ func (s *ReportService) ReactToReport(ctx context.Context, userID uint, reportID
 		updatedReportReaction, err := s.reportReactionRepo.UpdateTX(ctx, tx, existingReaction)
 		if err != nil {
 			tx.Rollback()
-			return nil, apperror.New(500, "REACTION_UPDATE_FAILED", "Failed to update reaction", err.Error(), nil)
+			return nil, util.New(500, "REACTION_UPDATE_FAILED", "Failed to update reaction", err.Error(), nil)
 		}
 		resultReaction = updatedReportReaction
 	}
 
 	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to save changes", err.Error(), nil)
+		return nil, util.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to save changes", err.Error(), nil)
 	}
 
 	response := &dto.ReactReportResponse{
@@ -735,12 +1059,12 @@ func (s *ReportService) ReactToReport(ctx context.Context, userID uint, reportID
 
 	report, err := s.reportRepo.GetByID(ctx, reportID)
 	if err != nil {
-		return nil, apperror.New(500, "REPORT_FETCH_FAILED", "Failed to retrieve report", err.Error(), nil)
+		return nil, util.New(500, "REPORT_FETCH_FAILED", "Failed to retrieve report", err.Error(), nil)
 	}
 
 	reactorUser, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
-		return nil, apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
+		return nil, util.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
 	}
 
 	if report.UserID != userID {
@@ -749,12 +1073,12 @@ func (s *ReportService) ReactToReport(ctx context.Context, userID uint, reportID
 			report.UserID,
 			"Someone reacted to your report",
 			fmt.Sprintf("User %s reacted to your report", reactorUser.Username),
-			mainutils.StrPtrOrNil(stringUserID),
+			util.StrPtrOrNil(stringUserID),
 			model.EntityTypeUser,
 			model.ReportNotificationCategory,
 			model.NotificationTypeInfo,
 		); err != nil {
-			return nil, apperror.New(500, "NOTIFICATION_TASK_FAILED", "Failed to create notification task", err.Error(), nil)
+			return nil, util.New(500, "NOTIFICATION_TASK_FAILED", "Failed to create notification task", err.Error(), nil)
 		}
 	}
 
@@ -764,7 +1088,7 @@ func (s *ReportService) ReactToReport(ctx context.Context, userID uint, reportID
 func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID uint, voteType string) (*dto.GetVoteReportResponse, error) {
 	tx := s.postgreDB.Begin()
 	if tx.Error != nil {
-		return nil, apperror.New(500, "TRANSACTION_START_FAILED", "Failed to start transaction", tx.Error.Error(), nil)
+		return nil, util.New(500, "TRANSACTION_START_FAILED", "Failed to start transaction", tx.Error.Error(), nil)
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -776,44 +1100,44 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 	if err != nil {
 		tx.Rollback()
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "REPORT_NOT_FOUND", "Report not found", "", nil)
+			return nil, util.New(404, "REPORT_NOT_FOUND", "Report not found", "", nil)
 		}
-		return nil, apperror.New(500, "REPORT_FETCH_FAILED", "Failed to retrieve report", err.Error(), nil)
+		return nil, util.New(500, "REPORT_FETCH_FAILED", "Failed to retrieve report", err.Error(), nil)
 	}
 
 	existingVote, err := s.reportVoteRepo.GetByUserReportIDTX(ctx, tx, userID, reportID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		tx.Rollback()
-		return nil, apperror.New(500, "VOTE_FETCH_FAILED", "Failed to retrieve report votes", err.Error(), nil)
+		return nil, util.New(500, "VOTE_FETCH_FAILED", "Failed to retrieve report votes", err.Error(), nil)
 	}
 
 	if existingVote != nil {
-		return nil, apperror.New(400, "ALREADY_VOTED", "You have already voted on this report", "", nil)
+		return nil, util.New(400, "ALREADY_VOTED", "You have already voted on this report", "", nil)
 	}
 
 	if report.UserID == userID {
 		tx.Rollback()
-		return nil, apperror.New(400, "CANNOT_VOTE_OWN_REPORT", "You cannot vote on your own report", "", nil)
+		return nil, util.New(400, "CANNOT_VOTE_OWN_REPORT", "You cannot vote on your own report", "", nil)
 	}
 
 	if report.ReportStatus == model.RESOLVED {
 		tx.Rollback()
-		return nil, apperror.New(400, "REPORT_ALREADY_RESOLVED", "You cannot vote on a completed report", "", nil)
+		return nil, util.New(400, "REPORT_ALREADY_RESOLVED", "You cannot vote on a completed report", "", nil)
 	}
 
 	if report.ReportStatus == model.WAITING_CONFIRMATION {
 		tx.Rollback()
-		return nil, apperror.New(400, "REPORT_WAITING_CONFIRMATION", "You cannot vote on a report that is waiting for confirmation", "", nil)
+		return nil, util.New(400, "REPORT_WAITING_CONFIRMATION", "You cannot vote on a report that is waiting for confirmation", "", nil)
 	}
 
 	if report.ReportStatus == model.EXPIRED {
 		tx.Rollback()
-		return nil, apperror.New(400, "REPORT_EXPIRED", "You cannot vote on an expired report", "", nil)
+		return nil, util.New(400, "REPORT_EXPIRED", "You cannot vote on an expired report", "", nil)
 	}
 
 	if report.HasProgress == nil || !*report.HasProgress {
 		tx.Rollback()
-		return nil, apperror.New(400, "REPORT_NO_PROGRESS", "You cannot vote on a report without progress (information only)", "", nil)
+		return nil, util.New(400, "REPORT_NO_PROGRESS", "You cannot vote on a report without progress (information only)", "", nil)
 	}
 
 	modelVoteType := model.ReportStatus(voteType)
@@ -831,14 +1155,14 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 		newReportVote, err := s.reportVoteRepo.CreateTX(ctx, tx, &newVote)
 		if err != nil {
 			tx.Rollback()
-			return nil, apperror.New(500, "VOTE_CREATE_FAILED", "Failed to add vote", err.Error(), nil)
+			return nil, util.New(500, "VOTE_CREATE_FAILED", "Failed to add vote", err.Error(), nil)
 		}
 		resultVote = newReportVote
 
 	case existingVote.VoteType == modelVoteType:
 		if err := s.reportVoteRepo.DeleteTX(ctx, tx, existingVote); err != nil {
 			tx.Rollback()
-			return nil, apperror.New(500, "VOTE_DELETE_FAILED", "Failed to delete vote", err.Error(), nil)
+			return nil, util.New(500, "VOTE_DELETE_FAILED", "Failed to delete vote", err.Error(), nil)
 		}
 		resultVote = nil
 	default:
@@ -847,7 +1171,7 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 		updatedReportVote, err := s.reportVoteRepo.UpdateTX(ctx, tx, existingVote)
 		if err != nil {
 			tx.Rollback()
-			return nil, apperror.New(500, "VOTE_UPDATE_FAILED", "Failed to update vote", err.Error(), nil)
+			return nil, util.New(500, "VOTE_UPDATE_FAILED", "Failed to update vote", err.Error(), nil)
 		}
 		resultVote = updatedReportVote
 	}
@@ -855,14 +1179,14 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 		reportVoteCounts, err := s.reportVoteRepo.GetReportVoteCountsTX(ctx, tx, reportID)
 		if err != nil {
 			tx.Rollback()
-			return nil, apperror.New(500, "VOTE_COUNT_FAILED", "Failed to retrieve report vote count", err.Error(), nil)
+			return nil, util.New(500, "VOTE_COUNT_FAILED", "Failed to retrieve report vote count", err.Error(), nil)
 		}
 
-		voteTypeCountsOrder := util.GetVoteTypeOrder(reportVoteCounts)
+		voteTypeCountsOrder := getVoteTypeOrder(reportVoteCounts)
 		totalVote, err := s.reportVoteRepo.GetTotalVoteCountTX(ctx, tx, reportID)
 		if err != nil {
 			tx.Rollback()
-			return nil, apperror.New(500, "VOTE_COUNT_FAILED", "Failed to retrieve total report votes", err.Error(), nil)
+			return nil, util.New(500, "VOTE_COUNT_FAILED", "Failed to retrieve total report votes", err.Error(), nil)
 		}
 		topVote := voteTypeCountsOrder[0]
 		secondVote := voteTypeCountsOrder[1]
@@ -873,10 +1197,10 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 		if marginVote >= 20.0 && topVote.Count >= limitTopVote && report.ReportStatus != model.WAITING_CONFIRMATION && topVote.Type != report.ReportStatus {
 			report.ReportStatus = model.WAITING_CONFIRMATION
 			report.LastUpdatedBy = model.System
-			report.LastUpdatedProgressAt = mainutils.Int64PtrOrNil(time.Now().Unix())
-			report.PotentiallyResolvedAt = mainutils.Int64PtrOrNil(time.Now().Unix())
-			reportLink := fmt.Sprintf("%s/main/reports/%d", env.ClientURL(), report.ID)
-			go util.SendPotentiallyResolvedReportEmail(
+			report.LastUpdatedProgressAt = util.Int64PtrOrNil(time.Now().Unix())
+			report.PotentiallyResolvedAt = util.Int64PtrOrNil(time.Now().Unix())
+			reportLink := fmt.Sprintf("%s/main/reports/%d", util.ClientURL(), report.ID)
+			go sendPotentiallyResolvedReportEmail(
 				report.User.Email,
 				report.User.Username,
 				report.ReportTitle,
@@ -886,7 +1210,7 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 			)
 			if err := s.tasksService.AutoResolveReportTask(reportID); err != nil {
 				tx.Rollback()
-				return nil, apperror.New(500, "AUTO_RESOLVE_TASK_FAILED", "Failed to create automatic resolution task", err.Error(), nil)
+				return nil, util.New(500, "AUTO_RESOLVE_TASK_FAILED", "Failed to create automatic resolution task", err.Error(), nil)
 			}
 
 			reportStatusMessage := map[any]string{
@@ -909,13 +1233,13 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 
 			if _, err := s.reportProgressRepo.CreateTX(ctx, tx, newProgress); err != nil {
 				tx.Rollback()
-				return nil, apperror.New(500, "PROGRESS_CREATE_FAILED", "Failed to upload report progress", err.Error(), nil)
+				return nil, util.New(500, "PROGRESS_CREATE_FAILED", "Failed to upload report progress", err.Error(), nil)
 			}
 		}
 
 		if _, err := s.reportRepo.UpdateTX(ctx, tx, report); err != nil {
 			tx.Rollback()
-			return nil, apperror.New(500, "REPORT_UPDATE_FAILED", "Failed to update report status", err.Error(), nil)
+			return nil, util.New(500, "REPORT_UPDATE_FAILED", "Failed to update report status", err.Error(), nil)
 		}
 	}
 
@@ -923,25 +1247,25 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 		voterUser, err := s.userRepo.GetByID(ctx, userID)
 		if err != nil {
 			tx.Rollback()
-			return nil, apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
+			return nil, util.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
 		}
 		if err := s.tasksService.CreateNotificationTask(
 			report.UserID,
 			"Someone voted on your report",
 			fmt.Sprintf("User %s voted on your report", voterUser.Username),
-			mainutils.StrPtrOrNil(strconv.FormatUint(uint64(reportID), 10)),
+			util.StrPtrOrNil(strconv.FormatUint(uint64(reportID), 10)),
 			model.EntityTypeReport,
 			model.ReportNotificationCategory,
 			model.NotificationTypeInfo,
 		); err != nil {
 			tx.Rollback()
-			return nil, apperror.New(500, "NOTIFICATION_TASK_FAILED", "Failed to create vote notification task", err.Error(), nil)
+			return nil, util.New(500, "NOTIFICATION_TASK_FAILED", "Failed to create vote notification task", err.Error(), nil)
 		}
 	}
 
 	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to save changes", err.Error(), nil)
+		return nil, util.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to save changes", err.Error(), nil)
 	}
 
 	return &dto.GetVoteReportResponse{
@@ -960,7 +1284,7 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 func (s *ReportService) UploadProgressReport(ctx context.Context, userID, reportID uint, req dto.UploadProgressReportRequest) (*dto.UploadProgressReportResponse, error) {
 	tx := s.postgreDB.Begin()
 	if tx.Error != nil {
-		return nil, apperror.New(500, "TRANSACTION_START_FAILED", "Failed to start transaction", tx.Error.Error(), nil)
+		return nil, util.New(500, "TRANSACTION_START_FAILED", "Failed to start transaction", tx.Error.Error(), nil)
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -978,31 +1302,31 @@ func (s *ReportService) UploadProgressReport(ctx context.Context, userID, report
 	if err != nil {
 		tx.Rollback()
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "REPORT_NOT_FOUND", "Report not found", "", nil)
+			return nil, util.New(404, "REPORT_NOT_FOUND", "Report not found", "", nil)
 		}
-		return nil, apperror.New(500, "REPORT_FETCH_FAILED", "Failed to retrieve report", err.Error(), nil)
+		return nil, util.New(500, "REPORT_FETCH_FAILED", "Failed to retrieve report", err.Error(), nil)
 	}
 
 	if report.UserID != userID {
 		tx.Rollback()
-		return nil, apperror.New(403, "FORBIDDEN", "You do not have permission to upload progress for this report", "", nil)
+		return nil, util.New(403, "FORBIDDEN", "You do not have permission to upload progress for this report", "", nil)
 	}
 
 	if report.HasProgress == nil || !*report.HasProgress {
 		tx.Rollback()
-		return nil, apperror.New(400, "REPORT_NO_PROGRESS", "This report does not require progress (information only)", "", nil)
+		return nil, util.New(400, "REPORT_NO_PROGRESS", "This report does not require progress (information only)", "", nil)
 	}
 
 	if report.ReportStatus == model.RESOLVED {
 		tx.Rollback()
-		return nil, apperror.New(400, "REPORT_ALREADY_RESOLVED", "The report is complete and can no longer receive progress updates", "", nil)
+		return nil, util.New(400, "REPORT_ALREADY_RESOLVED", "The report is complete and can no longer receive progress updates", "", nil)
 	}
 
 	if req.Status == string(model.RESOLVED) {
 		report.ReportStatus = model.RESOLVED
 		if _, err := s.reportRepo.UpdateTX(ctx, tx, report); err != nil {
 			tx.Rollback()
-			return nil, apperror.New(500, "REPORT_UPDATE_FAILED", "Failed to update report status", err.Error(), nil)
+			return nil, util.New(500, "REPORT_UPDATE_FAILED", "Failed to update report status", err.Error(), nil)
 		}
 	}
 
@@ -1018,16 +1342,16 @@ func (s *ReportService) UploadProgressReport(ctx context.Context, userID, report
 	newProgress, err := s.reportProgressRepo.CreateTX(ctx, tx, reportProgress)
 	if err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "PROGRESS_CREATE_FAILED", "Failed to upload report progress", err.Error(), nil)
+		return nil, util.New(500, "PROGRESS_CREATE_FAILED", "Failed to upload report progress", err.Error(), nil)
 	}
 
 	report.ReportStatus = model.ReportStatus(req.Status)
-	report.AdminOverride = mainutils.BoolPtrOrNil(true)
+	report.AdminOverride = util.BoolPtrOrNil(true)
 	report.LastUpdatedBy = model.Owner
-	report.LastUpdatedProgressAt = mainutils.Int64PtrOrNil(time.Now().Unix())
+	report.LastUpdatedProgressAt = util.Int64PtrOrNil(time.Now().Unix())
 	if _, err := s.reportRepo.UpdateTX(ctx, tx, report); err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "REPORT_UPDATE_FAILED", "Failed to update report status", err.Error(), nil)
+		return nil, util.New(500, "REPORT_UPDATE_FAILED", "Failed to update report status", err.Error(), nil)
 	}
 
 	response := &dto.UploadProgressReportResponse{
@@ -1042,7 +1366,7 @@ func (s *ReportService) UploadProgressReport(ctx context.Context, userID, report
 
 	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
-		return nil, apperror.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to save transaction", err.Error(), nil)
+		return nil, util.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to save transaction", err.Error(), nil)
 	}
 
 	return response, nil
@@ -1052,9 +1376,9 @@ func (s *ReportService) GetProgressReports(ctx context.Context, reportID uint) (
 	reportProgresses, err := s.reportProgressRepo.GetByReportID(ctx, reportID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "PROGRESS_NOT_FOUND", "Report progress not found", "", nil)
+			return nil, util.New(404, "PROGRESS_NOT_FOUND", "Report progress not found", "", nil)
 		}
-		return nil, apperror.New(500, "PROGRESS_FETCH_FAILED", "Failed to retrieve report progress", err.Error(), nil)
+		return nil, util.New(500, "PROGRESS_FETCH_FAILED", "Failed to retrieve report progress", err.Error(), nil)
 	}
 	var response []dto.GetProgressReportResponse
 	for _, progress := range reportProgresses {
@@ -1074,27 +1398,27 @@ func (s *ReportService) CreateReportComment(ctx context.Context, userID, reportI
 	report, err := s.reportRepo.GetByID(ctx, reportID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(404, "REPORT_NOT_FOUND", "Report not found", "", nil)
+			return nil, util.New(404, "REPORT_NOT_FOUND", "Report not found", "", nil)
 		}
-		return nil, apperror.New(500, "REPORT_FETCH_FAILED", "Failed to retrieve report", err.Error(), nil)
+		return nil, util.New(500, "REPORT_FETCH_FAILED", "Failed to retrieve report", err.Error(), nil)
 	}
 
 	if report.IsDeleted != nil && *report.IsDeleted {
-		return nil, apperror.New(400, "REPORT_DELETED", "Cannot comment on a deleted report", "", nil)
+		return nil, util.New(400, "REPORT_DELETED", "Cannot comment on a deleted report", "", nil)
 	}
 
 	if report.ReportStatus == model.EXPIRED {
-		return nil, apperror.New(400, "REPORT_EXPIRED", "Cannot comment on an expired report", "", nil)
+		return nil, util.New(400, "REPORT_EXPIRED", "Cannot comment on an expired report", "", nil)
 	}
 
-	parentCommentIDObj, err := mainutils.StringPtrToObjectIDPtr(req.ParentCommentID)
+	parentCommentIDObj, err := util.StringPtrToObjectIDPtr(req.ParentCommentID)
 	if err != nil {
-		return nil, apperror.New(400, "INVALID_PARENT_COMMENT_ID", "Invalid parent comment ID", err.Error(), nil)
+		return nil, util.New(400, "INVALID_PARENT_COMMENT_ID", "Invalid parent comment ID", err.Error(), nil)
 	}
 
-	threadRootIDObj, err := mainutils.StringPtrToObjectIDPtr(req.ThreadRootID)
+	threadRootIDObj, err := util.StringPtrToObjectIDPtr(req.ThreadRootID)
 	if err != nil {
-		return nil, apperror.New(400, "INVALID_THREAD_ROOT_ID", "Invalid thread root ID", err.Error(), nil)
+		return nil, util.New(400, "INVALID_THREAD_ROOT_ID", "Invalid thread root ID", err.Error(), nil)
 	}
 
 	var commentMedia model.CommentMedia
@@ -1102,7 +1426,7 @@ func (s *ReportService) CreateReportComment(ctx context.Context, userID, reportI
 	if req.MediaType != nil {
 		commentMediaType := model.CommentMediaType(*req.MediaType)
 		if req.MediaURL == nil {
-			return nil, apperror.New(400, "MEDIA_URL_REQUIRED", "Media URL is required when a media type is provided", "", nil)
+			return nil, util.New(400, "MEDIA_URL_REQUIRED", "Media URL is required when a media type is provided", "", nil)
 		}
 		commentMedia = model.CommentMedia{
 			URL:    *req.MediaURL,
@@ -1119,20 +1443,20 @@ func (s *ReportService) CreateReportComment(ctx context.Context, userID, reportI
 		Content:         req.Content,
 		CreatedAt:       time.Now().Unix(),
 		Media:           &commentMedia,
-		UpdatedAt:       mainutils.Int64PtrOrNil(time.Now().Unix()),
+		UpdatedAt:       util.Int64PtrOrNil(time.Now().Unix()),
 		ParentCommentID: parentCommentIDObj,
 		ThreadRootID:    threadRootIDObj,
 	}
 
 	reportCommentCreated, err := s.reportCommentRepo.Create(ctx, &reportComment)
 	if err != nil {
-		return nil, apperror.New(500, "COMMENT_CREATE_FAILED", "Failed to create report comment", err.Error(), nil)
+		return nil, util.New(500, "COMMENT_CREATE_FAILED", "Failed to create report comment", err.Error(), nil)
 	}
 	newCommentID := reportCommentCreated.ID.Hex()
 
 	commenter, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
-		return nil, apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
+		return nil, util.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
 	}
 
 	if report.UserID != userID {
@@ -1140,16 +1464,16 @@ func (s *ReportService) CreateReportComment(ctx context.Context, userID, reportI
 			report.UserID,
 			"Someone commented on your report",
 			fmt.Sprintf("User %s commented on your report", commenter.Username),
-			mainutils.StrPtrOrNil(newCommentID),
+			util.StrPtrOrNil(newCommentID),
 			model.EntityTypeComment,
 			model.ReportNotificationCategory,
 			model.NotificationTypeInfo,
 		); err != nil {
-			return nil, apperror.New(500, "NOTIFICATION_TASK_FAILED", "Failed to create report notification task", err.Error(), nil)
+			return nil, util.New(500, "NOTIFICATION_TASK_FAILED", "Failed to create report notification task", err.Error(), nil)
 		}
 
 		if err := s.tasksService.SendReportCommentNotificationTask(*report, *reportCommentCreated, *commenter); err != nil {
-			return nil, apperror.New(500, "NOTIFICATION_TASK_FAILED", "Failed to create report email notification task", err.Error(), nil)
+			return nil, util.New(500, "NOTIFICATION_TASK_FAILED", "Failed to create report email notification task", err.Error(), nil)
 		}
 	}
 
@@ -1160,12 +1484,12 @@ func (s *ReportService) CreateReportComment(ctx context.Context, userID, reportI
 				parentComment.UserID,
 				"Seseorang membalas komentar Anda",
 				fmt.Sprintf("User %s replied to your comment", commenter.Username),
-				mainutils.StrPtrOrNil(newCommentID),
+				util.StrPtrOrNil(newCommentID),
 				model.EntityTypeComment,
 				model.ReportNotificationCategory,
 				model.NotificationTypeInfo,
 			); err != nil {
-				return nil, apperror.New(500, "NOTIFICATION_TASK_FAILED", "Failed to create reply notification task", err.Error(), nil)
+				return nil, util.New(500, "NOTIFICATION_TASK_FAILED", "Failed to create reply notification task", err.Error(), nil)
 			}
 		}
 	}
@@ -1178,12 +1502,12 @@ func (s *ReportService) CreateReportComment(ctx context.Context, userID, reportI
 			mentionedUserID,
 			fmt.Sprintf("User %s mentioned you in a comment", commenter.Username),
 			fmt.Sprintf("/reports/%d", reportID),
-			mainutils.StrPtrOrNil(newCommentID),
+			util.StrPtrOrNil(newCommentID),
 			model.EntityTypeComment,
 			model.ReportNotificationCategory,
 			model.NotificationTypeInfo,
 		); err != nil {
-			return nil, apperror.New(500, "NOTIFICATION_TASK_FAILED", "Failed to create mention notification task", err.Error(), nil)
+			return nil, util.New(500, "NOTIFICATION_TASK_FAILED", "Failed to create mention notification task", err.Error(), nil)
 		}
 	}
 
@@ -1210,14 +1534,14 @@ func (s *ReportService) CreateReportComment(ctx context.Context, userID, reportI
 func (s *ReportService) GetReportComments(ctx context.Context, reportID uint, cursorID *string) (*dto.GetReportCommentsResponse, error) {
 	limit := 50
 
-	primitiveCursor, err := mainutils.StringPtrToObjectIDPtr(cursorID)
+	primitiveCursor, err := util.StringPtrToObjectIDPtr(cursorID)
 	if err != nil {
-		return nil, apperror.New(400, "INVALID_CURSOR_ID", "Invalid cursor ID", err.Error(), nil)
+		return nil, util.New(400, "INVALID_CURSOR_ID", "Invalid cursor ID", err.Error(), nil)
 	}
 
 	commentsFromDB, err := s.reportCommentRepo.GetPaginatedRootByReportID(ctx, reportID, primitiveCursor, (limit + 1))
 	if err != nil {
-		return nil, apperror.New(500, "COMMENT_FETCH_FAILED", "Failed to retrieve comments", err.Error(), nil)
+		return nil, util.New(500, "COMMENT_FETCH_FAILED", "Failed to retrieve comments", err.Error(), nil)
 	}
 
 	hasMore := len(commentsFromDB) > limit
@@ -1256,7 +1580,7 @@ func (s *ReportService) GetReportComments(ctx context.Context, reportID uint, cu
 	}
 	users, err := s.userRepo.GetByIDs(ctx, userIDs)
 	if err != nil {
-		return nil, apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
+		return nil, util.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
 	}
 
 	userMap := make(map[uint]*model.User)
@@ -1300,7 +1624,7 @@ func (s *ReportService) GetReportComments(ctx context.Context, reportID uint, cu
 			}
 		}
 	}
-	comments := util.ConvertRootCommentsToDTO(commentsFromDB, userMap, replyCounts, mentionsMap)
+	comments := convertRootCommentsToDTO(commentsFromDB, userMap, replyCounts, mentionsMap)
 
 	resp := dto.GetReportCommentsResponse{
 		Comments: comments,
@@ -1316,17 +1640,17 @@ func (s *ReportService) GetReportComments(ctx context.Context, reportID uint, cu
 func (s *ReportService) GetReportStatistics(ctx context.Context) (*dto.GetReportStatisticsResponse, error) {
 	totalReports, err := s.reportRepo.GetByReportTypeCount(ctx)
 	if err != nil {
-		return nil, apperror.New(500, "TOTAL_REPORTS_FETCH_FAILED", "Failed to retrieve total reports", err.Error(), nil)
+		return nil, util.New(500, "TOTAL_REPORTS_FETCH_FAILED", "Failed to retrieve total reports", err.Error(), nil)
 	}
 
 	reportsByStatus, err := s.reportRepo.GetByReportStatusCount(ctx, string(model.WAITING), string(model.ON_PROGRESS), string(model.WAITING_CONFIRMATION), string(model.RESOLVED), string(model.EXPIRED))
 	if err != nil {
-		return nil, apperror.New(500, "RESOLVED_REPORTS_FETCH_FAILED", "Failed to retrieve resolved reports", err.Error(), nil)
+		return nil, util.New(500, "RESOLVED_REPORTS_FETCH_FAILED", "Failed to retrieve resolved reports", err.Error(), nil)
 	}
 
 	monthlyReports, err := s.reportRepo.GetMonthlyReportCount(ctx)
 	if err != nil {
-		return nil, apperror.New(500, "MONTHLY_REPORTS_FETCH_FAILED", "Failed to retrieve monthly reports", err.Error(), nil)
+		return nil, util.New(500, "MONTHLY_REPORTS_FETCH_FAILED", "Failed to retrieve monthly reports", err.Error(), nil)
 	}
 
 	return &dto.GetReportStatisticsResponse{
@@ -1339,24 +1663,24 @@ func (s *ReportService) GetReportStatistics(ctx context.Context) (*dto.GetReport
 func (s *ReportService) GetReportCommentReplies(ctx context.Context, rootID string, cursorID *string) (*dto.GetReportCommentRepliesResponse, error) {
 	const limit = 60
 
-	primitiveRootID, err := mainutils.StringPtrToObjectIDPtr(&rootID)
+	primitiveRootID, err := util.StringPtrToObjectIDPtr(&rootID)
 	if err != nil {
-		return nil, apperror.New(400, "INVALID_ROOT_ID", "Invalid thread root ID", err.Error(), nil)
+		return nil, util.New(400, "INVALID_ROOT_ID", "Invalid thread root ID", err.Error(), nil)
 	}
 
-	primitiveCursor, err := mainutils.StringPtrToObjectIDPtr(cursorID)
+	primitiveCursor, err := util.StringPtrToObjectIDPtr(cursorID)
 	if err != nil {
-		return nil, apperror.New(400, "INVALID_CURSOR_ID", "Invalid cursor ID", err.Error(), nil)
+		return nil, util.New(400, "INVALID_CURSOR_ID", "Invalid cursor ID", err.Error(), nil)
 	}
 
 	repliesFromDB, err := s.reportCommentRepo.GetPaginatedRepliesByRootID(ctx, *primitiveRootID, primitiveCursor, limit+1)
 	if err != nil {
-		return nil, apperror.New(500, "REPLY_FETCH_FAILED", "Failed to retrieve replies", err.Error(), nil)
+		return nil, util.New(500, "REPLY_FETCH_FAILED", "Failed to retrieve replies", err.Error(), nil)
 	}
 
 	rootComment, err := s.reportCommentRepo.GetByID(ctx, *primitiveRootID)
 	if err != nil {
-		return nil, apperror.New(500, "ROOT_COMMENT_FETCH_FAILED", "Failed to retrieve root comment", err.Error(), nil)
+		return nil, util.New(500, "ROOT_COMMENT_FETCH_FAILED", "Failed to retrieve root comment", err.Error(), nil)
 	}
 
 	userIDSet := make(map[uint]struct{})
@@ -1396,7 +1720,7 @@ func (s *ReportService) GetReportCommentReplies(ctx context.Context, rootID stri
 	if len(parentIDs) > 0 {
 		parents, err := s.reportCommentRepo.GetByIDs(ctx, parentIDs)
 		if err != nil {
-			return nil, apperror.New(500, "PARENT_FETCH_FAILED", "Failed to retrieve parent comments", err.Error(), nil)
+			return nil, util.New(500, "PARENT_FETCH_FAILED", "Failed to retrieve parent comments", err.Error(), nil)
 		}
 
 		for i := range parents {
@@ -1412,7 +1736,7 @@ func (s *ReportService) GetReportCommentReplies(ctx context.Context, rootID stri
 
 	users, err := s.userRepo.GetByIDs(ctx, userIDs)
 	if err != nil {
-		return nil, apperror.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
+		return nil, util.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
 	}
 
 	userMap := make(map[uint]*model.User, len(users))
@@ -1425,11 +1749,11 @@ func (s *ReportService) GetReportCommentReplies(ctx context.Context, rootID stri
 		repliesFromDB = repliesFromDB[:limit]
 	}
 
-	replies := util.ConvertRepliesToDTO(repliesFromDB, userMap, parentsData, mentionsMap)
+	replies := convertRepliesToDTO(repliesFromDB, userMap, parentsData, mentionsMap)
 
 	total, err := s.reportCommentRepo.GetCountsByRootID(ctx, *primitiveRootID)
 	if err != nil {
-		return nil, apperror.New(500, "COUNT_FETCH_FAILED", "Failed to count total replies", err.Error(), nil)
+		return nil, util.New(500, "COUNT_FETCH_FAILED", "Failed to count total replies", err.Error(), nil)
 	}
 
 	return &dto.GetReportCommentRepliesResponse{
@@ -1443,7 +1767,7 @@ func (s *ReportService) SaveReport(ctx context.Context, userID uint, reportID ui
 	_, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(
+			return nil, util.New(
 				404,
 				"USER_NOT_FOUND",
 				"User not found",
@@ -1452,7 +1776,7 @@ func (s *ReportService) SaveReport(ctx context.Context, userID uint, reportID ui
 			)
 		}
 
-		return nil, apperror.New(
+		return nil, util.New(
 			500,
 			"USER_FETCH_FAILED",
 			"Failed to retrieve user data",
@@ -1464,7 +1788,7 @@ func (s *ReportService) SaveReport(ctx context.Context, userID uint, reportID ui
 	_, err = s.reportRepo.GetByID(ctx, reportID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, apperror.New(
+			return nil, util.New(
 				404,
 				"REPORT_NOT_FOUND",
 				"Report not found",
@@ -1473,7 +1797,7 @@ func (s *ReportService) SaveReport(ctx context.Context, userID uint, reportID ui
 			)
 		}
 
-		return nil, apperror.New(
+		return nil, util.New(
 			500,
 			"REPORT_FETCH_FAILED",
 			"Failed to retrieve report",
@@ -1489,7 +1813,7 @@ func (s *ReportService) SaveReport(ctx context.Context, userID uint, reportID ui
 	)
 
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, apperror.New(
+		return nil, util.New(
 			500,
 			"SAVED_REPORT_FETCH_FAILED",
 			"Failed to retrieve saved report data",
@@ -1500,7 +1824,7 @@ func (s *ReportService) SaveReport(ctx context.Context, userID uint, reportID ui
 
 	tx := s.postgreDB.WithContext(ctx).Begin()
 	if tx.Error != nil {
-		return nil, apperror.New(
+		return nil, util.New(
 			500,
 			"TRANSACTION_START_FAILED",
 			"Failed to start transaction",
@@ -1530,7 +1854,7 @@ func (s *ReportService) SaveReport(ctx context.Context, userID uint, reportID ui
 			if err != nil {
 				tx.Rollback()
 
-				return nil, apperror.New(
+				return nil, util.New(
 					500,
 					"SAVED_REPORT_CREATE_FAILED",
 					"Failed to save report",
@@ -1550,7 +1874,7 @@ func (s *ReportService) SaveReport(ctx context.Context, userID uint, reportID ui
 			if err != nil {
 				tx.Rollback()
 
-				return nil, apperror.New(
+				return nil, util.New(
 					500,
 					"SAVED_REPORT_DELETE_FAILED",
 					"Failed to delete saved report",
@@ -1562,7 +1886,7 @@ func (s *ReportService) SaveReport(ctx context.Context, userID uint, reportID ui
 	}
 
 	if err := tx.Commit().Error; err != nil {
-		return nil, apperror.New(
+		return nil, util.New(
 			500,
 			"TRANSACTION_COMMIT_FAILED",
 			"Failed to save report changes",
@@ -1584,7 +1908,7 @@ func (s *ReportService) GetSavedReports(ctx context.Context, userID uint, cursor
 
 	savedReports, err := s.reportSavedRepo.GetByUserIDIsDeletedPaginated(ctx, userID, isDeleted, limit, cursorID)
 	if err != nil {
-		return nil, apperror.New(
+		return nil, util.New(
 			500,
 			"SAVED_REPORTS_FETCH_FAILED",
 			"Failed to retrieve saved reports",

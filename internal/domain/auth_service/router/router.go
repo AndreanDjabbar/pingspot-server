@@ -4,10 +4,9 @@ import (
 	"pingspot/internal/domain/auth_service/handler"
 	"pingspot/internal/domain/auth_service/service"
 	userRepository "pingspot/internal/domain/user_service/repository"
-	"pingspot/internal/infrastructure/cache"
 	"pingspot/internal/infrastructure/database"
+	"pingspot/internal/infrastructure/redis"
 	"pingspot/internal/middleware"
-	cacheRepository "pingspot/internal/repository"
 	"time"
 
 	"github.com/gofiber/adaptor/v2"
@@ -16,12 +15,12 @@ import (
 
 func RegisterAuthRoutes(app *fiber.App) {
 	db := database.GetPostgresDB()
-	rdb := cache.GetRedis()
+	rdb := redis.GetRedis()
 
 	userRepo := userRepository.NewUserRepository(db)
 	userProfileRepo := userRepository.NewUserProfileRepository(db)
 	userSessionRepo := userRepository.NewUserSessionRepository(db)
-	cacheRepo := cacheRepository.NewCacheRepository(&rdb)
+	cacheRepo := redis.NewCacheRepository(&rdb)
 	authService := service.NewAuthService(db, userRepo, userProfileRepo, userSessionRepo, cacheRepo)
 	authHandler := handler.NewAuthHandler(authService)
 

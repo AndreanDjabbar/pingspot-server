@@ -6,22 +6,22 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"os"
-	"pingspot/pkg/logger"
+	"pingspot/internal/logger"
 
 	"go.uber.org/zap"
 )
 
 func main() {
-	if _, err := os.Stat("keys"); os.IsNotExist(err) {
-		if err := os.Mkdir("keys", 0755); err != nil {
-			logger.Error("Failed to create keys directory: ", zap.Error(err))
+	if _, err := os.Stat("certs"); os.IsNotExist(err) {
+		if err := os.Mkdir("certs", 0755); err != nil {
+			logger.Error("Failed to create certs directory: ", zap.Error(err))
 			return
 		}
 	}
 
 	privateKey, _ := rsa.GenerateKey(rand.Reader, 2048)
 
-	privateFile, err := os.Create("keys/private.pem")
+	privateFile, err := os.Create("certs/private.pem")
 	if err != nil {
 		logger.Error("Failed to create private key file: ", zap.Error(err))
 		return
@@ -35,7 +35,7 @@ func main() {
 
 	publicKey := &privateKey.PublicKey
 	publicBytes, _ := x509.MarshalPKIXPublicKey(publicKey)
-	publicFile, err := os.Create("keys/public.pem")
+	publicFile, err := os.Create("certs/public.pem")
 	if err != nil {
 		logger.Error("Failed to create public key file: ", zap.Error(err))
 		return

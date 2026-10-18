@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"os"
 	"pingspot/internal/config"
-	"pingspot/internal/infrastructure/cache"
 	"pingspot/internal/infrastructure/database"
-	"pingspot/internal/migration"
+	"pingspot/internal/infrastructure/redis"
+	"pingspot/internal/logger"
 	"pingspot/internal/server"
-	"pingspot/internal/worker/asynq_worker"
+	"pingspot/internal/util"
+	asynqWorker "pingspot/internal/worker/asynq_worker"
 	cronWorker "pingspot/internal/worker/cron_worker"
-	"pingspot/pkg/logger"
-	env "pingspot/pkg/utils/env_util"
+	"pingspot/migration"
 	"strconv"
 
 	"go.uber.org/zap"
@@ -41,7 +41,7 @@ func main() {
 	}
 
 	redisConfig := config.LoadRedisConfig()
-	if err := cache.InitRedis(redisConfig); err != nil {
+	if err := redis.InitRedis(redisConfig); err != nil {
 		logger.Error("Failed to initialize Redis", zap.Error(err))
 		panic(fmt.Sprintf("failed to initialize Redis: %v", err))
 	}
@@ -93,8 +93,8 @@ func main() {
 
 	server := server.New()
 
-	port, _ := strconv.Atoi(env.Port())
-	host := env.Host()
+	port, _ := strconv.Atoi(util.Port())
+	host := util.Host()
 	logger.Info("Starting server on port", zap.Int("port", port), zap.String("host", host))
 	err = server.Listen(fmt.Sprintf("%s:%d", host, port))
 	if err != nil {

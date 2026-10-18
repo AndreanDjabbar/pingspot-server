@@ -8,10 +8,10 @@ const (
 )
 
 type Follow struct {
-	ID             uint   `gorm:"primaryKey"`
-	FollowingID uint   `gorm:"not null"`
-	FollowingType FollowingType `gorm:"not null"`
-	FollowerUserID  uint   `gorm:"not null"`
-	FollowerUser  User   `gorm:"foreignKey:FollowerUserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	CreatedAt      int64  `gorm:"autoCreateTime"`
+    ID             uint          `json:"id" gorm:"primaryKey"`
+    FollowingID    uint          `json:"followingId" gorm:"not null"`
+    FollowingType  FollowingType `json:"followingType" gorm:"not null"`
+    FollowerUserID uint          `json:"followerUserId" gorm:"not null"`
+    FollowerUser   User          `json:"followerUser" gorm:"foreignKey:FollowerUserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+    CreatedAt      int64         `json:"createdAt" gorm:"autoCreateTime"`
 }

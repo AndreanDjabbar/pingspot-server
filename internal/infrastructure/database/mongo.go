@@ -3,8 +3,8 @@ package database
 import (
 	"fmt"
 	"pingspot/internal/config"
-	"pingspot/pkg/logger"
-	env "pingspot/pkg/utils/env_util"
+	"pingspot/internal/logger"
+	"pingspot/internal/util"
 	"sync"
 
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -19,7 +19,7 @@ var (
 )
 
 func InitMongoDB(cfg config.MongoDBConfig) error {
-	host := env.MongoHost()
+	host := util.MongoHost()
 
 	mongoDBOnce.Do(func() {
 		var URI string

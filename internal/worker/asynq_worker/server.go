@@ -1,10 +1,9 @@
-package asynqWorker
+package asynq_worker
 
 import (
 	"fmt"
 	"pingspot/internal/config"
-	"pingspot/internal/worker/asynq_worker/handler"
-	"pingspot/pkg/logger"
+	"pingspot/internal/logger"
 
 	"github.com/hibiken/asynq"
 	"go.uber.org/zap"
@@ -40,7 +39,7 @@ func NewWorkerServer(cfg config.RedisConfig) *WorkerServer {
 func (w *WorkerServer) Run() error {
 	mux := asynq.NewServeMux()
 
-	handler.RegisterAllHandlers(mux)
+	RegisterAllHandlers(mux)
 	if err := w.server.Run(mux); err != nil {
 		logger.Error("❌ Asynq server failed to start", zap.Error(err))
 		return err

@@ -1,11 +1,10 @@
-package cron_Worker
+package cron_worker
 
 import (
 	reportRepo "pingspot/internal/domain/report_service/repository"
-	tasksService "pingspot/internal/domain/task_service/service"
 	"pingspot/internal/infrastructure/database"
-	"pingspot/internal/worker/cron_worker/handler"
-	"pingspot/pkg/logger"
+	"pingspot/internal/logger"
+	"pingspot/internal/task"
 
 	"github.com/hibiken/asynq"
 	"github.com/robfig/cron/v3"
@@ -16,12 +15,12 @@ func StartCron(client *asynq.Client) {
 	c := cron.New(cron.WithSeconds())
 	db := database.GetPostgresDB()
 	reportRepo := reportRepo.NewReportRepository(db)
-	tasksService := tasksService.NewTaskService(client)
+	tasksService := task.NewTaskService(client)
 
-	cronHandler := handler.NewCronHandler(db, reportRepo, tasksService)
+	cronHandler := newCronHandler(db, reportRepo, tasksService)
 
 	_, err := c.AddFunc("0 0 11 * * *", func() {
-		err := cronHandler.CheckPotentiallyResolvedReport()
+		err := cronHandler.checkPotentiallyResolvedReport()
 		if err != nil {
 			logger.Error("Error executing CheckPotentiallyResolvedReport", zap.Error(err))
 		}
@@ -31,7 +30,7 @@ func StartCron(client *asynq.Client) {
 	}
 
 	_, err = c.AddFunc("0 0 12 * * *", func() {
-		err := cronHandler.ExpireOldReports()
+		err := cronHandler.expireOldReports()
 		if err != nil {
 			logger.Error("Error executing ExpireOldReports", zap.Error(err))
 		}
@@ -41,7 +40,7 @@ func StartCron(client *asynq.Client) {
 	}
 
 	_, err = c.AddFunc("0 0 12 * * *", func() {
-		err := cronHandler.HardDeleteOldReports()
+		err := cronHandler.hardDeleteOldReports()
 		if err != nil {
 			logger.Error("Error executing hard delete reports task", zap.Error(err))
 		}

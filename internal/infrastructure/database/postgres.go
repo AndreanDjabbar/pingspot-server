@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"pingspot/internal/config"
-	"pingspot/pkg/logger"
+	"pingspot/internal/logger"
 
 	"go.uber.org/zap"
 	"gorm.io/driver/postgres"

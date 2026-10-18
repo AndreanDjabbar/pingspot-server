@@ -2,7 +2,7 @@ package middleware
 
 import (
 	"errors"
-	response "pingspot/pkg/utils/response_util"
+	"pingspot/internal/util"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -26,7 +26,7 @@ func TimeoutMiddleware(d time.Duration) fiber.Handler {
 			return err
 		case <-ctx.Done():
 			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-				return response.ResponseError(c, 408, "Request timeout exceeded", "error", "The request took too long to process")
+				return util.ResponseError(c, 408, "Request timeout exceeded", "error", "The request took too long to process")
 			}
 			return ctx.Err()
 		}

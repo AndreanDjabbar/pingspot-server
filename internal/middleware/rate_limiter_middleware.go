@@ -3,14 +3,11 @@ package middleware
 import (
 	"context"
 	"fmt"
+	redisInfra "pingspot/internal/infrastructure/redis"
+	"pingspot/internal/logger"
+	"pingspot/internal/util"
 	"strconv"
 	"time"
-
-	"pingspot/internal/infrastructure/cache"
-	"pingspot/pkg/logger"
-	env "pingspot/pkg/utils/env_util"
-	mainutils "pingspot/pkg/utils/main_util"
-	response "pingspot/pkg/utils/response_util"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -31,7 +28,7 @@ type RateLimiter struct {
 
 func NewRateLimiter(config RateLimiterConfig) *RateLimiter {
 	return &RateLimiter{
-		redis:  cache.GetRedis(),
+		redis:  redisInfra.GetRedis(),
 		config: config,
 	}
 }
@@ -99,11 +96,11 @@ func (rl *RateLimiter) GetRemainingRequests(ctx context.Context, identifier stri
 }
 
 func GlobalRateLimiterMiddleware() fiber.Handler {
-	maxRequest, err := mainutils.StringToInt(env.GlobalRateLimiterMaxRequests())
+	maxRequest, err := util.StringToInt(util.GlobalRateLimiterMaxRequests())
 	if err != nil {
 		maxRequest = 500
 	}
-	windowSeconds, err := mainutils.StringToInt(env.GlobalRateLimiterWindowSeconds())
+	windowSeconds, err := util.StringToInt(util.GlobalRateLimiterWindowSeconds())
 	if err != nil {
 		windowSeconds = 5
 	}
@@ -134,7 +131,7 @@ func GlobalRateLimiterMiddleware() fiber.Handler {
 				zap.Int("count", count),
 				zap.Int("limit", limiter.config.MaxRequests),
 			)
-			return response.ResponseError(
+			return util.ResponseError(
 				c,
 				429,
 				"Too many requests. Please try again later.",
@@ -150,7 +147,7 @@ func UserRateLimiterMiddleware(limiter *RateLimiter) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		userID := c.Locals("userID")
 		if userID == nil {
-			userID = mainutils.GetClientIP(c)
+			userID = util.GetClientIP(c)
 		}
 		identifier := fmt.Sprintf("rate_limit:user:%v", userID)
 
@@ -166,7 +163,7 @@ func UserRateLimiterMiddleware(limiter *RateLimiter) fiber.Handler {
 				zap.Int("count", count),
 				zap.Int("limit", limiter.config.MaxRequests),
 			)
-			return response.ResponseError(
+			return util.ResponseError(
 				c,
 				429,
 				"Too many requests. Please try again later.",

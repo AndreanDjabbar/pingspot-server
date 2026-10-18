@@ -13,19 +13,19 @@ const (
 )
 
 type User struct {
-	ID         uint      `gorm:"primaryKey;autoIncrement"`
-	Username   string    `gorm:"size:30;unique;not null"`
-	Email      string    `gorm:"size:100;unique;not null"`
-	Password   *string   `gorm:"size:255"`
-	FullName   string    `gorm:"size:100;not null"`
-	Provider   Provider  `gorm:"type:varchar(20);default:EMAIL;not null"`
-	IsVerified bool      `gorm:"default:false;not null"`
-	ProviderID *string   `gorm:"size:100"`
-	Profile	UserProfile `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	IsDefaultUsername bool      `gorm:"default:true;not null"`
-	IsDisableEmailNotification bool      `gorm:"default:false;not null"`
-	CreatedAt  time.Time `gorm:"autoCreateTime"`
-	UpdatedAt  time.Time `gorm:"autoUpdateTime"`
-	SearchVector string    `gorm:"column:search_vector;->;-:migration"`
-	Reports    []Report  `gorm:"foreignKey:UserID"`
+    ID                         uint        `json:"id" gorm:"primaryKey;autoIncrement"`
+    Username                   string      `json:"username" gorm:"size:30;unique;not null"`
+    Email                      string      `json:"email" gorm:"size:100;unique;not null"`
+    Password                   *string     `json:"-" gorm:"size:255"`
+    FullName                   string      `json:"fullName" gorm:"size:100;not null"`
+    Provider                   Provider    `json:"provider" gorm:"type:varchar(20);default:EMAIL;not null"`
+    IsVerified                 bool        `json:"isVerified" gorm:"default:false;not null"`
+    ProviderID                 *string     `json:"providerId,omitempty" gorm:"size:100"`
+    Profile                    UserProfile `json:"profile" gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+    IsDefaultUsername          bool        `json:"isDefaultUsername" gorm:"default:true;not null"`
+    IsDisableEmailNotification bool        `json:"isDisableEmailNotification" gorm:"default:false;not null"`
+    CreatedAt                  time.Time   `json:"createdAt" gorm:"autoCreateTime"`
+    UpdatedAt                  time.Time   `json:"updatedAt" gorm:"autoUpdateTime"`
+    SearchVector               string      `json:"-" gorm:"column:search_vector;->;-:migration"`
+    Reports                    []Report    `json:"reports,omitempty" gorm:"foreignKey:UserID"`
 }

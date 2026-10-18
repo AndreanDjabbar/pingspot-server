@@ -8,9 +8,10 @@ import (
 	userRepository "pingspot/internal/domain/user_service/repository"
 	"pingspot/internal/infrastructure/database"
 	"pingspot/internal/middleware"
-	taskService "pingspot/internal/domain/task_service/service"
-	env "pingspot/pkg/utils/env_util"
+	"pingspot/internal/task"
+	"pingspot/internal/util"
 	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/hibiken/asynq"
 )
@@ -19,9 +20,9 @@ func RegisterSocialRoutes(app *fiber.App) {
 	db := database.GetPostgresDB()
 	userRepo := userRepository.NewUserRepository(db)
 	followRepo := socialRepository.NewFollowRepository(db)
-	redisAddress := fmt.Sprintf("%s:%s", env.RedisHost(), env.RedisPort())
+	redisAddress := fmt.Sprintf("%s:%s", util.RedisHost(), util.RedisPort())
 	client := asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddress})
-	tasksService := taskService.NewTaskService(client)
+	tasksService := task.NewTaskService(client)
 	
 	socialService := service.NewSocialService(db, followRepo, userRepo, tasksService)
 	socialHandler := handler.NewSocialHandler(socialService)

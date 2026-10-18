@@ -8,12 +8,12 @@ const (
 )
 
 type ReportReaction struct {
-	ID       uint         `gorm:"primaryKey"`
-	UserID   uint         `gorm:"not null"`
-	User	 User         `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	Type	 ReactionType `gorm:"type:varchar(20);not null"`
-	CreatedAt int64        `gorm:"autoCreateTime"`
-	UpdatedAt int64        `gorm:"autoUpdateTime"`
-	ReportID uint         `gorm:"not null"`
-	Report   Report       `gorm:"foreignKey:ReportID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+    ID        uint         `json:"id" gorm:"primaryKey"`
+    UserID    uint         `json:"userId" gorm:"not null"`
+    User      User         `json:"user" gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+    Type      ReactionType `json:"type" gorm:"type:varchar(20);not null"`
+    CreatedAt int64        `json:"createdAt" gorm:"autoCreateTime"`
+    UpdatedAt int64        `json:"updatedAt" gorm:"autoUpdateTime"`
+    ReportID  uint         `json:"reportId" gorm:"not null"`
+    Report    Report       `json:"report" gorm:"foreignKey:ReportID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 }
