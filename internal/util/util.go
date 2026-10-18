@@ -86,7 +86,7 @@ func GetDeviceInfo(c *fiber.Ctx) string {
 
 func GetKeyPath(filename string) string {
 	wd, _ := os.Getwd()
-	return filepath.Join(wd, "keys", filename)
+	return filepath.Join(wd, "certs", filename)
 }
 
 
