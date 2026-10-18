@@ -20,7 +20,7 @@ services:
       - pingspot_network
 
   pingspot-redis:
-    image: redis:latest
+    image: redis:8.10.2-alpine
     container_name: pingspot_redis
     restart: always
     ports:
@@ -57,7 +57,7 @@ services:
       timeout: 5s
       retries: 5
   pingspot-mongodb:
-    image: mongo:latest
+    image: mongo:7.0
     container_name: pingspot_mongodb
     restart: always
     environment:
