@@ -237,7 +237,7 @@ func (h *ReportHandler) GetReportSearch(c *fiber.Ctx) error {
 	}
 
 	finalResult := fiber.Map{
-		"reportsData":           searchData.ReportsData,
+		"reportsData":           searchData,
 		"nextCursorReportsData": nextCursorReportsData,
 	}
 	return util.ResponseSuccess(c, 200, "Report search results retrieved successfully", "data", finalResult)

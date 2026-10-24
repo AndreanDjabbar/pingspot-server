@@ -233,7 +233,7 @@ func (h *AuthHandler) OAuthCallbackHandler(provider string) http.HandlerFunc {
 			MaxAge:   getRefreshTokenAge(),
 		})
 
-		http.Redirect(w, r, fmt.Sprintf("%s/auth/%s?status=%d", util.ClientURL(), provider, http.StatusAccepted), http.StatusFound)
+		http.Redirect(w, r, fmt.Sprintf("%s/%s?status=%d", util.ClientURL(), provider, http.StatusAccepted), http.StatusFound)
 	}
 }
 

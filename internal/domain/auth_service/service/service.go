@@ -459,7 +459,7 @@ func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (*model.U
 			)
 			return nil, "", "", util.New(500, "CODE_GENERATION_FAILED", "Failed to generate random code", err.Error(), nil)
 		}
-		verificationLink := fmt.Sprintf("%s/auth/verify-account/%s/%d/%s", util.ClientURL(), randomCode1, user.ID, randomCode2)
+		verificationLink := fmt.Sprintf("%s/verify-account/%s/%d/%s", util.ClientURL(), randomCode1, user.ID, randomCode2)
 
 		linkData := map[string]string{
 			"link1": randomCode1,
@@ -852,7 +852,7 @@ func (s *AuthService) ForgotPasswordEmailVerification(ctx context.Context, req d
 			return util.New(500, "CODE_GENERATION_FAILED", "Failed to generate verification code", err.Error(), nil)
 		}
 
-		verificationLink := fmt.Sprintf("%s/auth/forgot-password/verification?code=%s&email=%s", util.ClientURL(), verificationCode, req.Email)
+		verificationLink := fmt.Sprintf("%s/forgot-password/verification?code=%s&email=%s", util.ClientURL(), verificationCode, req.Email)
 		go sendPasswordResetEmail(req.Email, req.Email, verificationLink, user.IsDisableEmailNotification)
 		return nil
 	}
@@ -871,7 +871,7 @@ func (s *AuthService) SendRegistrationVerificationEmail(ctx context.Context, use
 		return util.New(500, "CODE_GENERATION_FAILED", "Failed to generate random code", err.Error(), nil)
 	}
 
-	verificationLink := fmt.Sprintf("%s/auth/verification?code1=%s&userId=%d&code2=%s", util.ClientURL(), randomCode1, user.ID, randomCode2)
+	verificationLink := fmt.Sprintf("%s/verification?code1=%s&userId=%d&code2=%s", util.ClientURL(), randomCode1, user.ID, randomCode2)
 
 	linkData := map[string]string{
 		"link1": randomCode1,
