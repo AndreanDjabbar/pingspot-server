@@ -91,10 +91,23 @@ type ReportImage struct {
 	Image5URL *string `json:"image5URL"`
 }
 
+type CommentUserInformation struct {
+    UserID         uint    `json:"userId"`
+    Bio            *string `json:"bio,omitempty"`
+    ProfilePicture *string `json:"profilePicture,omitempty" `
+    Gender         *string `json:"gender,omitempty"`
+    Birthday       *string `json:"birthday,omitempty"`
+	Username                   string      `json:"username"`
+    Email                      string      `json:"email"`
+    FullName                   string      `json:"fullName"`
+    IsDefaultUsername          bool        `json:"isDefaultUsername"`
+    IsDisableEmailNotification bool        `json:"isDisableEmailNotification"`
+}
+
 type Comment struct {
 	CommentID       string                `json:"commentID"`
 	ReportID        uint                  `json:"reportID"`
-	UserInformation *model.User   `json:"userInformation"`
+	UserInformation *CommentUserInformation `json:"userInformation"`
 	Content         *string               `json:"content,omitempty"`
 	Media           *model.CommentMedia       `json:"media,omitempty"`
 	Mentions        []model.Mention             `json:"mentions,omitempty"`
@@ -109,7 +122,7 @@ type Comment struct {
 type CommentReply struct {
 	CommentID       string                `json:"commentID"`
 	ReportID        uint                  `json:"reportID"`
-	UserInformation *model.User   `json:"userInformation"`
+	UserInformation *CommentUserInformation   `json:"userInformation"`
 	Content         *string               `json:"content,omitempty"`
 	Media           *model.CommentMedia       `json:"media,omitempty"`
 	Mentions        []model.Mention             `json:"mentions,omitempty"`

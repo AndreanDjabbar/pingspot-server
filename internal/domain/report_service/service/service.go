@@ -200,7 +200,18 @@ func convertToDTO(c *model.ReportComment, u *model.User) *dto.Comment {
 	comment := &dto.Comment{
 		CommentID: c.ID.Hex(),
 		ReportID:  c.ReportID,
-		UserInformation: u,
+		UserInformation: &dto.CommentUserInformation{
+			UserID: u.ID,
+			Bio: u.Profile.Bio,
+			ProfilePicture: u.Profile.ProfilePicture,
+			Gender: u.Profile.Gender,
+			Birthday: u.Profile.Birthday,
+			Username: u.Username,
+			Email: u.Email,
+			FullName: u.FullName,
+			IsDefaultUsername: u.IsDefaultUsername,
+			IsDisableEmailNotification: u.IsDisableEmailNotification,
+		},
 		Mentions: c.Mentions,
 		Content: c.Content,
 		ParentCommentID: func() *string {
@@ -243,7 +254,18 @@ func convertToReplyDTO(c *model.ReportComment, u *model.User, mentions []model.M
 	reply := &dto.CommentReply{
 		CommentID: c.ID.Hex(),
 		ReportID:  c.ReportID,
-		UserInformation: u,
+		UserInformation: &dto.CommentUserInformation{
+			UserID: u.ID,
+			Bio: u.Profile.Bio,
+			ProfilePicture: u.Profile.ProfilePicture,
+			Gender: u.Profile.Gender,
+			Birthday: u.Profile.Birthday,
+			Username: u.Username,
+			Email: u.Email,
+			FullName: u.FullName,
+			IsDefaultUsername: u.IsDefaultUsername,
+			IsDisableEmailNotification: u.IsDisableEmailNotification,
+		},
 		Mentions: mentions,
 		Content: c.Content,
 		ParentCommentID: func() *string {
@@ -331,7 +353,7 @@ func convertRepliesToDTO(comments []*model.ReportComment, users map[uint]*model.
 			parentID := comment.ParentCommentID.Hex()
 			if parentComment, exists := parentsComment[parentID]; exists {
 				if parentUser, userExists := users[parentComment.UserID]; userExists {
-					if replyDTO.UserInformation.ID != parentUser.ID {
+					if replyDTO.UserInformation.UserID != parentUser.ID {
 						replyDTO.ReplyTo = parentUser
 					}
 				}
