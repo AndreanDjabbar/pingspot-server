@@ -1105,12 +1105,11 @@ func (s *ReportService) ReactToReport(ctx context.Context, userID uint, reportID
 	}
 
 	if report.UserID != userID {
-		stringUserID := strconv.FormatUint(uint64(userID), 10)
 		if err := s.tasksService.CreateNotificationTask(
 			report.UserID,
 			"Someone reacted to your report",
 			fmt.Sprintf("User %s reacted to your report", reactorUser.Username),
-			util.StrPtrOrNil(stringUserID),
+			util.StrPtrOrNil(reactorUser.Username),
 			model.EntityTypeUser,
 			model.ReportNotificationCategory,
 			model.NotificationTypeInfo,
@@ -1497,11 +1496,12 @@ func (s *ReportService) CreateReportComment(ctx context.Context, userID, reportI
 	}
 
 	if report.UserID != userID {
+		entityID := fmt.Sprintf("%d:%s", reportID, newCommentID)
 		if err := s.tasksService.CreateNotificationTask(
 			report.UserID,
 			"Someone commented on your report",
 			fmt.Sprintf("User %s commented on your report", commenter.Username),
-			util.StrPtrOrNil(newCommentID),
+			util.StrPtrOrNil(entityID),
 			model.EntityTypeComment,
 			model.ReportNotificationCategory,
 			model.NotificationTypeInfo,
@@ -1517,11 +1517,12 @@ func (s *ReportService) CreateReportComment(ctx context.Context, userID, reportI
 	if parentCommentIDObj != nil {
 		parentComment, err := s.reportCommentRepo.GetByID(ctx, *parentCommentIDObj)
 		if err == nil && parentComment.UserID != userID && parentComment.UserID != report.UserID {
+			entityID := fmt.Sprintf("%d:%s", reportID, newCommentID)
 			if err := s.tasksService.CreateNotificationTask(
 				parentComment.UserID,
 				"Seseorang membalas komentar Anda",
 				fmt.Sprintf("User %s replied to your comment", commenter.Username),
-				util.StrPtrOrNil(newCommentID),
+				util.StrPtrOrNil(entityID),
 				model.EntityTypeComment,
 				model.ReportNotificationCategory,
 				model.NotificationTypeInfo,
@@ -1535,11 +1536,12 @@ func (s *ReportService) CreateReportComment(ctx context.Context, userID, reportI
 		if mentionedUserID == userID || mentionedUserID == report.UserID {
 			continue
 		}
+		entityID := fmt.Sprintf("%d:%s", reportID, newCommentID)
 		if err := s.tasksService.CreateNotificationTask(
 			mentionedUserID,
 			fmt.Sprintf("User %s mentioned you in a comment", commenter.Username),
 			fmt.Sprintf("/reports/%d", reportID),
-			util.StrPtrOrNil(newCommentID),
+			util.StrPtrOrNil(entityID),
 			model.EntityTypeComment,
 			model.ReportNotificationCategory,
 			model.NotificationTypeInfo,
