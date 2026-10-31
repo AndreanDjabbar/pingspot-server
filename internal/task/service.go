@@ -20,15 +20,14 @@ type TaskService interface {
 }
 
 type taskService struct {
-	client     *asynq.Client
+	client *asynq.Client
 }
 
 func NewTaskService(client *asynq.Client) TaskService {
 	return &taskService{
-		client:     client,
+		client: client,
 	}
 }
-
 
 func sendNotificationNewReportEmails(report model.Report, creator model.User, followers []model.User, reportLink string) error {
 	for _, follower := range followers {
@@ -55,19 +54,19 @@ func sendNotificationNewReportEmails(report model.Report, creator model.User, fo
 	return nil
 }
 
-func sendNotificationReportCommentEmail(report model.Report, comment model.ReportComment, commenter model.User,  reportLink string) error {
+func sendNotificationReportCommentEmail(report model.Report, comment model.ReportComment, commenter model.User, reportLink string) error {
 	emailData := util.EmailData{
 		To:            report.User.Email,
 		Subject:       fmt.Sprintf("New comment on your report: %s", report.ReportTitle),
 		RecipientName: report.User.Username,
 		EmailType:     util.EmailTypeReportComment,
 		TemplateData: map[string]any{
-			"ReportTitle": report.ReportTitle,
-			"ReportID":    report.ID,
-			"UserName":    report.User.Username,
-			"UserEmail":   report.User.Email,
-			"CommenterName":  commenter.Username,
-			"ReportLink":  reportLink,
+			"ReportTitle":   report.ReportTitle,
+			"ReportID":      report.ID,
+			"UserName":      report.User.Username,
+			"UserEmail":     report.User.Email,
+			"CommenterName": commenter.Username,
+			"ReportLink":    reportLink,
 		},
 		DisabledNotifications: report.User.IsDisableEmailNotification,
 		BodyTempate:           getReportCommentEmailTemplate(),
@@ -100,15 +99,15 @@ func getReportCommentEmailTemplate() string {
 			<tr>
 				<td align="center" style="padding: 40px 16px;">
 	
-					<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 20px; box-shadow: 0 12px 32px rgba(108, 92, 231, 0.12); overflow: hidden;">
+					<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 20px; box-shadow: 0 12px 32px rgba(8, 145, 178, 0.12); overflow: hidden;">
 	
 						<!-- Header -->
 						<tr>
-							<td align="center" bgcolor="#6C5CE7" style="background-color: #6C5CE7; background-image: linear-gradient(135deg, #7B6CF0 0%, #6C5CE7 50%, #5B4BD5 100%); padding: 44px 40px 36px;">
+							<td align="center" bgcolor="#0891B2" style="background-color: #0891B2; background-image: linear-gradient(135deg, #22B8D6 0%, #0891B2 50%, #0E7490 100%); padding: 44px 40px 36px;">
 								<h1 style="margin: 0; color: #ffffff; font-size: 30px; font-weight: 800; letter-spacing: -0.5px;">
 									PingSpot
 								</h1>
-								<p style="margin: 10px 0 0; color: #e4e0ff; font-size: 15px; font-weight: 500; letter-spacing: 0.3px;">
+								<p style="margin: 10px 0 0; color: #cffafe; font-size: 15px; font-weight: 500; letter-spacing: 0.3px;">
 									New Comment on Your Report
 								</p>
 							</td>
@@ -121,7 +120,7 @@ func getReportCommentEmailTemplate() string {
 								<!-- Icon badge -->
 								<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: 0 auto 22px;">
 									<tr>
-										<td align="center" width="64" height="64" bgcolor="#F1EFFD" style="width: 64px; height: 64px; background-color: #f1effd; border: 1px solid #ddd9fa; border-radius: 50%; font-size: 28px; line-height: 64px;">
+										<td align="center" width="64" height="64" bgcolor="#CFFAFE" style="width: 64px; height: 64px; background-color: #cffafe; border: 1px solid #a5f3fc; border-radius: 50%; font-size: 28px; line-height: 64px;">
 											💬
 										</td>
 									</tr>
@@ -131,14 +130,14 @@ func getReportCommentEmailTemplate() string {
 									Hello {{.UserName}}! 👋
 								</h2>
 								<p style="margin: 0 0 28px; color: #4b5068; font-size: 16px; text-align: center; line-height: 1.7;">
-									<strong style="color: #6C5CE7;">{{.CommenterName}}</strong> just left a comment on your report.
+										<strong style="color: #0891B2;">{{.CommenterName}}</strong> just left a comment on your report.
 								</p>
 	
 								<!-- Report card -->
-								<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f1effd; border: 1px solid #ddd9fa; border-radius: 14px;">
+								<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #cffafe; border: 1px solid #a5f3fc; border-radius: 14px;">
 									<tr>
 										<td style="padding: 22px 24px;">
-											<p style="margin: 0 0 6px; color: #6C5CE7; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">
+											<p style="margin: 0 0 6px; color: #0891B2; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">
 												Your Report
 											</p>
 											<p style="margin: 0; color: #1e1b3a; font-size: 18px; font-weight: 700; line-height: 1.4;">
@@ -152,7 +151,7 @@ func getReportCommentEmailTemplate() string {
 								<!-- CTA -->
 								<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: 36px auto 14px;">
 									<tr>
-										<td align="center" bgcolor="#6C5CE7" style="background-color: #6C5CE7; border-radius: 12px; box-shadow: 0 6px 18px rgba(108, 92, 231, 0.35);">
+										<td align="center" bgcolor="#0891B2" style="background-color: #0891B2; border-radius: 12px; box-shadow: 0 6px 18px rgba(8, 145, 178, 0.35);">
 											<a href="{{.ReportLink}}" target="_blank"
 											style="display: inline-block; padding: 16px 36px; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 16px; border-radius: 12px;">
 												View Comment &rarr;
@@ -164,7 +163,7 @@ func getReportCommentEmailTemplate() string {
 								<!-- Link fallback -->
 								<p style="margin: 0 0 8px; color: #8a8fa8; font-size: 12px; text-align: center; line-height: 1.6;">
 									Button not working? Copy this link into your browser:<br>
-									<a href="{{.ReportLink}}" style="color: #6C5CE7; text-decoration: underline; word-break: break-all;">{{.ReportLink}}</a>
+									<a href="{{.ReportLink}}" style="color: #0891B2; text-decoration: underline; word-break: break-all;">{{.ReportLink}}</a>
 								</p>
 							</td>
 						</tr>
@@ -354,7 +353,7 @@ func (s *taskService) CreateNotificationTask(userID uint, title string, descript
 		EntityID:    entityID,
 		EntityType:  entityType,
 		Category:    category,
-		Type:          notificationType,
+		Type:        notificationType,
 	})
 	task := asynq.NewTask(TaskCreateNotification, payload)
 	_, err := s.client.Enqueue(task, asynq.ProcessIn(5*time.Second))
@@ -381,9 +380,9 @@ func (s *taskService) SendFollowerReportNotificationTask(report model.Report, us
 
 func (s *taskService) SendReportCommentNotificationTask(report model.Report, comment model.ReportComment, commenter model.User) error {
 	payload, _ := json.Marshal(SendReportCommentNotificationPayload{
-		Report:  report,
-		Comment: comment,
-		Commenter:    commenter,
+		Report:    report,
+		Comment:   comment,
+		Commenter: commenter,
 	})
 	task := asynq.NewTask(TaskSendReportCommentNotification, payload)
 	_, err := s.client.Enqueue(task, asynq.ProcessIn(5*time.Second))

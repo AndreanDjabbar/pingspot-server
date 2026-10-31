@@ -54,15 +54,15 @@ func getVerificationEmailTemplate() string {
 			<tr>
 				<td align="center" style="padding: 40px 16px;">
 	
-					<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 20px; box-shadow: 0 12px 32px rgba(108, 92, 231, 0.12); overflow: hidden;">
+					<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 20px; box-shadow: 0 12px 32px rgba(8, 145, 178, 0.12); overflow: hidden;">
 	
 						<!-- Header -->
 						<tr>
-							<td align="center" bgcolor="#6C5CE7" style="background-color: #6C5CE7; background-image: linear-gradient(135deg, #7B6CF0 0%, #6C5CE7 50%, #5B4BD5 100%); padding: 44px 40px 36px;">
+							<td align="center" bgcolor="#0891B2" style="background-color: #0891B2; background-image: linear-gradient(135deg, #22B8D6 0%, #0891B2 50%, #0E7490 100%); padding: 44px 40px 36px;">
 								<h1 style="margin: 0; color: #ffffff; font-size: 30px; font-weight: 800; letter-spacing: -0.5px;">
 									PingSpot
 								</h1>
-								<p style="margin: 10px 0 0; color: #e4e0ff; font-size: 15px; font-weight: 500; letter-spacing: 0.3px;">
+								<p style="margin: 10px 0 0; color: #cffafe; font-size: 15px; font-weight: 500; letter-spacing: 0.3px;">
 									Welcome to PingSpot!
 								</p>
 							</td>
@@ -75,7 +75,7 @@ func getVerificationEmailTemplate() string {
 								<!-- Icon badge -->
 								<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: 0 auto 22px;">
 									<tr>
-										<td align="center" width="64" height="64" bgcolor="#F1EFFD" style="width: 64px; height: 64px; background-color: #f1effd; border: 1px solid #ddd9fa; border-radius: 50%; font-size: 28px; line-height: 64px;">
+										<td align="center" width="64" height="64" bgcolor="#CFFAFE" style="width: 64px; height: 64px; background-color: #cffafe; border: 1px solid #a5f3fc; border-radius: 50%; font-size: 28px; line-height: 64px;">
 											✉️
 										</td>
 									</tr>
@@ -91,7 +91,7 @@ func getVerificationEmailTemplate() string {
 								<!-- CTA -->
 								<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: 32px auto 18px;">
 									<tr>
-										<td align="center" bgcolor="#6C5CE7" style="background-color: #6C5CE7; border-radius: 12px; box-shadow: 0 6px 18px rgba(108, 92, 231, 0.35);">
+										<td align="center" bgcolor="#0891B2" style="background-color: #0891B2; border-radius: 12px; box-shadow: 0 6px 18px rgba(8, 145, 178, 0.35);">
 											<a href="{{.VerificationLink}}" target="_blank"
 											style="display: inline-block; padding: 16px 36px; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 16px; border-radius: 12px;">
 												Verify My Account &rarr;
@@ -110,7 +110,7 @@ func getVerificationEmailTemplate() string {
 								</table>
 	
 								<!-- Link fallback -->
-								<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f1effd; border: 1px solid #ddd9fa; border-left: 4px solid #6C5CE7; border-radius: 12px;">
+								<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #cffafe; border: 1px solid #a5f3fc; border-left: 4px solid #0891B2; border-radius: 12px;">
 									<tr>
 										<td style="padding: 18px 20px;">
 											<p style="margin: 0 0 6px; color: #3b3866; font-size: 14px; font-weight: 700;">
@@ -120,7 +120,7 @@ func getVerificationEmailTemplate() string {
 												Copy and paste this link into your browser:
 											</p>
 											<p style="margin: 8px 0 0; word-break: break-all;">
-												<a href="{{.VerificationLink}}" style="color: #6C5CE7; text-decoration: underline; font-size: 13px;">{{.VerificationLink}}</a>
+												<a href="{{.VerificationLink}}" style="color: #0891B2; text-decoration: underline; font-size: 13px;">{{.VerificationLink}}</a>
 											</p>
 										</td>
 									</tr>
@@ -152,7 +152,7 @@ func getVerificationEmailTemplate() string {
 								</p>
 								<p style="margin: 0; color: #9498b3; font-size: 12px; line-height: 1.6;">
 									Questions? Contact us at
-									<a href="mailto:andreanjabar18@gmail.com" style="color: #6C5CE7; text-decoration: none; font-weight: 600;">andreanjabar18@gmail.com</a>
+									<a href="mailto:andreanjabar18@gmail.com" style="color: #0891B2; text-decoration: none; font-weight: 600;">andreanjabar18@gmail.com</a>
 								</p>
 							</td>
 						</tr>
@@ -204,11 +204,11 @@ func getPasswordResetEmailTemplate() string {
 	
 						<!-- Header -->
 						<tr>
-							<td align="center" bgcolor="#6C5CE7" style="background-color: #6C5CE7; background-image: linear-gradient(135deg, #7B6CF0 0%, #6C5CE7 50%, #5B4BD5 100%); padding: 44px 40px 36px;">
+							<td align="center" bgcolor="#0891B2" style="background-color: #0891B2; background-image: linear-gradient(135deg, #22B8D6 0%, #0891B2 50%, #0E7490 100%); padding: 44px 40px 36px;">
 								<h1 style="margin: 0; color: #ffffff; font-size: 30px; font-weight: 800; letter-spacing: -0.5px;">
 									PingSpot
 								</h1>
-								<p style="margin: 10px 0 0; color: #e4e0ff; font-size: 15px; font-weight: 500; letter-spacing: 0.3px;">
+								<p style="margin: 10px 0 0; color: #cffafe; font-size: 15px; font-weight: 500; letter-spacing: 0.3px;">
 									Reset Your Password
 								</p>
 							</td>
@@ -221,7 +221,7 @@ func getPasswordResetEmailTemplate() string {
 								<!-- Icon badge -->
 								<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: 0 auto 22px;">
 									<tr>
-										<td align="center" width="64" height="64" bgcolor="#F1EFFD" style="width: 64px; height: 64px; background-color: #f1effd; border: 1px solid #ddd9fa; border-radius: 50%; font-size: 28px; line-height: 64px;">
+										<td align="center" width="64" height="64" bgcolor="#CFFAFE" style="width: 64px; height: 64px; background-color: #cffafe; border: 1px solid #a5f3fc; border-radius: 50%; font-size: 28px; line-height: 64px;">
 											🔑
 										</td>
 									</tr>
@@ -237,7 +237,7 @@ func getPasswordResetEmailTemplate() string {
 								<!-- CTA -->
 								<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: 32px auto 18px;">
 									<tr>
-										<td align="center" bgcolor="#6C5CE7" style="background-color: #6C5CE7; border-radius: 12px; box-shadow: 0 6px 18px rgba(108, 92, 231, 0.35);">
+										<td align="center" bgcolor="#0891B2" style="background-color: #0891B2; border-radius: 12px; box-shadow: 0 6px 18px rgba(8, 145, 178, 0.35);">
 											<a href="{{.ResetLink}}" target="_blank"
 											style="display: inline-block; padding: 16px 36px; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 16px; border-radius: 12px;">
 												Reset Password &rarr;
@@ -256,7 +256,7 @@ func getPasswordResetEmailTemplate() string {
 								</table>
 	
 								<!-- Link fallback -->
-								<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f1effd; border: 1px solid #ddd9fa; border-left: 4px solid #6C5CE7; border-radius: 12px;">
+								<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #cffafe; border: 1px solid #a5f3fc; border-left: 4px solid #0891B2; border-radius: 12px;">
 									<tr>
 										<td style="padding: 18px 20px;">
 											<p style="margin: 0 0 6px; color: #3b3866; font-size: 14px; font-weight: 700;">
