@@ -27,7 +27,7 @@ func New() *FiberServer {
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     util.AllowedOrigins(),
 		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS,PATCH",
-		AllowHeaders:     "Accept,Authorization,Content-Type,X-Requested-With",
+		AllowHeaders:     "Accept,Authorization,Content-Type,X-Requested-With,Idempotency-Key",
 		ExposeHeaders:    "Set-Cookie",
 		AllowCredentials: true,
 		MaxAge:           300,

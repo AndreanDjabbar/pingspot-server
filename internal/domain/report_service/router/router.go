@@ -8,6 +8,7 @@ import (
 	userRepository "pingspot/internal/domain/user_service/repository"
 	"pingspot/internal/infrastructure/database"
 	"pingspot/internal/middleware"
+	idempotentRepository "pingspot/internal/repository"
 	"pingspot/internal/task"
 	"pingspot/internal/util"
 	"time"
@@ -30,6 +31,7 @@ func RegisterReportRoutes(app *fiber.App) {
 	userProfileRepo := userRepository.NewUserProfileRepository(postgreDB)
 	userRepo := userRepository.NewUserRepository(postgreDB)
 	reportCommentRepository := reportRepository.NewReportCommentRepository(mongoDB)
+	idempotencyRepo := idempotentRepository.NewIdempotencyRepository(postgreDB)
 
 	redisAddress := fmt.Sprintf("%s:%s", util.RedisHost(), util.RedisPort())
 	client := asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddress})
@@ -60,7 +62,8 @@ func RegisterReportRoutes(app *fiber.App) {
 		Window:      10 * time.Minute,
 		MaxRequests: 8,
 		KeyPrefix: "create_report",
-	})), 
+	})),
+	middleware.IdempotencyMiddleware(idempotencyRepo),
 	reportHandler.CreateReportHandler,
 	)
 
