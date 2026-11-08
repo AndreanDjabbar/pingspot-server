@@ -134,6 +134,28 @@ func Migrate(db *gorm.DB) error {
 				return tx.Migrator().DropColumn(&model.User{}, "is_disable_email_notification")
 			},
 		},
+		{
+			ID: "08112026_add_idempotency_record_model",
+			Migrate: func(tx *gorm.DB) error {
+				return tx.AutoMigrate(&model.IdempotencyRecord{})
+			},
+			Rollback: func(tx *gorm.DB) error {
+				return tx.Migrator().DropTable(&model.IdempotencyRecord{})
+			},
+		},
+		{
+			ID: "08112026_add_idempotency_record_scope_index",
+			Migrate: func(tx *gorm.DB) error {
+				hasIndex := tx.Migrator().HasIndex(&model.IdempotencyRecord{}, "idx_idempotency_scope")
+				if hasIndex {
+					return nil
+				}
+				return tx.Migrator().CreateIndex(&model.IdempotencyRecord{}, "idx_idempotency_scope")
+			},
+			Rollback: func(tx *gorm.DB) error {
+				return tx.Migrator().DropIndex(&model.IdempotencyRecord{}, "idx_idempotency_scope")
+			},
+		},
 	})
 
 	err := m.Migrate()
