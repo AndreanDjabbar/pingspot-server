@@ -81,6 +81,7 @@ func ValidateAccessToken() fiber.Handler {
 
 			c.Locals("token", parsedToken)
 			c.Locals("claims", claims)
+			c.Locals("userID", userID)
 			return c.Next()
 		}
 
@@ -117,6 +118,7 @@ func ValidateAccessToken() fiber.Handler {
 
 		c.Locals("token", parsedToken)
 		c.Locals("claims", claims)
+		c.Locals("userID", userID)
 
 		return c.Next()
 	}
