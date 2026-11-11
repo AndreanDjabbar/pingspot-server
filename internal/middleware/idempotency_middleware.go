@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"strings"
 
 	"pingspot/internal/model"
@@ -20,8 +19,6 @@ const idempotencyKeyHeader = "Idempotency-Key"
 func IdempotencyMiddleware(repo repository.IdempotencyRepository) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		key := strings.TrimSpace(c.Get(idempotencyKeyHeader))
-		fmt.Println("Idempotency Key:", key) // Debugging line to print the Idempotency-Key
-		fmt.Println("Request Method:", c.Method()) // Debugging line to print the request method
 		if key == "" {
 			return util.ResponseError(c, fiber.StatusBadRequest, "Missing Idempotency-Key", "", "Idempotency-Key header is required")
 		}
@@ -33,7 +30,6 @@ func IdempotencyMiddleware(repo repository.IdempotencyRepository) fiber.Handler 
 		if !ok || userID == 0 {
 			return util.ResponseError(c, fiber.StatusUnauthorized, "User not authenticated", "", "Unable to identify the authenticated user")
 		}
-		fmt.Println("User ID:", userID) // Debugging line to print the user ID
 
 		method := c.Method()
 		route := c.Route().Path

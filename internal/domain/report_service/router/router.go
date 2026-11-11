@@ -103,6 +103,7 @@ func RegisterReportRoutes(app *fiber.App) {
 		MaxRequests: 30,
 		KeyPrefix: "create_report_reaction",
 	})), 
+	middleware.IdempotencyMiddleware(idempotencyRepo),
 	reportHandler.ReactionReportHandler,
 	)
 
@@ -113,6 +114,7 @@ func RegisterReportRoutes(app *fiber.App) {
 		MaxRequests: 30,
 		KeyPrefix: "create_report_vote",
 	})), 
+	middleware.IdempotencyMiddleware(idempotencyRepo),
 	reportHandler.VoteReportHandler,
 	)
 
@@ -122,6 +124,7 @@ func RegisterReportRoutes(app *fiber.App) {
 		MaxRequests: 30,
 		KeyPrefix: "upload_progress_report",
 	})), 
+	middleware.IdempotencyMiddleware(idempotencyRepo),
 	reportHandler.UploadProgressReportHandler,
 	)
 
@@ -150,6 +153,7 @@ func RegisterReportRoutes(app *fiber.App) {
 		MaxRequests: 50,
 		KeyPrefix: "create_report_comment",
 	})), 
+	middleware.IdempotencyMiddleware(idempotencyRepo),
 	reportHandler.CreateReportCommentHandler,
 	)
 

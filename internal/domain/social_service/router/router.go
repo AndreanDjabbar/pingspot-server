@@ -8,6 +8,7 @@ import (
 	userRepository "pingspot/internal/domain/user_service/repository"
 	"pingspot/internal/infrastructure/database"
 	"pingspot/internal/middleware"
+	idempotentRepository "pingspot/internal/repository"
 	"pingspot/internal/task"
 	"pingspot/internal/util"
 	"time"
@@ -20,6 +21,7 @@ func RegisterSocialRoutes(app *fiber.App) {
 	db := database.GetPostgresDB()
 	userRepo := userRepository.NewUserRepository(db)
 	followRepo := socialRepository.NewFollowRepository(db)
+	idempotencyRepo := idempotentRepository.NewIdempotencyRepository(db)
 	redisAddress := fmt.Sprintf("%s:%s", util.RedisHost(), util.RedisPort())
 	client := asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddress})
 	tasksService := task.NewTaskService(client)
@@ -36,6 +38,7 @@ func RegisterSocialRoutes(app *fiber.App) {
 		MaxRequests: 50,
 		KeyPrefix: "follow",
 	})),  
+	middleware.IdempotencyMiddleware(idempotencyRepo),
 	socialHandler.FollowHandler,
 	)
 
