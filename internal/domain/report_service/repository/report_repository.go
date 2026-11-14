@@ -357,7 +357,7 @@ func (r *reportRepository) GetByIsDeletedPaginated(ctx context.Context, limit, c
 		subQuery = subQuery.Where("reports.report_status = ?", status)
 	}
 
-	if distance.Distance != "" && distance.Distance != "all" {
+	if distance.Distance != "" && distance.Distance != "> 10000" && distance.Distance != "all" {
 		straightDistance := 0
 		switch distance.Distance {
 		case "1000":
