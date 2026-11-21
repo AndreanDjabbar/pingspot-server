@@ -427,8 +427,10 @@ func (s *ReportService) CreateReport(ctx context.Context, userID uint, req dto.C
 	)
 
 	var reportResult *dto.CreateReportResponse
+	var currentUser *model.User
 	err := s.txManager.Transaction(ctx, func(tx *gorm.DB) error {
-		currentUser, err := s.userRepo.GetByID(ctx, userID)
+		var err error
+		currentUser, err = s.userRepo.GetByID(ctx, userID)
 		if err != nil {
 			return util.New(500, "USER_GET_FAILED", "Failed to retrieve user information", err.Error(), nil)
 		}
@@ -481,10 +483,6 @@ func (s *ReportService) CreateReport(ctx context.Context, userID uint, req dto.C
 		if err := s.reportImageRepo.Create(ctx, &reportImages, tx); err != nil {
 			return util.New(500, "REPORT_IMAGE_CREATE_FAILED", "Failed to save report images", err.Error(), nil)
 		}
-		if err := s.tasksService.SendFollowerReportNotificationTask(reportStruct, *currentUser); err != nil {
-			return util.New(500, "AUTO_RESOLVE_TASK_FAILED", "Failed to create automatic resolution task", err.Error(), nil)
-		}
-
 		reportResult = &dto.CreateReportResponse{
 			Report:         reportStruct,
 			ReportLocation: reportLocationStruct,
@@ -494,6 +492,10 @@ func (s *ReportService) CreateReport(ctx context.Context, userID uint, req dto.C
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	if err := s.tasksService.SendFollowerReportNotificationTask(reportResult.Report, *currentUser); err != nil {
+		return nil, util.New(500, "AUTO_RESOLVE_TASK_FAILED", "Failed to create automatic resolution task", err.Error(), nil)
 	}
 
 	logger.Info("Report created successfully",
@@ -1071,6 +1073,10 @@ func (s *ReportService) ReactToReport(ctx context.Context, userID uint, reportID
 
 func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID uint, voteType string) (*dto.GetVoteReportResponse, error) {
 	var result *dto.GetVoteReportResponse
+	var voterUser *model.User
+	var potentiallyResolvedReport *model.Report
+	var reportOwnerID uint
+	shouldSendVoteNotification := false
 	err := s.txManager.Transaction(ctx, func(tx *gorm.DB) error {
 		report, err := s.reportRepo.GetByID(ctx, reportID)
 		if err != nil {
@@ -1079,6 +1085,7 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 			}
 			return util.New(500, "REPORT_FETCH_FAILED", "Failed to retrieve report", err.Error(), nil)
 		}
+		reportOwnerID = report.UserID
 		existingVote, err := s.reportVoteRepo.GetByUserReportIDTX(ctx, tx, userID, reportID)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return util.New(500, "VOTE_FETCH_FAILED", "Failed to retrieve report votes", err.Error(), nil)
@@ -1124,18 +1131,7 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 			report.LastUpdatedBy = model.System
 			report.LastUpdatedProgressAt = util.Int64PtrOrNil(time.Now().Unix())
 			report.PotentiallyResolvedAt = util.Int64PtrOrNil(time.Now().Unix())
-			reportLink := fmt.Sprintf("%s/main/reports/%d", util.ClientURL(), report.ID)
-			go sendPotentiallyResolvedReportEmail(
-				report.User.Email,
-				report.User.Username,
-				report.ReportTitle,
-				reportLink,
-				7,
-				report.User.IsDisableEmailNotification,
-			)
-			if err := s.tasksService.AutoResolveReportTask(reportID); err != nil {
-				return util.New(500, "AUTO_RESOLVE_TASK_FAILED", "Failed to create automatic resolution task", err.Error(), nil)
-			}
+			potentiallyResolvedReport = report
 			reportStatusMessage := map[any]string{
 				model.RESOLVED:             "RESOLVED",
 				model.ON_PROGRESS:          "IN PROGRESS",
@@ -1154,21 +1150,11 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 			return util.New(500, "REPORT_UPDATE_FAILED", "Failed to update report status", err.Error(), nil)
 		}
 		if report.UserID != userID {
-			voterUser, err := s.userRepo.GetByID(ctx, userID)
+			voterUser, err = s.userRepo.GetByID(ctx, userID)
 			if err != nil {
 				return util.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
 			}
-			if err := s.tasksService.CreateNotificationTask(
-				report.UserID,
-				"Someone voted on your report",
-				fmt.Sprintf("User %s voted on your report", voterUser.Username),
-				util.StrPtrOrNil(strconv.FormatUint(uint64(reportID), 10)),
-				model.EntityTypeReport,
-				model.ReportNotificationCategory,
-				model.NotificationTypeInfo,
-			); err != nil {
-				return util.New(500, "NOTIFICATION_TASK_FAILED", "Failed to create vote notification task", err.Error(), nil)
-			}
+			shouldSendVoteNotification = true
 		}
 		result = &dto.GetVoteReportResponse{
 			ID: resultVote.ID, ReportID: reportID, ReportStatus: report.ReportStatus,
@@ -1180,6 +1166,33 @@ func (s *ReportService) VoteToReport(ctx context.Context, userID uint, reportID 
 	})
 	if err != nil {
 		return nil, err
+	}
+	if potentiallyResolvedReport != nil {
+		reportLink := fmt.Sprintf("%s/main/reports/%d", util.ClientURL(), potentiallyResolvedReport.ID)
+		go sendPotentiallyResolvedReportEmail(
+			potentiallyResolvedReport.User.Email,
+			potentiallyResolvedReport.User.Username,
+			potentiallyResolvedReport.ReportTitle,
+			reportLink,
+			7,
+			potentiallyResolvedReport.User.IsDisableEmailNotification,
+		)
+		if err := s.tasksService.AutoResolveReportTask(reportID); err != nil {
+			return nil, util.New(500, "AUTO_RESOLVE_TASK_FAILED", "Failed to create automatic resolution task", err.Error(), nil)
+		}
+	}
+	if shouldSendVoteNotification {
+		if err := s.tasksService.CreateNotificationTask(
+			reportOwnerID,
+			"Someone voted on your report",
+			fmt.Sprintf("User %s voted on your report", voterUser.Username),
+			util.StrPtrOrNil(strconv.FormatUint(uint64(reportID), 10)),
+			model.EntityTypeReport,
+			model.ReportNotificationCategory,
+			model.NotificationTypeInfo,
+		); err != nil {
+			return nil, util.New(500, "NOTIFICATION_TASK_FAILED", "Failed to create vote notification task", err.Error(), nil)
+		}
 	}
 	return result, nil
 }

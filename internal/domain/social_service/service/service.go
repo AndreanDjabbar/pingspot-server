@@ -70,8 +70,16 @@ func (s *SocialService) Follow(ctx context.Context, userID uint, req dto.FollowR
 		if err := s.followRepo.CreateTX(ctx, tx, &follow); err != nil {
 			return util.New(500, "FOLLOW_FAILED", "Failed to follow user", err.Error(), nil)
 		}
+		
 		followProcess = "follow"
+		return nil
+	})
+	
+	if err != nil {
+		return nil, err
+	}
 
+	if followProcess == "follow" {
 		if err := s.tasksService.CreateNotificationTask(
 			req.FollowingID,
 			"Someone started following you",
@@ -81,12 +89,8 @@ func (s *SocialService) Follow(ctx context.Context, userID uint, req dto.FollowR
 			model.UserNotificationCategory,
 			model.NotificationTypeInfo,
 		); err != nil {
-			return util.New(500, "NOTIFICATION_TASK_FAILED", "Failed to create notification task", err.Error(), nil)
+			return nil, util.New(500, "NOTIFICATION_TASK_FAILED", "Failed to create notification task", err.Error(), nil)
 		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
 	}
 
 	return &dto.FollowResponse{
