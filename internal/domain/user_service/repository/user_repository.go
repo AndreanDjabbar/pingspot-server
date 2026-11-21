@@ -11,6 +11,7 @@ import (
 )
 
 type UserRepository interface {
+	WithTX(tx *gorm.DB) UserRepository
 	UpdateByEmail(ctx context.Context, email string, updatedUser *model.User) (*model.User, error)
 	GetByID(ctx context.Context, userID uint) (*model.User, error)
 	GetByEmailOrUsername(ctx context.Context, emailOrUsername string) (*model.User, error)
@@ -20,6 +21,7 @@ type UserRepository interface {
 	Save(ctx context.Context, user *model.User) error
 	Create(ctx context.Context, user *model.User) error
 	CreateTX(ctx context.Context, tx *gorm.DB, user *model.User) (*model.User, error)
+	Update(ctx context.Context, user *model.User) (*model.User, error)
 	UpdateTX(ctx context.Context, tx *gorm.DB, user *model.User) (*model.User, error)
 	FullTextSearchUsers(ctx context.Context, query string, limit int) (*[]model.User, error)
 	FullTextSearchUsersPaginated(ctx context.Context, searchQuery string, limit int, cursorID uint, verified bool) (*[]model.User, error)
@@ -36,6 +38,12 @@ type userRepository struct {
 
 func NewUserRepository(db *gorm.DB) UserRepository {
 	return &userRepository{db: db}
+}
+
+func (r *userRepository) WithTX(tx *gorm.DB) UserRepository {
+    return &userRepository{
+        db: tx,
+    }
 }
 
 func (r *userRepository) Get(ctx context.Context) (*[]model.User, error) {
@@ -59,6 +67,13 @@ func (r *userRepository) GetUsersCount(ctx context.Context) (int64, error) {
 
 func (r *userRepository) UpdateTX(ctx context.Context, tx *gorm.DB, user *model.User) (*model.User, error) {
 	if err := tx.WithContext(ctx).Save(user).Error; err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+func (r *userRepository) Update(ctx context.Context, user *model.User) (*model.User, error) {
+	if err := r.db.WithContext(ctx).Save(user).Error; err != nil {
 		return nil, err
 	}
 	return user, nil

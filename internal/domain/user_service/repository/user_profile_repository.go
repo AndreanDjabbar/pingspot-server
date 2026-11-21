@@ -8,11 +8,14 @@ import (
 )
 
 type UserProfileRepository interface {
+	WithTX(tx *gorm.DB) UserProfileRepository
 	SaveByID(ctx context.Context, userID uint, profile *model.UserProfile) (*model.UserProfile, error)
 	GetByID(ctx context.Context, userID uint) (*model.UserProfile, error)
 	GetByIDTX(ctx context.Context, tx *gorm.DB, userID uint) (*model.UserProfile, error)
 	CreateTX(ctx context.Context, tx *gorm.DB, profile *model.UserProfile) (*model.UserProfile, error)
+	Create(ctx context.Context, profile *model.UserProfile) (*model.UserProfile, error)
 	UpdateTX(ctx context.Context, tx *gorm.DB, profile *model.UserProfile) (*model.UserProfile, error)
+	Update(ctx context.Context, profile *model.UserProfile) (*model.UserProfile, error)
 }
 
 type userProfileRepository struct {
@@ -21,6 +24,12 @@ type userProfileRepository struct {
 
 func NewUserProfileRepository(db *gorm.DB) UserProfileRepository {
 	return &userProfileRepository{db: db}
+}
+
+func (r *userProfileRepository) WithTX(tx *gorm.DB) UserProfileRepository {
+	return &userProfileRepository{
+		db: tx,
+	}
 }
 
 func (r *userProfileRepository) SaveByID(ctx context.Context, userID uint, profile *model.UserProfile) (*model.UserProfile, error) {
@@ -53,8 +62,22 @@ func (r *userProfileRepository) CreateTX(ctx context.Context, tx *gorm.DB, profi
 	return profile, nil
 }
 
+func (r *userProfileRepository) Create(ctx context.Context, profile *model.UserProfile) (*model.UserProfile, error) {
+	if err := r.db.WithContext(ctx).Create(profile).Error; err != nil {
+		return nil, err
+	}
+	return profile, nil
+}
+
 func (r *userProfileRepository) UpdateTX(ctx context.Context, tx *gorm.DB, profile *model.UserProfile) (*model.UserProfile, error) {
 	if err := tx.WithContext(ctx).Save(profile).Error; err != nil {
+		return nil, err
+	}
+	return profile, nil
+}
+
+func (r *userProfileRepository) Update(ctx context.Context, profile *model.UserProfile) (*model.UserProfile, error) {
+	if err := r.db.WithContext(ctx).Save(profile).Error; err != nil {
 		return nil, err
 	}
 	return profile, nil

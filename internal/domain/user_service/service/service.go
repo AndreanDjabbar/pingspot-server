@@ -5,6 +5,7 @@ import (
 	"errors"
 	"pingspot/internal/domain/user_service/dto"
 	"pingspot/internal/domain/user_service/repository"
+	"pingspot/internal/infrastructure/database"
 	"pingspot/internal/logger"
 	"pingspot/internal/model"
 	"pingspot/internal/util"
@@ -15,133 +16,180 @@ import (
 )
 
 type UserService struct {
+	txManager	   database.TransactionManager
 	userRepo        repository.UserRepository
 	userProfileRepo repository.UserProfileRepository
-	db              *gorm.DB
 }
 
-func NewUserService(db *gorm.DB, userRepo repository.UserRepository, userProfileRepo repository.UserProfileRepository) *UserService {
+func NewUserService(txManager database.TransactionManager, userRepo repository.UserRepository, userProfileRepo repository.UserProfileRepository) *UserService {
 	return &UserService{
-		db:              db,
+		txManager:       txManager,
 		userRepo:        userRepo,
 		userProfileRepo: userProfileRepo,
 	}
 }
 
-func (s *UserService) SaveProfile(ctx context.Context, userID uint, req dto.SaveUserProfileRequest) (*dto.SaveUserProfileResponse, error) {
-	requestID := util.GetRequestID(ctx)
-	logger.Info("Saving user profile",
-		zap.String("request_id", requestID),
-		zap.Uint("user_id", userID),
-	)
 
-	tx := s.db.Begin()
-	if tx.Error != nil {
-		logger.Error("Failed to start transaction",
-			zap.String("request_id", requestID),
-			zap.Error(tx.Error),
-		)
-		return nil, util.New(500, "TRANSACTION_START_FAILED", "Failed to start transaction", tx.Error.Error(), nil)
-	}
+func (s *UserService) SaveProfile(
+    ctx context.Context,
+    userID uint,
+    req dto.SaveUserProfileRequest,
+) (*dto.SaveUserProfileResponse, error) {
+    requestID := util.GetRequestID(ctx)
+    logger.Info("Saving user profile",
+        zap.String("request_id", requestID),
+        zap.Uint("user_id", userID),
+    )
 
-	currentUser, err := s.userRepo.GetByID(ctx, userID)
-	if err != nil {
-		tx.Rollback()
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, util.New(404, "USER_NOT_FOUND", "User not found", "", nil)
-		}
-		return nil, util.New(500, "USER_FETCH_FAILED", "Failed to retrieve user data", err.Error(), nil)
-	}
+    var response dto.SaveUserProfileResponse
+    var profileCreated bool
 
-	if req.Username != nil && *req.Username != currentUser.Username {
-		_, err := s.userRepo.GetByUsername(ctx, *req.Username)
-		if err != nil {
-			if !errors.Is(err, gorm.ErrRecordNotFound) {
-				tx.Rollback()
-				return nil, util.New(500, "USERNAME_CHECK_FAILED", "Failed to check username availability", err.Error(), nil)
-			}
-		} else {
-			tx.Rollback()
-			return nil, util.New(409, "USERNAME_EXISTS", "Username is already in use. Please choose another username", "", nil)
-		}
-		currentUser.IsDefaultUsername = false
-	}
+    err := s.txManager.Transaction(ctx, func(tx *gorm.DB) error {
+        userRepo := s.userRepo.WithTX(tx)
+        profileRepo := s.userProfileRepo.WithTX(tx)
 
-	currentUser.FullName = req.FullName
-	currentUser.Username = *req.Username
+        currentUser, err := userRepo.GetByID(ctx, userID)
+        if err != nil {
+            if errors.Is(err, gorm.ErrRecordNotFound) {
+                return util.New(
+                    404,
+                    "USER_NOT_FOUND",
+                    "User not found",
+                    "",
+                    nil,
+                )
+            }
+            return util.New(
+                500,
+                "USER_FETCH_FAILED",
+                "Failed to retrieve user data",
+                err.Error(),
+                nil,
+            )
+        }
 
-	updatedUser, err := s.userRepo.UpdateTX(ctx, tx, currentUser)
-	if err != nil {
-		tx.Rollback()
-		return nil, util.New(500, "USER_UPDATE_FAILED", "Failed to update user data", err.Error(), nil)
-	}
+        if req.Username != nil && *req.Username != currentUser.Username {
+            _, err := userRepo.GetByUsername(ctx, *req.Username)
+            if err == nil {
+                return util.New(
+                    409,
+                    "USERNAME_EXISTS",
+                    "Username is already in use. Please choose another username",
+                    "",
+                    nil,
+                )
+            }
+            if !errors.Is(err, gorm.ErrRecordNotFound) {
+                return util.New(
+                    500,
+                    "USERNAME_CHECK_FAILED",
+                    "Failed to check username availability",
+                    err.Error(),
+                    nil,
+                )
+            }
+            currentUser.Username = *req.Username
+            currentUser.IsDefaultUsername = false
+        }
 
-	profile, err := s.userProfileRepo.GetByIDTX(ctx, tx, userID)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			newProfile := model.UserProfile{
-				UserID:         userID,
-				Bio:            req.Bio,
-				ProfilePicture: req.ProfilePicture,
-				Birthday:       req.Birthday,
-				Gender:         req.Gender,
-			}
-			if _, err := s.userProfileRepo.CreateTX(ctx, tx, &newProfile); err != nil {
-				tx.Rollback()
-				return nil, util.New(500, "PROFILE_CREATE_FAILED", "Failed to create profile", err.Error(), nil)
-			}
-			if err := tx.Commit().Error; err != nil {
-				return nil, util.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to save changes", err.Error(), nil)
-			}
-			newProfileResponse := dto.SaveUserProfileResponse{
-				UserID:         userID,
-				Bio:            req.Bio,
-				Username:       updatedUser.Username,
-				ProfilePicture: req.ProfilePicture,
-				Birthday:       req.Birthday,
-				Gender:         req.Gender,
-				FullName:       updatedUser.FullName,
-			}
-			logger.Info("User profile created successfully",
-				zap.String("request_id", requestID),
-				zap.Uint("user_id", userID),
-			)
-			return &newProfileResponse, nil
-		} else {
-			tx.Rollback()
-			return nil, util.New(500, "PROFILE_FETCH_FAILED", "Failed to retrieve profile", err.Error(), nil)
-		}
-	}
+        currentUser.FullName = req.FullName
 
-	profile.Bio = req.Bio
-	profile.ProfilePicture = req.ProfilePicture
-	profile.Birthday = req.Birthday
-	profile.Gender = req.Gender
+        updatedUser, err := userRepo.Update(ctx, currentUser)
+        if err != nil {
+            return util.New(
+                500,
+                "USER_UPDATE_FAILED",
+                "Failed to update user data",
+                err.Error(),
+                nil,
+            )
+        }
+        profile, err := profileRepo.GetByID(ctx, userID)
 
-	if _, err := s.userProfileRepo.UpdateTX(ctx, tx, profile); err != nil {
-		tx.Rollback()
-		return nil, util.New(500, "PROFILE_UPDATE_FAILED", "Failed to update profile", err.Error(), nil)
-	}
+        if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+            return util.New(
+                500,
+                "PROFILE_FETCH_FAILED",
+                "Failed to retrieve profile",
+                err.Error(),
+                nil,
+            )
+        }
+		
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            profile = &model.UserProfile{
+                UserID:         userID,
+                Bio:            req.Bio,
+                ProfilePicture: req.ProfilePicture,
+                Birthday:       req.Birthday,
+                Gender:         req.Gender,
+            }
 
-	if err := tx.Commit().Error; err != nil {
-		return nil, util.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to save changes", err.Error(), nil)
-	}
+            if _, err := profileRepo.Create(ctx, profile); err != nil {
+                return util.New(
+                    500,
+                    "PROFILE_CREATE_FAILED",
+                    "Failed to create profile",
+                    err.Error(),
+                    nil,
+                )
+            }
 
-	profileResponse := dto.SaveUserProfileResponse{
-		UserID:         userID,
-		Bio:            profile.Bio,
-		ProfilePicture: profile.ProfilePicture,
-		Birthday:       profile.Birthday,
-		Gender:         profile.Gender,
-		FullName:       updatedUser.FullName,
-		Username:       updatedUser.Username,
-	}
-	logger.Info("User profile updated successfully",
-		zap.String("request_id", requestID),
-		zap.Uint("user_id", userID),
-	)
-	return &profileResponse, nil
+            profileCreated = true
+        } else {
+            profile.Bio = req.Bio
+            profile.ProfilePicture = req.ProfilePicture
+            profile.Birthday = req.Birthday
+            profile.Gender = req.Gender
+
+            if _, err := profileRepo.Update(ctx, profile); err != nil {
+                return util.New(
+                    500,
+                    "PROFILE_UPDATE_FAILED",
+                    "Failed to update profile",
+                    err.Error(),
+                    nil,
+                )
+            }
+        }
+
+        response = dto.SaveUserProfileResponse{
+            UserID:         userID,
+            Bio:            profile.Bio,
+            ProfilePicture: profile.ProfilePicture,
+            Birthday:       profile.Birthday,
+            Gender:         profile.Gender,
+            FullName:       updatedUser.FullName,
+            Username:       updatedUser.Username,
+        }
+		
+        return nil
+    })
+
+    if err != nil {
+        logger.Error("Failed to save user profile",
+            zap.String("request_id", requestID),
+            zap.Uint("user_id", userID),
+            zap.Error(err),
+        )
+
+        return nil, err
+    }
+
+    action := "updated"
+    if profileCreated {
+        action = "created"
+    }
+
+    logger.Info("User profile saved successfully",
+        zap.String("request_id", requestID),
+        zap.Uint("user_id", userID),
+        zap.String("action", action),
+    )
+
+    return &response, nil
 }
+
 
 func (s *UserService) GetUserStatistics(ctx context.Context) (*dto.GetUserStatisticsResponse, error) {
 	totalUsers, err := s.userRepo.GetUsersCount(ctx)
