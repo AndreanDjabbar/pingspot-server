@@ -62,7 +62,7 @@ func sendNotificationNewReportEmails(report model.Report, creator model.User, fo
 	return nil
 }
 
-func sendNotificationReportCommentEmail(report model.Report, comment model.ReportComment, commenter model.User, reportLink string) error {
+func sendNotificationReportCommentEmail(report model.Report, commenter model.User, reportLink string) error {
 	emailData := util.EmailData{
 		To:            report.User.Email,
 		Subject:       fmt.Sprintf("New comment on your report: %s", report.ReportTitle),
@@ -507,7 +507,7 @@ func (h *taskHandler) SendReportCommentNotificationHandler(ctx context.Context, 
 
 	reportLink := fmt.Sprintf("%s/main/reports/%d", util.ClientURL(), payload.Report.ID)
 
-	if err := sendNotificationReportCommentEmail(payload.Report, payload.Comment, payload.Commenter, reportLink); err != nil {
+	if err := sendNotificationReportCommentEmail(payload.Report, payload.Commenter, reportLink); err != nil {
 		logger.Error("Failed to send report comment notification emails", zap.Error(err))
 		return fmt.Errorf("failed to send report comment notification emails: %w", err)
 	}
