@@ -25,8 +25,9 @@ func RegisterSocialRoutes(app *fiber.App) {
 	redisAddress := fmt.Sprintf("%s:%s", util.RedisHost(), util.RedisPort())
 	client := asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddress})
 	tasksService := task.NewTaskService(client)
+	transactionManager := database.NewTransactionManager(db)
 	
-	socialService := service.NewSocialService(db, followRepo, userRepo, tasksService)
+	socialService := service.NewSocialService(transactionManager, followRepo, userRepo, tasksService)
 	socialHandler := handler.NewSocialHandler(socialService)
 
 	followRoute := app.Group("/pingspot/api/social/follow", middleware.ValidateAccessToken())

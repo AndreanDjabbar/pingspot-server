@@ -36,9 +36,10 @@ func RegisterReportRoutes(app *fiber.App) {
 	redisAddress := fmt.Sprintf("%s:%s", util.RedisHost(), util.RedisPort())
 	client := asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddress})
 	tasksService := task.NewTaskService(client)
+	transactionManager := database.NewTransactionManager(postgreDB)
 
 	reportService := reportService.NewreportService(
-		postgreDB,
+		transactionManager,
 		mongoDB,
 		reportRepo, 
 		reportLocationRepo, reportReactionRepo, 

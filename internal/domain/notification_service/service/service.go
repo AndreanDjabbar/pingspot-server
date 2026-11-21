@@ -5,6 +5,7 @@ import (
 	"pingspot/internal/domain/notification_service/dto"
 	notificationRepo "pingspot/internal/domain/notification_service/repository"
 	userRepo "pingspot/internal/domain/user_service/repository"
+	"pingspot/internal/infrastructure/database"
 	"pingspot/internal/logger"
 	"pingspot/internal/util"
 	"time"
@@ -16,12 +17,12 @@ import (
 type NotificationService struct {
 	notificationRepo notificationRepo.NotificationRepository
 	userRepo           userRepo.UserRepository
-	db               *gorm.DB
+	txManager          database.TransactionManager
 }
 
-func NewNotificationService(db *gorm.DB, notificationRepo notificationRepo.NotificationRepository, userRepo userRepo.UserRepository) *NotificationService {
+func NewNotificationService(txManager database.TransactionManager, notificationRepo notificationRepo.NotificationRepository, userRepo userRepo.UserRepository) *NotificationService {
 	return &NotificationService{
-		db:               db,
+		txManager:          txManager,
 		notificationRepo: notificationRepo,
 		userRepo:           userRepo,
 	}
@@ -88,21 +89,15 @@ func (s *NotificationService) MarkNotificationAsRead(ctx context.Context, userID
 	notification.IsRead = util.BoolPtrOrNil(true)
 	notification.ReadAt = util.Int64PtrOrNil(time.Now().Unix())
 
-	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
+	err = s.txManager.Transaction(ctx, func(tx *gorm.DB) error {
+		if err := s.notificationRepo.UpdateTX(ctx, tx, notification); err != nil {
+			return err
 		}
-	}()
-	err = s.notificationRepo.UpdateTX(ctx, tx, notification)
+		return nil
+	})
 	if err != nil {
-		tx.Rollback()
 		logger.Error("Failed to update notification", zap.Error(err))
 		return util.New(500, "NOTIFICATION_UPDATE_FAILED", "Failed to update notification", err.Error(), nil)
-	}
-	if err := tx.Commit().Error; err != nil {
-		logger.Error("Failed to commit transaction", zap.Error(err))
-		return util.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to complete transaction", err.Error(), nil)
 	}
 	return nil
 }
@@ -117,21 +112,15 @@ func (s *NotificationService) MarkAllNotificationsAsRead(ctx context.Context, us
 		return util.New(404, "USER_NOT_FOUND", "User not found", "No user exists with that ID", nil)
 	}
 
-	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
+	err = s.txManager.Transaction(ctx, func(tx *gorm.DB) error {
+		if err := s.notificationRepo.MarkAllAsReadTX(ctx, tx, userID); err != nil {
+			return err
 		}
-	}()
-	err = s.notificationRepo.MarkAllAsReadTX(ctx, tx, userID)
+		return nil
+	})
 	if err != nil {
-		tx.Rollback()
 		logger.Error("Failed to mark all notifications as read", zap.Error(err))
 		return util.New(500, "NOTIFICATION_MARK_ALL_AS_READ_FAILED", "Failed to mark all notifications as read", err.Error(), nil)
-	}
-	if err := tx.Commit().Error; err != nil {
-		logger.Error("Failed to commit transaction", zap.Error(err))
-		return util.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to complete transaction", err.Error(), nil)
 	}
 	return nil
 }
@@ -158,22 +147,15 @@ func (s *NotificationService) DeleteNotification(ctx context.Context, userID uin
 		return util.New(403, "NOTIFICATION_FORBIDDEN", "Notification does not belong to this user", "You do not have permission to delete this notification", nil)
 	}
 
-	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
+	err = s.txManager.Transaction(ctx, func(tx *gorm.DB) error {
+		if err := s.notificationRepo.DeleteByIDTX(ctx, tx, notificationID); err != nil {
+			return err
 		}
-	}()
-
-	err = s.notificationRepo.DeleteByIDTX(ctx, tx, notificationID)
+		return nil
+	})
 	if err != nil {
-		tx.Rollback()
 		logger.Error("Failed to delete notification", zap.Error(err))
 		return util.New(500, "NOTIFICATION_DELETE_FAILED", "Failed to delete notification", err.Error(), nil)
-	}
-	if err := tx.Commit().Error; err != nil {
-		logger.Error("Failed to commit transaction", zap.Error(err))
-		return util.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to complete transaction", err.Error(), nil)
 	}
 	return nil
 }
@@ -188,22 +170,15 @@ func (s *NotificationService) DeleteAllNotifications(ctx context.Context, userID
 		return util.New(404, "USER_NOT_FOUND", "User not found", "No user exists with that ID", nil)
 	}
 
-	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
+	err = s.txManager.Transaction(ctx, func(tx *gorm.DB) error {
+		if err := s.notificationRepo.DeleteByUserIDTX(ctx, tx, userID); err != nil {
+			return err
 		}
-	}()
-
-	err = s.notificationRepo.DeleteByUserIDTX(ctx, tx, userID)
+		return nil
+	})
 	if err != nil {
-		tx.Rollback()
 		logger.Error("Failed to delete all notifications", zap.Error(err))
 		return util.New(500, "NOTIFICATION_DELETE_ALL_FAILED", "Failed to delete all notifications", err.Error(), nil)
-	}
-	if err := tx.Commit().Error; err != nil {
-		logger.Error("Failed to commit transaction", zap.Error(err))
-		return util.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to complete transaction", err.Error(), nil)
 	}
 	return nil
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"pingspot/internal/domain/auth_service/dto"
 	userRepo "pingspot/internal/domain/user_service/repository"
+	"pingspot/internal/infrastructure/database"
 	redisRepo "pingspot/internal/infrastructure/redis"
 	"pingspot/internal/logger"
 	"pingspot/internal/model"
@@ -321,7 +322,7 @@ func getRefreshTokenDuration() time.Duration {
 }
 
 type AuthService struct {
-	db              *gorm.DB
+	txManager       database.TransactionManager
 	userRepo        userRepo.UserRepository
 	userSessionRepo userRepo.UserSessionRepository
 	userProfileRepo userRepo.UserProfileRepository
@@ -329,14 +330,14 @@ type AuthService struct {
 }
 
 func NewAuthService(
-	db *gorm.DB,
+	txManager database.TransactionManager,
 	userRepo userRepo.UserRepository,
 	userProfileRepo userRepo.UserProfileRepository,
 	userSessionRepo userRepo.UserSessionRepository,
 	redisRepo redisRepo.CacheRepository,
 ) *AuthService {
 	return &AuthService{
-		db:              db,
+		txManager:       txManager,
 		userRepo:        userRepo,
 		userProfileRepo: userProfileRepo,
 		userSessionRepo: userSessionRepo,
@@ -352,33 +353,16 @@ func (s *AuthService) Register(ctx context.Context, req dto.RegisterRequest, isV
 		zap.String("provider", req.Provider),
 	)
 
-	tx := s.db.Begin()
-	if tx.Error != nil {
-		logger.Error("Failed to start transaction",
-			zap.String("request_id", requestID),
-			zap.Error(tx.Error),
-		)
-		return nil, util.New(500, "TRANSACTION_START_FAILED", "Failed to start transaction", tx.Error.Error(), nil)
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
 	_, err := s.userRepo.GetByEmail(ctx, req.Email)
 	if err == nil {
-		tx.Rollback()
 		return nil, util.New(400, "EMAIL_ALREADY_REGISTERED", "Email already registered", "", nil)
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		tx.Rollback()
 		return nil, util.New(500, "USER_CHECK_FAILED", "Failed to check user data", err.Error(), nil)
 	}
 
 	hashedPassword, err := util.HashString(req.Password)
 	if err != nil {
-		tx.Rollback()
 		return nil, util.New(500, "PASSWORD_HASH_FAILED", "Failed to hash password", err.Error(), nil)
 	}
 
@@ -392,27 +376,25 @@ func (s *AuthService) Register(ctx context.Context, req dto.RegisterRequest, isV
 		IsVerified: isVerified,
 	}
 
-	createdUser, err := s.userRepo.CreateTX(ctx, tx, &user)
+	var createdUser *model.User
+	err = s.txManager.Transaction(ctx, func(tx *gorm.DB) error {
+		createdUser, err = s.userRepo.CreateTX(ctx, tx, &user)
+		if err != nil {
+			return util.New(500, "USER_CREATE_FAILED", "Failed to create user", err.Error(), nil)
+		}
+
+		newProfile := model.UserProfile{UserID: createdUser.ID}
+		if _, err := s.userProfileRepo.CreateTX(ctx, tx, &newProfile); err != nil {
+			return util.New(500, "PROFILE_CREATE_FAILED", "Failed to create user profile", err.Error(), nil)
+		}
+		return nil
+	})
 	if err != nil {
-		tx.Rollback()
-		return nil, util.New(500, "USER_CREATE_FAILED", "Failed to create user", err.Error(), nil)
-	}
-
-	newProfile := model.UserProfile{
-		UserID: createdUser.ID,
-	}
-
-	if _, err := s.userProfileRepo.CreateTX(ctx, tx, &newProfile); err != nil {
-		tx.Rollback()
-		return nil, util.New(500, "PROFILE_CREATE_FAILED", "Failed to create user profile", err.Error(), nil)
-	}
-
-	if err := tx.Commit().Error; err != nil {
 		logger.Error("Failed to commit transaction",
 			zap.String("request_id", requestID),
 			zap.Error(err),
 		)
-		return nil, util.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to save changes", err.Error(), nil)
+		return nil, err
 	}
 
 	logger.Info("User registered successfully",
@@ -490,32 +472,29 @@ func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (*model.U
 	refreshToken := util.GenerateRefreshToken(user.ID, refreshTokenID)
 	hashedRefreshToken := util.HashSHA256String(refreshToken)
 
-	tx := s.db.Begin()
-	userSession, err := s.userSessionRepo.CreateTX(ctx, tx, &model.UserSession{
-		UserID:             user.ID,
-		ExpiresAt:          time.Now().Add(getRefreshTokenDuration()).Unix(),
-		IsActive:           true,
-		RefreshTokenID:     refreshTokenID,
-		HashedRefreshToken: hashedRefreshToken,
-		IPAddress:          req.IPAddress,
-		UserAgent:          req.UserAgent,
+	var userSession *model.UserSession
+	err = s.txManager.Transaction(ctx, func(tx *gorm.DB) error {
+		userSession, err = s.userSessionRepo.CreateTX(ctx, tx, &model.UserSession{
+			UserID:             user.ID,
+			ExpiresAt:          time.Now().Add(getRefreshTokenDuration()).Unix(),
+			IsActive:           true,
+			RefreshTokenID:     refreshTokenID,
+			HashedRefreshToken: hashedRefreshToken,
+			IPAddress:          req.IPAddress,
+			UserAgent:          req.UserAgent,
+		})
+		if err != nil {
+			logger.Error("Failed to create user session",
+				zap.String("request_id", requestID),
+				zap.Uint("user_id", user.ID),
+				zap.Error(err),
+			)
+			return util.New(500, "USER_SESSION_CREATE_FAILED", "Failed to create user session", err.Error(), nil)
+		}
+		return nil
 	})
 	if err != nil {
-		tx.Rollback()
-		logger.Error("Failed to create user session",
-			zap.String("request_id", requestID),
-			zap.Uint("user_id", user.ID),
-			zap.Error(err),
-		)
-		return nil, "", "", util.New(500, "USER_SESSION_CREATE_FAILED", "Failed to create user session", err.Error(), nil)
-	}
-
-	if err := tx.Commit().Error; err != nil {
-		logger.Error("Failed to commit user session transaction",
-			zap.String("request_id", requestID),
-			zap.Error(err),
-		)
-		return nil, "", "", util.New(500, "USER_SESSION_COMMIT_FAILED", "Failed to save user session", err.Error(), nil)
+		return nil, "", "", err
 	}
 
 	refreshKey := fmt.Sprintf("refresh_token:%s", refreshTokenID)
@@ -635,19 +614,14 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
 	userSession.HashedRefreshToken = newHashedRefreshToken
 	userSession.ExpiresAt = newExpiresAt
 
-	tx := s.db.Begin()
-	if tx.Error != nil {
-		return "", "", util.New(500, "TRANSACTION_START_FAILED", "Failed to start transaction", tx.Error.Error(), nil)
-	}
-
-	if err := s.userSessionRepo.UpdateTX(ctx, tx, userSession); err != nil {
-		tx.Rollback()
-		return "", "", util.New(500, "SESSION_UPDATE_FAILED", "Failed to update session", err.Error(), nil)
-	}
-
-	if err := tx.Commit().Error; err != nil {
-		tx.Rollback()
-		return "", "", util.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to commit transaction", err.Error(), nil)
+	err = s.txManager.Transaction(ctx, func(tx *gorm.DB) error {
+		if err := s.userSessionRepo.UpdateTX(ctx, tx, userSession); err != nil {
+			return util.New(500, "SESSION_UPDATE_FAILED", "Failed to update session", err.Error(), nil)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", "", err
 	}
 
 	if err := s.redisRepo.Set(ctx, newRefreshKey, newHashedRefreshToken, refreshDuration); err != nil {
@@ -730,20 +704,15 @@ func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
 		return nil
 	}
 
-	tx := s.db.Begin()
-	if tx.Error != nil {
-		return util.New(500, "TRANSACTION_START_FAILED", "Failed to start transaction", tx.Error.Error(), nil)
-	}
-
 	userSession.IsActive = false
-	if err := s.userSessionRepo.UpdateTX(ctx, tx, userSession); err != nil {
-		tx.Rollback()
-		return util.New(500, "USER_SESSION_UPDATE_FAILED", "Failed to update user session", err.Error(), nil)
-	}
-
-	if err := tx.Commit().Error; err != nil {
-		tx.Rollback()
-		return util.New(500, "TRANSACTION_COMMIT_FAILED", "Failed to commit transaction", err.Error(), nil)
+	err = s.txManager.Transaction(ctx, func(tx *gorm.DB) error {
+		if err := s.userSessionRepo.UpdateTX(ctx, tx, userSession); err != nil {
+			return util.New(500, "USER_SESSION_UPDATE_FAILED", "Failed to update user session", err.Error(), nil)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	refreshKey := fmt.Sprintf("refresh_token:%s", refreshTokenID)

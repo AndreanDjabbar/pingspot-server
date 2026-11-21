@@ -16,7 +16,8 @@ func RegisterNotificationRoutes(app *fiber.App) {
 	db := database.GetPostgresDB()
 	userRepo := userRepo.NewUserRepository(db)
 	notificationRepo := notificationRepo.NewNotificationRepository(db)
-	notificationService := service.NewNotificationService(db, notificationRepo, userRepo)
+	transactionManager := database.NewTransactionManager(db)
+	notificationService := service.NewNotificationService(transactionManager, notificationRepo, userRepo)
 	notificationHandler := handler.NewNotificationHandler(notificationService)
 
 	notificationRoute := app.Group("/pingspot/api/notification", middleware.ValidateAccessToken())

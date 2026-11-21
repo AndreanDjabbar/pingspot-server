@@ -21,7 +21,8 @@ func RegisterAuthRoutes(app *fiber.App) {
 	userProfileRepo := userRepository.NewUserProfileRepository(db)
 	userSessionRepo := userRepository.NewUserSessionRepository(db)
 	cacheRepo := redis.NewCacheRepository(&rdb)
-	authService := service.NewAuthService(db, userRepo, userProfileRepo, userSessionRepo, cacheRepo)
+	transactionManager := database.NewTransactionManager(db)
+	authService := service.NewAuthService(transactionManager, userRepo, userProfileRepo, userSessionRepo, cacheRepo)
 	authHandler := handler.NewAuthHandler(authService)
 
 	authRoute := app.Group("/pingspot/api/auth")

@@ -7,6 +7,7 @@ import (
 	"pingspot/internal/domain/social_service/dto"
 	socialRepository "pingspot/internal/domain/social_service/repository"
 	userRepository "pingspot/internal/domain/user_service/repository"
+	"pingspot/internal/infrastructure/database"
 	"pingspot/internal/model"
 	"pingspot/internal/task"
 	"pingspot/internal/util"
@@ -18,13 +19,13 @@ import (
 type SocialService struct {
 	followRepo   socialRepository.FollowRepository
 	userRepo     userRepository.UserRepository
-	db           *gorm.DB
+	txManager    database.TransactionManager
 	tasksService task.TaskService
 }
 
-func NewSocialService(db *gorm.DB, followRepo socialRepository.FollowRepository, userRepo userRepository.UserRepository, tasksService task.TaskService) *SocialService {
+func NewSocialService(txManager database.TransactionManager, followRepo socialRepository.FollowRepository, userRepo userRepository.UserRepository, tasksService task.TaskService) *SocialService {
 	return &SocialService{
-		db:           db,
+		txManager:    txManager,
 		followRepo:   followRepo,
 		userRepo:     userRepo,
 		tasksService: tasksService,
@@ -57,15 +58,17 @@ func (s *SocialService) Follow(ctx context.Context, userID uint, req dto.FollowR
 		return nil, util.New(500, "FOLLOW_CHECK_FAILED", "Failed to check follow status", err.Error(), nil)
 	}
 
-	if existingFollow != nil {
-		unfollowErr := s.followRepo.DeleteTX(ctx, s.db, existingFollow)
-		if unfollowErr != nil {
-			return nil, util.New(500, "UNFOLLOW_FAILED", "Failed to unfollow user", unfollowErr.Error(), nil)
+	err = s.txManager.Transaction(ctx, func(tx *gorm.DB) error {
+		if existingFollow != nil {
+			if unfollowErr := s.followRepo.DeleteTX(ctx, tx, existingFollow); unfollowErr != nil {
+				return util.New(500, "UNFOLLOW_FAILED", "Failed to unfollow user", unfollowErr.Error(), nil)
+			}
+			followProcess = "unfollow"
+			return nil
 		}
-		followProcess = "unfollow"
-	} else {
-		if err := s.followRepo.CreateTX(ctx, s.db, &follow); err != nil {
-			return nil, util.New(500, "FOLLOW_FAILED", "Failed to follow user", err.Error(), nil)
+
+		if err := s.followRepo.CreateTX(ctx, tx, &follow); err != nil {
+			return util.New(500, "FOLLOW_FAILED", "Failed to follow user", err.Error(), nil)
 		}
 		followProcess = "follow"
 
@@ -78,8 +81,12 @@ func (s *SocialService) Follow(ctx context.Context, userID uint, req dto.FollowR
 			model.UserNotificationCategory,
 			model.NotificationTypeInfo,
 		); err != nil {
-			return nil, util.New(500, "NOTIFICATION_TASK_FAILED", "Failed to create notification task", err.Error(), nil)
+			return util.New(500, "NOTIFICATION_TASK_FAILED", "Failed to create notification task", err.Error(), nil)
 		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return &dto.FollowResponse{
