@@ -11,11 +11,11 @@ import (
 )
 
 type ReportRepository interface {
+	WithTX(tx *gorm.DB) ReportRepository
 	Create(ctx context.Context, report *model.Report, tx *gorm.DB) error
-	UpdateTX(ctx context.Context, tx *gorm.DB, report *model.Report) (*model.Report, error)
-	DeleteTX(ctx context.Context, tx *gorm.DB, report *model.Report) (*model.Report, error)
+	Update(ctx context.Context, report *model.Report) (*model.Report, error)
+	Delete(ctx context.Context, report *model.Report) (*model.Report, error)
 	GetByID(ctx context.Context, reportID uint) (*model.Report, error)
-	GetByIDTX(ctx context.Context, tx *gorm.DB, reportID uint) (*model.Report, error)
 	Get(ctx context.Context) (*[]model.Report, error)
 	GetByReportStatus(ctx context.Context, status ...string) (*[]model.Report, error)
 	GetByReportStatusCount(ctx context.Context, status ...string) (map[string]int64, error)
@@ -35,6 +35,12 @@ type reportRepository struct {
 
 func NewReportRepository(db *gorm.DB) ReportRepository {
 	return &reportRepository{db: db}
+}
+
+func (r *reportRepository) WithTX(tx *gorm.DB) ReportRepository {
+	return &reportRepository{
+		db: tx,
+	}
 }
 
 func (r *reportRepository) GetByReportTypeCount(ctx context.Context) (*dto.TotalReportCount, error) {
@@ -451,37 +457,18 @@ func (r *reportRepository) GetByIsDeletedPaginated(ctx context.Context, limit, c
 	return &reports, nil
 }
 
-func (r *reportRepository) UpdateTX(ctx context.Context, tx *gorm.DB, report *model.Report) (*model.Report, error) {
-	if err := tx.WithContext(ctx).Save(report).Error; err != nil {
+func (r *reportRepository) Update(ctx context.Context, report *model.Report) (*model.Report, error) {
+	if err := r.db.WithContext(ctx).Save(report).Error; err != nil {
 		return nil, err
 	}
 	return report, nil
 }
 
-func (r *reportRepository) DeleteTX(ctx context.Context, tx *gorm.DB, report *model.Report) (*model.Report, error) {
-	if err := tx.WithContext(ctx).Delete(report).Error; err != nil {
+func (r *reportRepository) Delete(ctx context.Context, report *model.Report) (*model.Report, error) {
+	if err := r.db.WithContext(ctx).Delete(report).Error; err != nil {
 		return nil, err
 	}
 	return report, nil
-}
-
-func (r *reportRepository) GetByID(ctx context.Context, reportID uint) (*model.Report, error) {
-	var report model.Report
-
-	if err := r.db.WithContext(ctx).
-		Preload("User.Profile").
-		Preload("ReportLocation").
-		Preload("ReportImages").
-		Preload("ReportReactions").
-		Preload("ReportVotes").
-		Preload("ReportProgress", func(db *gorm.DB) *gorm.DB {
-			return db.Order("created_at DESC")
-		}).
-		First(&report, "reports.id = ?", reportID).Error; err != nil {
-		return nil, err
-	}
-
-	return &report, nil
 }
 
 func (r *reportRepository) GetByIDIsDeleted(ctx context.Context, reportID uint, isDeleted bool) (*model.Report, error) {
@@ -526,9 +513,10 @@ func (r *reportRepository) GetByIsDeleted(ctx context.Context, isDeleted bool) (
 	return report, nil
 }
 
-func (r *reportRepository) GetByIDTX(ctx context.Context, tx *gorm.DB, reportID uint) (*model.Report, error) {
+func (r *reportRepository) GetByID(ctx context.Context, reportID uint) (*model.Report, error) {
 	var report model.Report
-	if err := tx.WithContext(ctx).
+
+	if err := r.db.WithContext(ctx).
 		Preload("User.Profile").
 		Preload("ReportLocation").
 		Preload("ReportImages").
@@ -540,5 +528,6 @@ func (r *reportRepository) GetByIDTX(ctx context.Context, tx *gorm.DB, reportID 
 		First(&report, "reports.id = ?", reportID).Error; err != nil {
 		return nil, err
 	}
+
 	return &report, nil
 }

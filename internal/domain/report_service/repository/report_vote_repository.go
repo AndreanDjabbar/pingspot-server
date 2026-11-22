@@ -8,17 +8,17 @@ import (
 )
 
 type ReportVoteRepository interface {
+	WithTX(tx *gorm.DB) ReportVoteRepository
 	GetByUserReportID(ctx context.Context, userID, reportID uint) (*model.ReportVote, error)
-	GetByUserReportIDTX(ctx context.Context, tx *gorm.DB, userID, reportID uint) (*model.ReportVote, error)
-	CreateTX(ctx context.Context, tx *gorm.DB, vote *model.ReportVote) (*model.ReportVote, error)
-	UpdateTX(ctx context.Context, tx *gorm.DB, vote *model.ReportVote) (*model.ReportVote, error)
-	DeleteTX(ctx context.Context, tx *gorm.DB, vote *model.ReportVote) error
+	Create(ctx context.Context, vote *model.ReportVote) (*model.ReportVote, error)
+	Update(ctx context.Context, vote *model.ReportVote) (*model.ReportVote, error)
+	Delete(ctx context.Context, vote *model.ReportVote) error
 	GetReportVoteCount(ctx context.Context, voteType model.ReportStatus, reportID uint) (int64, error)
-	GetReportVoteCountsTX(ctx context.Context, tx *gorm.DB, reportID uint) (map[model.ReportStatus]int64, error)
-	GetHighestVoteTypeTX(ctx context.Context, tx *gorm.DB, reportID uint) (model.ReportStatus, error)
+	GetReportVoteCounts(ctx context.Context, reportID uint) (map[model.ReportStatus]int64, error)
+	GetHighestVoteType(ctx context.Context, reportID uint) (model.ReportStatus, error)
 	GetResolvedVoteCount(ctx context.Context, reportID uint) (int64, error)
 	GetOnProgressVoteCount(ctx context.Context, reportID uint) (int64, error)
-	GetTotalVoteCountTX(ctx context.Context, tx *gorm.DB, reportID uint) (int64, error)
+	GetTotalVoteCount(ctx context.Context, reportID uint) (int64, error)
 }
 
 type reportVoteRepository struct {
@@ -29,6 +29,12 @@ func NewReportVoteRepository(db *gorm.DB) ReportVoteRepository {
 	return &reportVoteRepository{db: db}
 }
 
+func (r *reportVoteRepository) WithTX(tx *gorm.DB) ReportVoteRepository {
+	return &reportVoteRepository{
+		db: tx,
+	}
+}
+
 func (r *reportVoteRepository) GetByUserReportID(ctx context.Context, userID, reportID uint) (*model.ReportVote, error) {
 	var vote model.ReportVote
 	if err := r.db.WithContext(ctx).Where("user_id = ? AND report_id = ?", userID, reportID).First(&vote).Error; err != nil {
@@ -37,9 +43,9 @@ func (r *reportVoteRepository) GetByUserReportID(ctx context.Context, userID, re
 	return &vote, nil
 }
 
-func (r *reportVoteRepository) GetTotalVoteCountTX(ctx context.Context, tx *gorm.DB, reportID uint) (int64, error) {
+func (r *reportVoteRepository) GetTotalVoteCount(ctx context.Context, reportID uint) (int64, error) {
 	var count int64
-	if err := tx.WithContext(ctx).Model(&model.ReportVote{}).
+	if err := r.db.WithContext(ctx).Model(&model.ReportVote{}).
 		Where("report_id = ?", reportID).
 		Count(&count).Error; err != nil {
 		return 0, err
@@ -47,8 +53,8 @@ func (r *reportVoteRepository) GetTotalVoteCountTX(ctx context.Context, tx *gorm
 	return count, nil
 }
 
-func (r *reportVoteRepository) GetReportVoteCountsTX(ctx context.Context, tx *gorm.DB, reportID uint) (map[model.ReportStatus]int64, error) {
-	rows, err := tx.WithContext(ctx).Model(&model.ReportVote{}).
+func (r *reportVoteRepository) GetReportVoteCounts(ctx context.Context, reportID uint) (map[model.ReportStatus]int64, error) {
+	rows, err := r.db.WithContext(ctx).Model(&model.ReportVote{}).
 		Select("vote_type, COUNT(*) as count").
 		Where("report_id = ?", reportID).
 		Group("vote_type").
@@ -73,20 +79,12 @@ func (r *reportVoteRepository) GetReportVoteCountsTX(ctx context.Context, tx *go
 	return counts, nil
 }
 
-func (r *reportVoteRepository) GetByUserReportIDTX(ctx context.Context, tx *gorm.DB, userID, reportID uint) (*model.ReportVote, error) {
-	var vote model.ReportVote
-	if err := tx.WithContext(ctx).Where("user_id = ? AND report_id = ?", userID, reportID).First(&vote).Error; err != nil {
-		return nil, err
-	}
-	return &vote, nil
-}
-
-func (r *reportVoteRepository) GetHighestVoteTypeTX(ctx context.Context, tx *gorm.DB, reportID uint) (model.ReportStatus, error) {
+func (r *reportVoteRepository) GetHighestVoteType(ctx context.Context, reportID uint) (model.ReportStatus, error) {
 	var result struct {
 		VoteType model.ReportStatus
 		Count    int64
 	}
-	if err := tx.WithContext(ctx).Model(&model.ReportVote{}).
+	if err := r.db.WithContext(ctx).Model(&model.ReportVote{}).
 		Select("vote_type, COUNT(*) as count").
 		Where("report_id = ?", reportID).
 		Group("vote_type").
@@ -98,22 +96,22 @@ func (r *reportVoteRepository) GetHighestVoteTypeTX(ctx context.Context, tx *gor
 	return result.VoteType, nil
 }
 
-func (r *reportVoteRepository) CreateTX(ctx context.Context, tx *gorm.DB, vote *model.ReportVote) (*model.ReportVote, error) {
-	if err := tx.WithContext(ctx).Create(vote).Error; err != nil {
+func (r *reportVoteRepository) Create(ctx context.Context, vote *model.ReportVote) (*model.ReportVote, error) {
+	if err := r.db.WithContext(ctx).Create(vote).Error; err != nil {
 		return nil, err
 	}
 	return vote, nil
 }
 
-func (r *reportVoteRepository) UpdateTX(ctx context.Context, tx *gorm.DB, vote *model.ReportVote) (*model.ReportVote, error) {
-	if err := tx.WithContext(ctx).Save(vote).Error; err != nil {
+func (r *reportVoteRepository) Update(ctx context.Context, vote *model.ReportVote) (*model.ReportVote, error) {
+	if err := r.db.WithContext(ctx).Save(vote).Error; err != nil {
 		return nil, err
 	}
 	return vote, nil
 }
 
-func (r *reportVoteRepository) DeleteTX(ctx context.Context, tx *gorm.DB, vote *model.ReportVote) error {
-	if err := tx.WithContext(ctx).Delete(vote).Error; err != nil {
+func (r *reportVoteRepository) Delete(ctx context.Context, vote *model.ReportVote) error {
+	if err := r.db.WithContext(ctx).Delete(vote).Error; err != nil {
 		return err
 	}
 	return nil

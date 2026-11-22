@@ -16,8 +16,9 @@ func StartCron(client *asynq.Client) {
 	db := database.GetPostgresDB()
 	reportRepo := reportRepo.NewReportRepository(db)
 	tasksService := task.NewTaskService(client)
+	transactionManager := database.NewTransactionManager(db)
 
-	cronHandler := newCronHandler(db, reportRepo, tasksService)
+	cronHandler := newCronHandler(transactionManager, reportRepo, tasksService)
 
 	_, err := c.AddFunc("0 0 11 * * *", func() {
 		err := cronHandler.checkPotentiallyResolvedReport()

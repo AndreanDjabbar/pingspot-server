@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"pingspot/internal/domain/report_service/repository"
+	"pingspot/internal/infrastructure/database"
 	"pingspot/internal/logger"
 	"pingspot/internal/model"
 	"pingspot/internal/task"
@@ -14,14 +15,14 @@ import (
 )
 
 type cronHandler struct {
-	db           *gorm.DB
+	txManager  database.TransactionManager
 	reportRepo   repository.ReportRepository
 	tasksService task.TaskService
 }
 
-func newCronHandler(db *gorm.DB, reportRepo repository.ReportRepository, tasksService task.TaskService) *cronHandler {
+func newCronHandler(txManager database.TransactionManager, reportRepo repository.ReportRepository, tasksService task.TaskService) *cronHandler {
 	return &cronHandler{
-		db:           db,
+		txManager:    txManager,
 		reportRepo:   reportRepo,
 		tasksService: tasksService,
 	}
@@ -186,20 +187,20 @@ func (h *cronHandler) expireOldReports() error {
 	for _, report := range *reports {
 		if report.LastUpdatedProgressAt != nil && report.LastUpdatedBy != "" {
 			if *report.LastUpdatedProgressAt <= threshold && report.LastUpdatedBy == "SYSTEM" {
-				tx := h.db.Begin()
-
 				report.ReportStatus = "EXPIRED"
 				report.LastUpdatedBy = "SYSTEM"
 				report.UpdatedAt = time.Now().Unix()
 
-				if _, err := h.reportRepo.UpdateTX(ctx, tx, &report); err != nil {
-					tx.Rollback()
-					logger.Error(fmt.Sprintf("Failed to expire report ID %d: %v", report.ID, err))
-					continue
-				}
+				err := h.txManager.Transaction(ctx, func(tx *gorm.DB) error {
+					txReportRepo := h.reportRepo.WithTX(tx)
 
-				if err := tx.Commit().Error; err != nil {
-					logger.Error(fmt.Sprintf("Failed to commit transaction for report ID %d: %v", report.ID, err))
+					if _, err := txReportRepo.Update(ctx, &report); err != nil {
+						return err
+					}
+					return nil
+				})
+				if err != nil {
+					logger.Error(fmt.Sprintf("Failed to expire report ID %d: %v", report.ID, err))
 					continue
 				}
 
@@ -224,16 +225,16 @@ func (h *cronHandler) hardDeleteOldReports() error {
 
 	for _, deletedReport := range deletedReports {
 		if deletedReport.DeletedAt != nil && threshold != nil && *deletedReport.DeletedAt <= *threshold {
-			tx := h.db.Begin()
+			err := h.txManager.Transaction(ctx, func(tx *gorm.DB) error {
+				txReportRepo := h.reportRepo.WithTX(tx)
 
-			if _, err := h.reportRepo.DeleteTX(ctx, tx, deletedReport); err != nil {
-				tx.Rollback()
+				if _, err := txReportRepo.Delete(ctx, deletedReport); err != nil {
+					return err
+				}
+				return nil
+			})
+			if err != nil {
 				logger.Error(fmt.Sprintf("Failed to hard delete report ID %d: %v", deletedReport.ID, err))
-				continue
-			}
-
-			if err := tx.Commit().Error; err != nil {
-				logger.Error(fmt.Sprintf("Failed to commit transaction for hard deleting report ID %d: %v", deletedReport.ID, err))
 				continue
 			}
 			logger.Info(fmt.Sprintf("Report ID %d has been hard deleted", deletedReport.ID))

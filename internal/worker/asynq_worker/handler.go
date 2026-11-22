@@ -350,7 +350,9 @@ func (h *taskHandler) autoResolveReportHandler(ctx context.Context, t *asynq.Tas
 	}
 
 	err := h.txManager.Transaction(ctx, func(tx *gorm.DB) error {
-		report, err := h.reportRepo.GetByIDTX(ctx, tx, payload.ReportID)
+		txReportRepo := h.reportRepo.WithTX(tx)
+
+		report, err := txReportRepo.GetByID(ctx, payload.ReportID)
 		if err != nil {
 			return fmt.Errorf("report not found: %w", err)
 		}
@@ -365,7 +367,7 @@ func (h *taskHandler) autoResolveReportHandler(ctx context.Context, t *asynq.Tas
 				report.ReportStatus = "RESOLVED"
 				report.LastUpdatedProgressAt = util.Int64PtrOrNil(time.Now().Unix())
 				report.LastUpdatedBy = model.System
-				if _, err := h.reportRepo.UpdateTX(ctx, tx, report); err != nil {
+				if _, err := txReportRepo.Update(ctx, report); err != nil {
 					return fmt.Errorf("failed to update report: %w", err)
 				}
 				logger.Info("Auto resolve report handler success for", zap.Int("report_id", int(report.ID)))

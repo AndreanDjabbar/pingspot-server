@@ -8,8 +8,9 @@ import (
 )
 
 type ReportImageRepository interface {
+	WithTX(tx *gorm.DB) ReportImageRepository
 	Create(ctx context.Context, images *model.ReportImage, tx *gorm.DB) error
-	UpdateTX(ctx context.Context, tx *gorm.DB, images *model.ReportImage) (*model.ReportImage, error)
+	Update(ctx context.Context, images *model.ReportImage) (*model.ReportImage, error)
 	GetByReportID(ctx context.Context, reportID uint) (*model.ReportImage, error)
 }
 
@@ -21,6 +22,12 @@ func NewReportImageRepository(db *gorm.DB) ReportImageRepository {
 	return &reportImageRepository{db: db}
 }
 
+func (r *reportImageRepository) WithTX(tx *gorm.DB) ReportImageRepository {
+	return &reportImageRepository{
+		db: tx,
+	}
+}
+
 func (r *reportImageRepository) Create(ctx context.Context, images *model.ReportImage, tx *gorm.DB) error {
 	if tx != nil {
 		return tx.WithContext(ctx).Create(images).Error
@@ -28,8 +35,8 @@ func (r *reportImageRepository) Create(ctx context.Context, images *model.Report
 	return r.db.WithContext(ctx).Create(images).Error
 }
 
-func (r *reportImageRepository) UpdateTX(ctx context.Context, tx *gorm.DB, images *model.ReportImage) (*model.ReportImage, error) {
-	if err := tx.WithContext(ctx).Save(images).Error; err != nil {
+func (r *reportImageRepository) Update(ctx context.Context, images *model.ReportImage) (*model.ReportImage, error) {
+	if err := r.db.WithContext(ctx).Save(images).Error; err != nil {
 		return nil, err
 	}
 	return images, nil

@@ -9,9 +9,10 @@ import (
 )
 
 type ReportSavedRepository interface {
-	CreateTX(ctx context.Context, tx *gorm.DB, reportSaved *model.ReportSaved) error
+	WithTX(tx *gorm.DB) ReportSavedRepository
+	Create(ctx context.Context, reportSaved *model.ReportSaved) error
 	GetByUserIDAndReportID(ctx context.Context, userID uint, reportID uint) (*model.ReportSaved, error)
-	DeleteTX(ctx context.Context, tx *gorm.DB, reportSaved *model.ReportSaved) error
+	Delete(ctx context.Context, reportSaved *model.ReportSaved) error
 	GetByUserIDIsDeletedPaginated(ctx context.Context, userID uint, isDeleted bool, limit int, cursorID *string) (*[]dto.GetSavedReports, error)
 }
 
@@ -23,8 +24,14 @@ func NewReportSavedRepository(db *gorm.DB) ReportSavedRepository {
 	return &reportSavedRepository{db: db}
 }
 
-func (r *reportSavedRepository) CreateTX(ctx context.Context, tx *gorm.DB, reportSaved *model.ReportSaved) error {
-	if err := tx.WithContext(ctx).Create(reportSaved).Error; err != nil {
+func (r *reportSavedRepository) WithTX(tx *gorm.DB) ReportSavedRepository {
+	return &reportSavedRepository{
+		db: tx,
+	}
+}
+
+func (r *reportSavedRepository) Create(ctx context.Context, reportSaved *model.ReportSaved) error {
+	if err := r.db.WithContext(ctx).Create(reportSaved).Error; err != nil {
 		return err
 	}
 	return nil
@@ -38,8 +45,8 @@ func (r *reportSavedRepository) GetByUserIDAndReportID(ctx context.Context, user
 	return &reportSaved, nil
 }
 
-func (r *reportSavedRepository) DeleteTX(ctx context.Context, tx *gorm.DB, reportSaved *model.ReportSaved) error {
-	if err := tx.WithContext(ctx).Delete(reportSaved).Error; err != nil {
+func (r *reportSavedRepository) Delete(ctx context.Context, reportSaved *model.ReportSaved) error {
+	if err := r.db.WithContext(ctx).Delete(reportSaved).Error; err != nil {
 		return err
 	}
 	return nil
