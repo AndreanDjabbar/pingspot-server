@@ -59,15 +59,17 @@ func (s *SocialService) Follow(ctx context.Context, userID uint, req dto.FollowR
 	}
 
 	err = s.txManager.Transaction(ctx, func(tx *gorm.DB) error {
+		txFollowRepo := s.followRepo.WithTX(tx)
+
 		if existingFollow != nil {
-			if unfollowErr := s.followRepo.DeleteTX(ctx, tx, existingFollow); unfollowErr != nil {
+			if unfollowErr := txFollowRepo.Delete(ctx, existingFollow); unfollowErr != nil {
 				return util.New(500, "UNFOLLOW_FAILED", "Failed to unfollow user", unfollowErr.Error(), nil)
 			}
 			followProcess = "unfollow"
 			return nil
 		}
 
-		if err := s.followRepo.CreateTX(ctx, tx, &follow); err != nil {
+		if err := txFollowRepo.Create(ctx, &follow); err != nil {
 			return util.New(500, "FOLLOW_FAILED", "Failed to follow user", err.Error(), nil)
 		}
 		

@@ -9,9 +9,10 @@ import (
 )
 
 type FollowRepository interface {
-	CreateTX(ctx context.Context, tx *gorm.DB, follow *model.Follow) error
+	WithTX(tx *gorm.DB) FollowRepository
+	Create(ctx context.Context, follow *model.Follow) error
 	GetByFollowerAndFollowing(ctx context.Context, followerUserID uint, followingID uint, followingType model.FollowingType) (*model.Follow, error)
-	DeleteTX(ctx context.Context, tx *gorm.DB, follow *model.Follow) error
+	Delete(ctx context.Context, follow *model.Follow) error
 	GetFollowersCount(ctx context.Context, followingID uint, followingType model.FollowingType) (int64, error)
 	GetFollowingCount(ctx context.Context, followerUserID uint, followingType model.FollowingType) (int64, error)
 	GetFollowersByUserID(ctx context.Context, userID uint) ([]*model.User, error)
@@ -28,8 +29,14 @@ func NewFollowRepository(db *gorm.DB) FollowRepository {
 	return &followRepository{db: db}
 }
 
-func (r *followRepository) CreateTX(ctx context.Context, tx *gorm.DB, follow *model.Follow) error {
-	if err := tx.WithContext(ctx).Create(follow).Error; err != nil {
+func (r *followRepository) WithTX(tx *gorm.DB) FollowRepository {
+	return &followRepository{
+		db: tx,
+	}
+}
+
+func (r *followRepository) Create(ctx context.Context, follow *model.Follow) error {
+	if err := r.db.WithContext(ctx).Create(follow).Error; err != nil {
 		return err
 	}
 	return nil
@@ -45,6 +52,13 @@ func (r *followRepository) GetByFollowerAndFollowing(ctx context.Context, follow
 
 func (r *followRepository) DeleteTX(ctx context.Context, tx *gorm.DB, follow *model.Follow) error {
 	if err := tx.WithContext(ctx).Delete(follow).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *followRepository) Delete(ctx context.Context, follow *model.Follow) error {
+	if err := r.db.WithContext(ctx).Delete(follow).Error; err != nil {
 		return err
 	}
 	return nil
