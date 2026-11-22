@@ -40,7 +40,6 @@ func RegisterReportRoutes(app *fiber.App) {
 
 	reportService := reportService.NewreportService(
 		transactionManager,
-		mongoDB,
 		reportRepo, 
 		reportLocationRepo, reportReactionRepo, 
 		reportImageRepo, 

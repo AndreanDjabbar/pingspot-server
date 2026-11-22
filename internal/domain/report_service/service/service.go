@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -372,7 +371,6 @@ func convertRepliesToDTO(comments []*model.ReportComment, users map[uint]*model.
 
 type ReportService struct {
 	txManager          database.TransactionManager
-	mongoDB            *mongo.Client
 	reportRepo         reportRepository.ReportRepository
 	reportLocationRepo reportRepository.ReportLocationRepository
 	reportImageRepo    reportRepository.ReportImageRepository
@@ -388,7 +386,6 @@ type ReportService struct {
 
 func NewreportService(
 	txManager database.TransactionManager,
-	mongoDB *mongo.Client,
 	reportRepo reportRepository.ReportRepository,
 	locationRepo reportRepository.ReportLocationRepository,
 	reportReaction reportRepository.ReportReactionRepository,
@@ -403,7 +400,6 @@ func NewreportService(
 ) *ReportService {
 	return &ReportService{
 		txManager:          txManager,
-		mongoDB:            mongoDB,
 		reportRepo:         reportRepo,
 		reportLocationRepo: locationRepo,
 		reportImageRepo:    imageRepo,
