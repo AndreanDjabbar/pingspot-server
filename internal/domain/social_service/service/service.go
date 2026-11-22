@@ -70,6 +70,9 @@ func (s *SocialService) Follow(ctx context.Context, userID uint, req dto.FollowR
 		}
 
 		if err := txFollowRepo.Create(ctx, &follow); err != nil {
+			if errors.Is(err, gorm.ErrDuplicatedKey) {
+				return util.New(409, "ALREADY_FOLLOWING", "You are already following this user", "", nil)
+			}
 			return util.New(500, "FOLLOW_FAILED", "Failed to follow user", err.Error(), nil)
 		}
 		

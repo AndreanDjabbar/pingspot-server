@@ -156,6 +156,19 @@ func Migrate(db *gorm.DB) error {
 				return tx.Migrator().DropIndex(&model.IdempotencyRecord{}, "idx_idempotency_scope")
 			},
 		},
+		{
+			ID: "22112026_add_follow_unique_constraint",
+			Migrate: func(tx *gorm.DB) error {
+				hasIndex := tx.Migrator().HasIndex(&model.Follow{}, "idx_unique_follow")
+				if hasIndex {
+					return nil
+				}
+				return tx.Migrator().CreateIndex(&model.Follow{}, "idx_unique_follow")
+			},
+			Rollback: func(tx *gorm.DB) error {
+				return tx.Migrator().DropIndex(&model.Follow{}, "idx_unique_follow")
+			},
+		},
 	})
 
 	err := m.Migrate()
