@@ -378,13 +378,16 @@ func (s *AuthService) Register(ctx context.Context, req dto.RegisterRequest, isV
 
 	var createdUser *model.User
 	err = s.txManager.Transaction(ctx, func(tx *gorm.DB) error {
-		createdUser, err = s.userRepo.CreateTX(ctx, tx, &user)
+		txUserRepo := s.userRepo.WithTX(tx)
+		txUserProfileRepo := s.userProfileRepo.WithTX(tx)
+
+		createdUser, err = txUserRepo.Create(ctx, &user)
 		if err != nil {
 			return util.New(500, "USER_CREATE_FAILED", "Failed to create user", err.Error(), nil)
 		}
 
 		newProfile := model.UserProfile{UserID: createdUser.ID}
-		if _, err := s.userProfileRepo.CreateTX(ctx, tx, &newProfile); err != nil {
+		if _, err := txUserProfileRepo.Create(ctx, &newProfile); err != nil {
 			return util.New(500, "PROFILE_CREATE_FAILED", "Failed to create user profile", err.Error(), nil)
 		}
 		return nil
@@ -474,7 +477,9 @@ func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (*model.U
 
 	var userSession *model.UserSession
 	err = s.txManager.Transaction(ctx, func(tx *gorm.DB) error {
-		userSession, err = s.userSessionRepo.CreateTX(ctx, tx, &model.UserSession{
+		txUserSessionRepo := s.userSessionRepo.WithTX(tx)
+
+		userSession, err = txUserSessionRepo.Create(ctx, &model.UserSession{
 			UserID:             user.ID,
 			ExpiresAt:          time.Now().Add(getRefreshTokenDuration()).Unix(),
 			IsActive:           true,
@@ -615,7 +620,9 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (st
 	userSession.ExpiresAt = newExpiresAt
 
 	err = s.txManager.Transaction(ctx, func(tx *gorm.DB) error {
-		if err := s.userSessionRepo.UpdateTX(ctx, tx, userSession); err != nil {
+		txUserSessionRepo := s.userSessionRepo.WithTX(tx)
+
+		if err := txUserSessionRepo.Update(ctx, userSession); err != nil {
 			return util.New(500, "SESSION_UPDATE_FAILED", "Failed to update session", err.Error(), nil)
 		}
 		return nil
@@ -706,7 +713,9 @@ func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
 
 	userSession.IsActive = false
 	err = s.txManager.Transaction(ctx, func(tx *gorm.DB) error {
-		if err := s.userSessionRepo.UpdateTX(ctx, tx, userSession); err != nil {
+		txUserSessionRepo := s.userSessionRepo.WithTX(tx)
+
+		if err := txUserSessionRepo.Update(ctx, userSession); err != nil {
 			return util.New(500, "USER_SESSION_UPDATE_FAILED", "Failed to update user session", err.Error(), nil)
 		}
 		return nil

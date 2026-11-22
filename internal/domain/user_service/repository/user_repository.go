@@ -19,13 +19,11 @@ type UserRepository interface {
 	GetByEmail(ctx context.Context, email string) (*model.User, error)
 	GetByUsername(ctx context.Context, username string) (*model.User, error)
 	Save(ctx context.Context, user *model.User) error
-	Create(ctx context.Context, user *model.User) error
-	CreateTX(ctx context.Context, tx *gorm.DB, user *model.User) (*model.User, error)
+	Create(ctx context.Context, user *model.User) (*model.User, error)
 	Update(ctx context.Context, user *model.User) (*model.User, error)
-	UpdateTX(ctx context.Context, tx *gorm.DB, user *model.User) (*model.User, error)
 	FullTextSearchUsers(ctx context.Context, query string, limit int) (*[]model.User, error)
 	FullTextSearchUsersPaginated(ctx context.Context, searchQuery string, limit int, cursorID uint, verified bool) (*[]model.User, error)
-	UpdateFullNameTX(ctx context.Context, tx *gorm.DB, userID uint, fullName string) error
+	UpdateFullName(ctx context.Context, userID uint, fullName string) error
 	Get(ctx context.Context) (*[]model.User, error)
 	GetByUserGenderCount(ctx context.Context) (map[string]int64, error)
 	GetMonthlyUserCounts(ctx context.Context) (map[string]int64, error)
@@ -63,13 +61,6 @@ func (r *userRepository) GetUsersCount(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	return count, nil
-}
-
-func (r *userRepository) UpdateTX(ctx context.Context, tx *gorm.DB, user *model.User) (*model.User, error) {
-	if err := tx.WithContext(ctx).Save(user).Error; err != nil {
-		return nil, err
-	}
-	return user, nil
 }
 
 func (r *userRepository) Update(ctx context.Context, user *model.User) (*model.User, error) {
@@ -235,12 +226,8 @@ func (r *userRepository) GetByID(ctx context.Context, userID uint) (*model.User,
 	return &user, nil
 }
 
-func (r *userRepository) Create(ctx context.Context, user *model.User) error {
-	return r.db.WithContext(ctx).Create(user).Error
-}
-
-func (r *userRepository) CreateTX(ctx context.Context, tx *gorm.DB, user *model.User) (*model.User, error) {
-	if err := tx.WithContext(ctx).Create(user).Error; err != nil {
+func (r *userRepository) Create(ctx context.Context, user *model.User) (*model.User, error) {
+	if err := r.db.WithContext(ctx).Create(user).Error; err != nil {
 		return nil, err
 	}
 	return user, nil
@@ -250,8 +237,8 @@ func (r *userRepository) Save(ctx context.Context, user *model.User) error {
 	return r.db.WithContext(ctx).Save(user).Error
 }
 
-func (r *userRepository) UpdateFullNameTX(ctx context.Context, tx *gorm.DB, userID uint, fullName string) error {
-	return tx.WithContext(ctx).Model(&model.User{}).
+func (r *userRepository) UpdateFullName(ctx context.Context, userID uint, fullName string) error {
+	return r.db.WithContext(ctx).Model(&model.User{}).
 		Where("id = ?", userID).
 		Update("full_name", fullName).Error
 }

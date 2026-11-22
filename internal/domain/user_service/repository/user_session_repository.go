@@ -8,11 +8,11 @@ import (
 )
 
 type UserSessionRepository interface {
-	CreateTX(ctx context.Context, tx *gorm.DB, user *model.UserSession) (*model.UserSession, error)
+	WithTX(tx *gorm.DB) UserSessionRepository
+	Create(ctx context.Context, user *model.UserSession) (*model.UserSession, error)
 	GetByID(ctx context.Context, id uint) (*model.UserSession, error)
 	GetByRefreshTokenID(ctx context.Context, refreshTokenID string) (*model.UserSession, error)
 	Update(ctx context.Context, userSession *model.UserSession) error
-	UpdateTX(ctx context.Context, tx *gorm.DB, userSession *model.UserSession) error
 }
 
 type userSessionRepository struct {
@@ -23,8 +23,14 @@ func NewUserSessionRepository(db *gorm.DB) UserSessionRepository {
 	return &userSessionRepository{db: db}
 }
 
-func (r *userSessionRepository) CreateTX(ctx context.Context, tx *gorm.DB, userSession *model.UserSession) (*model.UserSession, error) {
-	if err := tx.WithContext(ctx).Create(userSession).Error; err != nil {
+func (r *userSessionRepository) WithTX(tx *gorm.DB) UserSessionRepository {
+	return &userSessionRepository{
+		db: tx,
+	}
+}
+
+func (r *userSessionRepository) Create(ctx context.Context, userSession *model.UserSession) (*model.UserSession, error) {
+	if err := r.db.WithContext(ctx).Create(userSession).Error; err != nil {
 		return nil, err
 	}
 	return userSession, nil
@@ -40,13 +46,6 @@ func (r *userSessionRepository) GetByID(ctx context.Context, id uint) (*model.Us
 
 func (r *userSessionRepository) Update(ctx context.Context, userSession *model.UserSession) error {
 	if err := r.db.WithContext(ctx).Save(userSession).Error; err != nil {
-		return err
-	}
-	return nil
-}
-
-func (r *userSessionRepository) UpdateTX(ctx context.Context, tx *gorm.DB, userSession *model.UserSession) error {
-	if err := tx.WithContext(ctx).Save(userSession).Error; err != nil {
 		return err
 	}
 	return nil
