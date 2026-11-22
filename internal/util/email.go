@@ -101,6 +101,10 @@ func RenderEmailTemplate(data EmailData) (string, error) {
 		if !ok || userEmail == "" {
 			return "", fmt.Errorf("user email is required for new report email")
 		}
+		userName, ok := data.TemplateData["UserName"].(string)
+		if !ok || userName == "" {
+			return "", fmt.Errorf("user name is required for new report email")
+		}
 
 		templateHTML = data.BodyTempate
 		templateData = struct {
@@ -109,7 +113,7 @@ func RenderEmailTemplate(data EmailData) (string, error) {
 			UserEmail   string
 			ReportLink  string
 		}{
-			UserName:    data.RecipientName,
+			UserName:    userName,
 			ReportTitle: reportTitle,
 			ReportLink:  reportLink,
 			UserEmail:   userEmail,
