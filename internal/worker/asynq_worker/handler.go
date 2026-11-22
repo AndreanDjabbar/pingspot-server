@@ -7,6 +7,7 @@ import (
 	notificationRepo "pingspot/internal/domain/notification_service/repository"
 	reportRepo "pingspot/internal/domain/report_service/repository"
 	socialRepo "pingspot/internal/domain/social_service/repository"
+	"pingspot/internal/infrastructure/database"
 	redisRepo "pingspot/internal/infrastructure/redis"
 	"pingspot/internal/logger"
 	"pingspot/internal/model"
@@ -20,20 +21,20 @@ import (
 )
 
 type taskHandler struct {
-	DB               *gorm.DB
-	ReportRepo       reportRepo.ReportRepository
-	NotificationRepo notificationRepo.NotificationRepository
-	SocialRepo       socialRepo.FollowRepository
-	CacheRepo        redisRepo.CacheRepository
+	txManager        database.TransactionManager
+	reportRepo       reportRepo.ReportRepository
+	notificationRepo notificationRepo.NotificationRepository
+	socialRepo       socialRepo.FollowRepository
+	cacheRepo        redisRepo.CacheRepository
 }
 
-func newTaskHandler(db *gorm.DB, cacheRepo redisRepo.CacheRepository, reportRepo reportRepo.ReportRepository, notificationRepo notificationRepo.NotificationRepository, socialRepo socialRepo.FollowRepository) *taskHandler {
+func newTaskHandler(txManager database.TransactionManager, cacheRepo redisRepo.CacheRepository, reportRepo reportRepo.ReportRepository, notificationRepo notificationRepo.NotificationRepository, socialRepo socialRepo.FollowRepository) *taskHandler {
 	return &taskHandler{
-		DB:               db,
-		ReportRepo:       reportRepo,
-		NotificationRepo: notificationRepo,
-		SocialRepo:       socialRepo,
-		CacheRepo:        cacheRepo,
+		txManager: txManager,
+		reportRepo:       reportRepo,
+		notificationRepo: notificationRepo,
+		socialRepo:       socialRepo,
+		cacheRepo:        cacheRepo,
 	}
 }
 
@@ -348,38 +349,31 @@ func (h *taskHandler) autoResolveReportHandler(ctx context.Context, t *asynq.Tas
 		return err
 	}
 
-	tx := h.DB.Begin()
-	report, err := h.ReportRepo.GetByIDTX(ctx, tx, payload.ReportID)
-	if err != nil {
-		tx.Rollback()
-		return fmt.Errorf("report not found: %w", err)
-	}
-
-	if report.ReportStatus == "POTENTIALLY_RESOLVED" {
-		if report.PotentiallyResolvedAt == nil {
-			tx.Rollback()
-			return fmt.Errorf("report %d has POTENTIALLY_RESOLVED status but PotentiallyResolvedAt is nil", report.ID)
+	err := h.txManager.Transaction(ctx, func(tx *gorm.DB) error {
+		report, err := h.reportRepo.GetByIDTX(ctx, tx, payload.ReportID)
+		if err != nil {
+			return fmt.Errorf("report not found: %w", err)
 		}
 
-		lastUpdate := time.Unix(*report.PotentiallyResolvedAt, 0)
-		if time.Since(lastUpdate) >= 20*time.Minute {
-			report.ReportStatus = "RESOLVED"
-			report.LastUpdatedProgressAt = util.Int64PtrOrNil(time.Now().Unix())
-			report.LastUpdatedBy = model.System
-			if _, err := h.ReportRepo.UpdateTX(ctx, tx, report); err != nil {
-				tx.Rollback()
-				return fmt.Errorf("failed to update report: %w", err)
+		if report.ReportStatus == "POTENTIALLY_RESOLVED" {
+			if report.PotentiallyResolvedAt == nil {
+				return fmt.Errorf("report %d has POTENTIALLY_RESOLVED status but PotentiallyResolvedAt is nil", report.ID)
 			}
-			tx.Commit()
-			logger.Info("Auto resolve report handler success for", zap.Int("report_id", int(report.ID)))
-		} else {
-			tx.Rollback()
-		}
-	} else {
-		tx.Rollback()
-	}
 
-	return nil
+			lastUpdate := time.Unix(*report.PotentiallyResolvedAt, 0)
+			if time.Since(lastUpdate) >= 20*time.Minute {
+				report.ReportStatus = "RESOLVED"
+				report.LastUpdatedProgressAt = util.Int64PtrOrNil(time.Now().Unix())
+				report.LastUpdatedBy = model.System
+				if _, err := h.reportRepo.UpdateTX(ctx, tx, report); err != nil {
+					return fmt.Errorf("failed to update report: %w", err)
+				}
+				logger.Info("Auto resolve report handler success for", zap.Int("report_id", int(report.ID)))
+			}
+		}
+		return nil
+	})
+	return err
 }
 
 func (h *taskHandler) CreateNotificationHandler(ctx context.Context, t *asynq.Task) error {
@@ -387,25 +381,25 @@ func (h *taskHandler) CreateNotificationHandler(ctx context.Context, t *asynq.Ta
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 		return err
 	}
-	Tx := h.DB.Begin()
-	notification := &model.Notification{
-		UserID:      payload.UserID,
-		Title:       payload.Title,
-		Description: payload.Description,
-		EntityID:    payload.EntityID,
-		EntityType:  &payload.EntityType,
-		Category:    payload.Category,
-		Type:        payload.Type,
-		IsRead:      util.BoolPtrOrNil(false),
-	}
+	return h.txManager.Transaction(ctx, func(tx *gorm.DB) error {
+		txNotificationRepo := h.notificationRepo.WithTX(tx)
 
-	if err := h.NotificationRepo.CreateTX(ctx, Tx, notification); err != nil {
-		Tx.Rollback()
-		return fmt.Errorf("failed to create notification: %w", err)
-	}
-	Tx.Commit()
+		notification := &model.Notification{
+			UserID:      payload.UserID,
+			Title:       payload.Title,
+			Description: payload.Description,
+			EntityID:    payload.EntityID,
+			EntityType:  &payload.EntityType,
+			Category:    payload.Category,
+			Type:        payload.Type,
+			IsRead:      util.BoolPtrOrNil(false),
+		}
 
-	return nil
+		if err := txNotificationRepo.Create(ctx, notification); err != nil {
+			return fmt.Errorf("failed to create notification: %w", err)
+		}
+		return nil
+	})
 }
 
 func (h *taskHandler) SendFollowerReportNotificationHandler(ctx context.Context, t *asynq.Task) error {
@@ -414,7 +408,7 @@ func (h *taskHandler) SendFollowerReportNotificationHandler(ctx context.Context,
 		return fmt.Errorf("failed to unmarshal payload: %w", err)
 	}
 
-	followers, err := h.SocialRepo.GetFollowersByUserID(ctx, payload.User.ID)
+	followers, err := h.socialRepo.GetFollowersByUserID(ctx, payload.User.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get followers: %w", err)
 	}
@@ -444,7 +438,7 @@ func (h *taskHandler) SendFollowerReportNotificationHandler(ctx context.Context,
 		return nil
 	}
 
-	allowedFollowerIDs, err := h.CacheRepo.FilterByCooldown(
+	allowedFollowerIDs, err := h.cacheRepo.FilterByCooldown(
 		ctx,
 		"email:follower_new_report",
 		activeFollowerIDs,
@@ -489,7 +483,7 @@ func (h *taskHandler) SendReportCommentNotificationHandler(ctx context.Context, 
 
 	const cooldownDuration = 4 * time.Hour
 
-	allowedIDs, err := h.CacheRepo.FilterByCooldown(
+	allowedIDs, err := h.cacheRepo.FilterByCooldown(
 		ctx,
 		"email:report_comment",
 		[]string{fmt.Sprintf("%d", payload.Report.UserID)},

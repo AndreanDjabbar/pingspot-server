@@ -20,7 +20,9 @@ func RegisterAllHandlers(mux *asynq.ServeMux) {
 	notificationRepo := notificationRepo.NewNotificationRepository(db)
 	cacheRepo := redis.NewCacheRepository(&rdb)
 
-	taskHandler := newTaskHandler(db, cacheRepo, reportRepo, notificationRepo, socialRepo)
+	transactionManager := database.NewTransactionManager(db)
+
+	taskHandler := newTaskHandler(transactionManager, cacheRepo, reportRepo, notificationRepo, socialRepo)
 
 	mux.HandleFunc(task.TaskAutoResolveReport, taskHandler.autoResolveReportHandler)
 	mux.HandleFunc(task.TaskCreateNotification, taskHandler.CreateNotificationHandler)

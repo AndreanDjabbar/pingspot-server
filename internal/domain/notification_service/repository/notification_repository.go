@@ -8,13 +8,14 @@ import (
 )
 
 type NotificationRepository interface {
+	WithTX(tx *gorm.DB) NotificationRepository
 	GetByID(ctx context.Context, id uint) (*model.Notification, error)
 	GetByUserID(ctx context.Context, userID uint) (*[]model.Notification, error)
-	CreateTX(ctx context.Context, tx *gorm.DB, notification *model.Notification) error
-	UpdateTX(ctx context.Context, tx *gorm.DB, notification *model.Notification) error
-	MarkAllAsReadTX(ctx context.Context, tx *gorm.DB, userID uint) error
-	DeleteByIDTX(ctx context.Context, tx *gorm.DB, id uint) error
-	DeleteByUserIDTX(ctx context.Context, tx *gorm.DB, userID uint) error
+	Create(ctx context.Context, notification *model.Notification) error
+	Update(ctx context.Context, notification *model.Notification) error
+	MarkAllAsRead(ctx context.Context, userID uint) error
+	DeleteByID(ctx context.Context, id uint) error
+	DeleteByUserID(ctx context.Context, userID uint) error
 }
 
 type notificationRepository struct {
@@ -25,6 +26,12 @@ func NewNotificationRepository(db *gorm.DB) NotificationRepository {
 	return &notificationRepository{db: db}
 }
 
+func (r *notificationRepository) WithTX(tx *gorm.DB) NotificationRepository {
+	return &notificationRepository{
+		db: tx,
+	}
+}
+
 func (r *notificationRepository) GetByUserID(ctx context.Context, userID uint) (*[]model.Notification, error) {
 	var notifications []model.Notification
 	if err := r.db.WithContext(ctx).Where("user_id = ?", userID).Order("created_at DESC").Find(&notifications).Error; err != nil {
@@ -33,8 +40,8 @@ func (r *notificationRepository) GetByUserID(ctx context.Context, userID uint) (
 	return &notifications, nil
 }
 
-func (r *notificationRepository) CreateTX(ctx context.Context, tx *gorm.DB, notification *model.Notification) error {
-	if err := tx.WithContext(ctx).Create(notification).Error; err != nil {
+func (r *notificationRepository) Create(ctx context.Context, notification *model.Notification) error {
+	if err := r.db.WithContext(ctx).Create(notification).Error; err != nil {
 		return err
 	}
 	return nil
@@ -48,16 +55,15 @@ func (r *notificationRepository) GetByID(ctx context.Context, id uint) (*model.N
 	return &notification, nil
 }
 
-func (r *notificationRepository) UpdateTX(ctx context.Context, tx *gorm.DB, notification *model.Notification) error {
-	
-	if err := tx.WithContext(ctx).Save(notification).Error; err != nil {
+func (r *notificationRepository) Update(ctx context.Context, notification *model.Notification) error {
+	if err := r.db.WithContext(ctx).Save(notification).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *notificationRepository) MarkAllAsReadTX(ctx context.Context, tx *gorm.DB, userID uint) error {
-	if err := tx.WithContext(ctx).Model(&model.Notification{}).Where("user_id = ? AND is_read = ?", userID, false).Updates(map[string]any{
+func (r *notificationRepository) MarkAllAsRead(ctx context.Context, userID uint) error {
+	if err := r.db.WithContext(ctx).Model(&model.Notification{}).Where("user_id = ? AND is_read = ?", userID, false).Updates(map[string]any{
 		"is_read": true,
 		"read_at": gorm.Expr("EXTRACT(EPOCH FROM NOW())::BIGINT"),
 	}).Error; err != nil {
@@ -66,15 +72,15 @@ func (r *notificationRepository) MarkAllAsReadTX(ctx context.Context, tx *gorm.D
 	return nil
 }
 
-func (r *notificationRepository) DeleteByIDTX(ctx context.Context, tx *gorm.DB, id uint) error {
-	if err := tx.WithContext(ctx).Delete(&model.Notification{}, id).Error; err != nil {
+func (r *notificationRepository) DeleteByID(ctx context.Context, id uint) error {
+	if err := r.db.WithContext(ctx).Delete(&model.Notification{}, id).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *notificationRepository) DeleteByUserIDTX(ctx context.Context, tx *gorm.DB, userID uint) error {
-	if err := tx.WithContext(ctx).Where("user_id = ?", userID).Delete(&model.Notification{}).Error; err != nil {
+func (r *notificationRepository) DeleteByUserID(ctx context.Context, userID uint) error {
+	if err := r.db.WithContext(ctx).Where("user_id = ?", userID).Delete(&model.Notification{}).Error; err != nil {
 		return err
 	}
 	return nil

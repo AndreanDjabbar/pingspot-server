@@ -90,7 +90,9 @@ func (s *NotificationService) MarkNotificationAsRead(ctx context.Context, userID
 	notification.ReadAt = util.Int64PtrOrNil(time.Now().Unix())
 
 	err = s.txManager.Transaction(ctx, func(tx *gorm.DB) error {
-		if err := s.notificationRepo.UpdateTX(ctx, tx, notification); err != nil {
+		txNotificationRepo := s.notificationRepo.WithTX(tx)
+
+		if err := txNotificationRepo.Update(ctx, notification); err != nil {
 			return err
 		}
 		return nil
@@ -113,7 +115,9 @@ func (s *NotificationService) MarkAllNotificationsAsRead(ctx context.Context, us
 	}
 
 	err = s.txManager.Transaction(ctx, func(tx *gorm.DB) error {
-		if err := s.notificationRepo.MarkAllAsReadTX(ctx, tx, userID); err != nil {
+		txNotificationRepo := s.notificationRepo.WithTX(tx)
+
+		if err := txNotificationRepo.MarkAllAsRead(ctx, userID); err != nil {
 			return err
 		}
 		return nil
@@ -148,7 +152,9 @@ func (s *NotificationService) DeleteNotification(ctx context.Context, userID uin
 	}
 
 	err = s.txManager.Transaction(ctx, func(tx *gorm.DB) error {
-		if err := s.notificationRepo.DeleteByIDTX(ctx, tx, notificationID); err != nil {
+		txNotificationRepo := s.notificationRepo.WithTX(tx)
+
+		if err := txNotificationRepo.DeleteByID(ctx, notificationID); err != nil {
 			return err
 		}
 		return nil
@@ -171,7 +177,8 @@ func (s *NotificationService) DeleteAllNotifications(ctx context.Context, userID
 	}
 
 	err = s.txManager.Transaction(ctx, func(tx *gorm.DB) error {
-		if err := s.notificationRepo.DeleteByUserIDTX(ctx, tx, userID); err != nil {
+		txNotificationRepo := s.notificationRepo.WithTX(tx)
+		if err := txNotificationRepo.DeleteByUserID(ctx, userID); err != nil {
 			return err
 		}
 		return nil
